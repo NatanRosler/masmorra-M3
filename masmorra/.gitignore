@@ -1,0 +1,5 @@
+# Executáveis gerados pela compilação
+masmorra
+masmorra.exe
+*.o
+*.obj

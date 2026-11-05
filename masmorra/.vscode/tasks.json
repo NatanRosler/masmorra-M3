@@ -1,0 +1,14 @@
+{
+    // Ctrl+Shift+B no VS Code compila o jogo (usa o script certo para cada sistema).
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Compilar Masmorra",
+            "type": "shell",
+            "command": "./build.sh",
+            "windows": { "command": ".\\build.bat" },
+            "group": { "kind": "build", "isDefault": true },
+            "problemMatcher": ["$gcc"]
+        }
+    ]
+}
