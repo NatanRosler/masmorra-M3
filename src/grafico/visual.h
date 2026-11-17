@@ -26,6 +26,8 @@ void barra(float x, float y, float w, float h, int atual, int maximo, Color cor 
 Vector2 mouseVirtual();
 void fundoEstrelado();
 void sprite(const char* const linhas[16], float x, float y, float pixel, float brilho = 1.0f);
+// Cor da roupa do herói (letra 'J' nos sprites), escolhida na criação.
+void definirCorDoHeroi(Color cor);
 }
 
 // Auxilia a integrar os cliques às seleções antigas por teclado.

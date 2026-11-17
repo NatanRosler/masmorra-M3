@@ -16,6 +16,7 @@
 
 struct Jogo;
 struct Batalha;
+struct Criacao;
 
 const int TELA_COLUNAS = 80;
 const int TELA_LINHAS = 24;
@@ -31,7 +32,16 @@ void desenharJogo(const Jogo& jogo);
 void posicaoDaCamera(const Jogo& jogo, int& cameraX, int& cameraY);
 void desenharAjuda(const Jogo& jogo);
 void desenharHistorico(const Jogo& jogo);
+// Fim da partida: derrota (vidas acabaram) ou vitória (chefe derrotado),
+// com a pontuação e o ranking.
 void desenharMorte(const Jogo& jogo);
+
+// Tela de criação do personagem (Etapa 6).
+void desenharCriacao(const Criacao& criacao);
+
+// Página de texto com título (história, conversas com NPCs, como jogar...).
+void desenharPagina(const std::string& titulo, const std::vector<std::string>& linhas,
+                    const std::string& rodape);
 
 // Tela de batalha (estilo Pokémon). Desenha o estado atual da batalha.
 void desenharBatalha(const Jogo& jogo, const Batalha& batalha);

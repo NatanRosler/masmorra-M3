@@ -34,6 +34,10 @@ enum Tecla {
     TECLA_CLIQUE_MENU = 3000  // devolve 3000 + indice ao clicar numa opcao
 };
 
+// Modo texto (digitar o nome do personagem): as letras chegam como letras,
+// sem virar comandos (na versão gráfica, W A S D deixam de andar).
+void definirModoTexto(bool ligado);
+
 // Prepara o terminal para o jogo: tela alternativa, cursor escondido,
 // leitura de tecla sem precisar apertar Enter.
 void iniciarTerminal();

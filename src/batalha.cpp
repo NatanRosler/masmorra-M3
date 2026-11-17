@@ -49,7 +49,7 @@ const Golpe GOLPES[NUM_GOLPES] = {
     { "Rosnado",           NORMAL,   0,  100,   0, BAIXA_ATAQUE,  100,  0 },
     { "Ataque Rápido",     NORMAL,  40,  100,   0, SEM_EFEITO,      0,  1 },
     { "Arranhão",          NORMAL,  40,  100,   0, SEM_EFEITO,      0,  0 },
-    { "Folha Navalha",     PLANTA,  55,   95,   0, SEM_EFEITO,      0,  0 },
+    { "Folha Navalha",     PLANTA,  65,   95,   0, SEM_EFEITO,      0,  0 },
     { "Língua Grudenta",   NORMAL,  30,  100,   0, PARALISAR,      30,  0 },
     { "Ferrão Venenoso",   VENENO,  25,  100,   0, ENVENENAR,      40,  0 },
     { "Sugar Sangue",      NORMAL,  45,  100,   0, DRENAR,        100,  0 },
@@ -57,8 +57,36 @@ const Golpe GOLPES[NUM_GOLPES] = {
     { "Rugido",            NORMAL,   0,  100,   0, BAIXA_DEFESA,  100,  0 },
     { "Chicote d'Água",    AGUA,    65,   95,   0, SEM_EFEITO,      0,  0 },
     { "Hipnose",           NORMAL,   0,   60,   0, ADORMECER,     100,  0 },
-    { "Brasa",             FOGO,    40,  100,   0, SEM_EFEITO,      0,  0 },
+    { "Brasa",             FOGO,    45,  100,   0, SEM_EFEITO,      0,  0 },
+    // Golpe inicial de quem escolhe Planta
+    { "Chicote de Vinha",  PLANTA,  55,  100,  12, SEM_EFEITO,      0,  0 },
+    // Golpes elementais dos monstros (ver golpeElementalDosMonstros)
+    { "Investida",         NORMAL,  65,   90,   0, SEM_EFEITO,      0,  0 },
+    { "Labareda",          FOGO,    65,   90,   0, SEM_EFEITO,      0,  0 },
+    { "Bolha",             AGUA,    45,  100,   0, SEM_EFEITO,      0,  0 },
+    { "Espinhos",          PLANTA,  45,  100,   0, SEM_EFEITO,      0,  0 },
+    { "Ácido",             VENENO,  65,   90,   0, ENVENENAR,      20,  0 },
+    { "Pedregulho",        PEDRA,   45,   95,   0, SEM_EFEITO,      0,  0 },
+    // Golpe do chefe final
+    { "Golpe Sombrio",     NORMAL,  80,   90,   0, SEM_EFEITO,      0,  0 },
 };
+
+// Golpe que o jogador já sabe ao ser criado, conforme o elemento escolhido.
+int golpeInicialDoElemento(Elemento e) {
+    static const int GOLPE_INICIAL[NUM_ELEMENTOS] = {
+        G_GOLPE_FORTE, G_TOCHA, G_JATO_DAGUA, G_CHICOTE_DE_VINHA, G_LAMINA_VENENOSA, G_PEDRADA
+    };
+    return GOLPE_INICIAL[e];
+}
+
+// Os monstros ganham, a cada partida, um elemento sorteado. Um dos golpes da
+// espécie vira o golpe deste elemento: o fraco (poder 45) para as espécies
+// dos primeiros andares e o forte (poder 65-70) para as dos andares fundos.
+int golpeElementalDosMonstros(Elemento e, bool forte) {
+    static const int FRACO[NUM_ELEMENTOS] = { G_MORDIDA, G_BRASA, G_BOLHA, G_ESPINHOS, G_FERRAO_VENENOSO, G_PEDREGULHO };
+    static const int FORTE[NUM_ELEMENTOS] = { G_INVESTIDA, G_LABAREDA, G_CHICOTE_DAGUA, G_FOLHA_NAVALHA, G_ACIDO, G_ESMAGAR };
+    return forte ? FORTE[e] : FRACO[e];
+}
 
 // Golpes que o jogador aprende ao chegar em cada nível.
 struct GolpeAprendido {
@@ -122,7 +150,8 @@ static int calcularDano(Jogo& jogo, const Lutador& atacante, const Lutador& alvo
     // Arma elemental: golpes do mesmo elemento da arma causam +25%.
     if (golpe.elemento == atacante.elementoDaArma) dano = dano * 5 / 4;
 
-    critico = (sortear(jogo.sorte, 1, 16) == 1);
+    // Crítico: 6% de base (como o 1/16 dos Pokémon) + o bônus da Destreza.
+    critico = sortear(jogo.sorte, 1, 100) <= 6 + atacante.criticoExtra;
     if (critico) dano = dano * 3 / 2;
 
     dano = dano * sortear(jogo.sorte, 85, 100) / 100;
@@ -277,8 +306,16 @@ static void usarGolpe(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo, 
     if (atacante.pp != nullptr && golpe.ppMaximo > 0) atacante.pp[slot]--;
     narrar(jogo, b, nome + " usa " + golpe.nome + "!");
 
-    if (sortear(jogo.sorte, 1, 100) > golpe.precisao) {
-        narrar(jogo, b, "Mas errou!");
+    // Chance de acertar = precisão do golpe + Destreza de quem ataca - esquiva
+    // (Agilidade) de quem defende. Golpes que só mexem em quem usa não erram.
+    int chanceDeAcertar = golpe.precisao;
+    bool contraOAlvo = !(golpe.poder == 0 && (golpe.efeito == SOBE_ATAQUE || golpe.efeito == SOBE_DEFESA));
+    if (contraOAlvo) chanceDeAcertar += atacante.precisaoExtra - alvo.esquiva;
+    if (chanceDeAcertar > 100) chanceDeAcertar = 100;
+    if (chanceDeAcertar < 10) chanceDeAcertar = 10;
+    if (sortear(jogo.sorte, 1, 100) > chanceDeAcertar) {
+        if (golpe.precisao >= 100 && contraOAlvo) narrar(jogo, b, comMaiuscula(alvo.nome) + " se esquivou!");
+        else narrar(jogo, b, "Mas errou!");
         return;
     }
 
@@ -522,6 +559,9 @@ static bool tentarFugir(Jogo& jogo, Batalha& b) {
 static void aprenderGolpe(Jogo& jogo, Batalha& b, int golpe) {
     Jogador& j = jogo.jogador;
     std::string nomeGolpe = GOLPES[golpe].nome;
+    for (int s = 0; s < j.numGolpes; s++) {
+        if (j.golpes[s] == golpe) return;   // já sabe (ex.: era o golpe inicial do elemento)
+    }
 
     if (j.numGolpes < MAX_GOLPES) {
         j.golpes[j.numGolpes] = golpe;
@@ -576,6 +616,14 @@ static void ganharExperiencia(Jogo& jogo, Batalha& b, int pontos) {
         b.jogador.velocidade = j.velocidade;
         b.vidaMostrada[0] = j.vida;
         narrar(jogo, b, "Você subiu para o nível " + std::to_string(j.nivel) + "!");
+        ganharPontosDeAtributo(jogo, PONTOS_POR_NIVEL);
+        if (!jogo.modoAutomatico) {
+            narrar(jogo, b, "Você ganhou " + std::to_string(PONTOS_POR_NIVEL) +
+                            " ponto de atributo! Aperte C no mapa para distribuir.");
+        }
+        b.jogador.precisaoExtra = j.precisaoExtra;
+        b.jogador.esquiva = j.esquiva;
+        b.jogador.criticoExtra = j.criticoExtra;
 
         for (int i = 0; i < NUM_APRENDIZADOS; i++) {
             if (APRENDIZADO[i].nivel == j.nivel) aprenderGolpe(jogo, b, APRENDIZADO[i].golpe);
@@ -588,9 +636,9 @@ static void ganharExperiencia(Jogo& jogo, Batalha& b, int pontos) {
 // =============================================================================
 static Lutador montarLutadorDoJogador(Jogador& j) {
     Lutador l;
-    l.nome = "você";
+    l.nome = j.nome;
     l.nivel = j.nivel;
-    l.elemento = NORMAL;
+    l.elemento = j.elemento;
     l.vida = &j.vida;            // ponteiro para a vida de verdade
     l.vidaMaxima = j.vidaMaxima;
     l.ataque = j.ataque;
@@ -604,6 +652,10 @@ static Lutador montarLutadorDoJogador(Jogador& j) {
     for (int s = 0; s < j.numGolpes; s++) l.golpes[s] = j.golpes[s];
     l.pp = j.pp;                 // ponteiro para o vetor de PP do jogador
     l.elementoDaArma = (j.arma != nullptr) ? j.arma->elemento : -1;
+    l.precisaoExtra = j.precisaoExtra;
+    l.esquiva = j.esquiva;
+    l.criticoExtra = j.criticoExtra;
+    l.ehChefe = false;
     l.ehJogador = true;
     l.indice = 0;
     return l;
@@ -614,20 +666,25 @@ static Lutador montarLutadorDoMonstro(Monstro& m) {
     Lutador l;
     l.nome = std::string(t.artigo) + " " + t.nome;
     l.nivel = m.nivel;
-    l.elemento = t.elemento;
+    l.elemento = m.elemento;     // sorteado a cada partida (Etapa 6)
     l.vida = &m.vida;            // ponteiro para a vida do monstro no mapa
     l.vidaMaxima = vidaMaximaDoMonstro(m);
-    l.ataque = atributoPeloNivel(t.baseAtaque, m.nivel);
+    // Monstros batem 25% mais forte que a fórmula (o jogador distribui
+    // pontos de atributo e eles não: assim a briga continua equilibrada).
+    l.ataque = atributoPeloNivel(t.baseAtaque, m.nivel) * 125 / 100;
     l.defesa = atributoPeloNivel(t.baseDefesa, m.nivel);
     l.velocidade = atributoPeloNivel(t.baseVelocidade, m.nivel);
     l.estagioAtaque = 0;
     l.estagioDefesa = 0;
     l.status = SEM_STATUS;
     l.rodadasDormindo = 0;
-    l.numGolpes = t.numGolpes;
-    for (int s = 0; s < t.numGolpes; s++) l.golpes[s] = t.golpes[s];
+    golpesDoMonstro(m, l.golpes, l.numGolpes);
     l.pp = nullptr;              // monstros não gastam PP
     l.elementoDaArma = -1;
+    l.precisaoExtra = 0;
+    l.esquiva = esquivaDoMonstro(m);
+    l.criticoExtra = 0;
+    l.ehChefe = (t.especial & CHEFE) != 0;
     l.ehJogador = false;
     l.indice = 1;
     return l;
@@ -721,7 +778,8 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
     std::string apresentacao;
     for (int i = 0; i < quantos; i++) {
         std::string nome = b.inimigos[i].nome + " (Nv " + std::to_string(participantes[i]->nivel) + ")";
-        if (participantes[i]->estado == DORMINDO) {
+        bool chefe = (tipoDe(*participantes[i]).especial & CHEFE) != 0;
+        if (participantes[i]->estado == DORMINDO && !chefe) {
             b.inimigos[i].status = ADORMECIDO;
             b.inimigos[i].rodadasDormindo = sortear(jogo.sorte, 2, 3);
             nome += ", dormindo";
@@ -752,11 +810,18 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
 
         // Fugir e usar item acontecem antes de qualquer golpe.
         if (acao.tipo == ACAO_FUGIR) {
-            if (tentarFugir(jogo, b)) {
+            bool contraOChefe = false;
+            for (int i = 0; i < b.numInimigos; i++) {
+                if (b.naLuta[i] && b.inimigos[i].ehChefe) contraOChefe = true;
+            }
+            if (contraOChefe) {
+                narrar(jogo, b, "Não há como fugir do Senhor das Profundezas!");
+            } else if (tentarFugir(jogo, b)) {
                 narrar(jogo, b, "Você fugiu da batalha!");
                 return JOGADOR_FUGIU;
+            } else {
+                narrar(jogo, b, "Não conseguiu fugir!");
             }
-            narrar(jogo, b, "Não conseguiu fugir!");
         }
         if (acao.tipo == ACAO_ITEM) {
             Jogador& j = jogo.jogador;

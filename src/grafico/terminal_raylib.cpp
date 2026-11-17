@@ -17,7 +17,9 @@ struct Atalho { Rectangle r; int tecla; };
 std::vector<Atalho> atalhos;
 std::vector<Opcao> opcoes;
 std::deque<int> pendentes;
+bool modoTexto = false;   // digitando o nome: W A S D não viram movimento
 }
+void definirModoTexto(bool ligado) { modoTexto = ligado; }
 void registrarOpcao(Rectangle r, int indice, int cursor) { opcoes.push_back({r,indice,cursor}); }
 void registrarAtalho(Rectangle r, int tecla) { atalhos.push_back({r,tecla}); }
 void limparOpcoes() { opcoes.clear(); atalhos.clear(); }
@@ -59,10 +61,12 @@ static int teclaDoFrame() {
     if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) return TECLA_ENTER;
     if (IsKeyPressed(KEY_BACKSPACE)) return 8;
     // WASD opcional para exploracao. A logica do jogo continua recebendo HJKL.
-    if (IsKeyPressed(KEY_W) || IsKeyPressedRepeat(KEY_W)) return 'k';
-    if (IsKeyPressed(KEY_A) || IsKeyPressedRepeat(KEY_A)) return 'h';
-    if (IsKeyPressed(KEY_S) || IsKeyPressedRepeat(KEY_S)) return 'j';
-    if (IsKeyPressed(KEY_D) || IsKeyPressedRepeat(KEY_D)) return 'l';
+    if (!modoTexto) {
+        if (IsKeyPressed(KEY_W) || IsKeyPressedRepeat(KEY_W)) return 'k';
+        if (IsKeyPressed(KEY_A) || IsKeyPressedRepeat(KEY_A)) return 'h';
+        if (IsKeyPressed(KEY_S) || IsKeyPressedRepeat(KEY_S)) return 'j';
+        if (IsKeyPressed(KEY_D) || IsKeyPressedRepeat(KEY_D)) return 'l';
+    }
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         Vector2 p=Ui::mouseVirtual();
         for (const auto& a:atalhos) if (CheckCollisionPointRec(p,a.r)) return a.tecla;

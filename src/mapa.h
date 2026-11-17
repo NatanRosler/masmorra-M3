@@ -18,7 +18,8 @@ enum TipoCelula {
     ESCADA_DESCE,
     ESCADA_SOBE,
     TOCHA,         // parede com uma tocha presa: não dá para passar, mas ilumina
-    PORTA_TRANCADA // só abre com uma chave
+    PORTA_TRANCADA,// só abre com uma chave
+    CAIXA          // obstáculo: dá para empurrar (ou quebrar); não bloqueia a visão
 };
 
 struct Mapa {

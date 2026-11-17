@@ -22,6 +22,9 @@ static const char* ANSI_SAIR   = "\x1b[0m\x1b[2J\x1b[H\x1b[?25h\x1b[?1049l";
 
 static bool terminalAtivo = false;
 
+// No terminal as letras já chegam como letras: nada a fazer.
+void definirModoTexto(bool) {}
+
 long long relogioMs() {
     using namespace std::chrono;
     return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();

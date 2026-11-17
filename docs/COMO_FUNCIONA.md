@@ -200,3 +200,58 @@ Os números saíram de ajustes medidos: ataque-base do jogador 50, bônus de
 armas e cristais moderados, monstros com 15% a mais de vida que a fórmula do
 jogador (`VIDA_EXTRA_DOS_MONSTROS` em `monstros.cpp`).
 
+
+
+## Personagem e atributos (Etapa 6)
+
+Na criação o jogador escolhe **nome**, **elemento** (muda o golpe inicial, o
+bônus de 50% nos golpes do mesmo elemento e as fraquezas), **cor** e distribui
+**5 pontos**. A cada nível ganha **1 ponto**, gasto na ficha (tecla `C`).
+
+| Atributo | Efeito por ponto | Onde é usado |
+|---|---|---|
+| Força | +1 de ataque | fórmula de dano |
+| Constituição | +3 de vida máxima, +1 de defesa a cada 2 pontos | vida e armadura |
+| Destreza | +3% de precisão, +1% de crítico | `usarGolpe` e `calcularDano` |
+| Agilidade | +2% de esquiva, +1 de velocidade | chance de o inimigo errar, ordem na batalha, passo no mapa |
+
+Chance de acertar = precisão do golpe + precisão do atacante − esquiva do alvo.
+Os monstros têm 5% de esquiva (15% os rápidos).
+
+**Elementos dos monstros:** a cada partida, `sortearElementosDasEspecies`
+embaralha os 6 elementos (Fisher-Yates) e distribui em ordem de andar, então as
+espécies que aparecem juntas ficam com elementos diferentes. O primeiro golpe de
+dano simples de cada espécie vira o golpe daquele elemento (`golpesDoMonstro`).
+
+## Mapa vivo (Etapa 7)
+
+- **Armadilhas** (`cenario.cpp`): escondidas no chão, longe da entrada. Quem pisa
+  perde 15% (jogador) ou 20% (monstro) da vida máxima. Ao passar do lado, o
+  jogador pode percebê-las (20% + 5% por ponto de Destreza).
+- **Caixas:** ficam no meio das salas (as 8 vizinhas livres, então nunca fecham
+  um caminho). Andar contra uma caixa a empurra; se não der, o jogador a quebra.
+  Caixa empurrada sobre uma armadilha a desarma. Ogros e o chefe despedaçam as
+  caixas encostadas neles.
+- **NPCs** (`npcs.cpp`): Borin, o mineiro (andar 4), destranca a sala do tesouro.
+
+## História, NPCs e chefe (Etapa 8)
+
+A história aparece depois da criação (`textoDaHistoria`). Três NPCs: Eldra
+(andar 1, dá uma poção e dicas), Borin (andar 4, abre a sala do tesouro) e o
+espírito do guardião (andar 7, cura vida e PP). O **Senhor das Profundezas**
+fica no ponto mais distante da entrada do andar 10; não dá para fugir dele.
+Derrotá-lo vence o jogo.
+
+## Pontuação e ranking (Etapa 9)
+
+`calcularPontuacao`: +250 por andar alcançado, +30 por monstro, +20 por item,
+−1 a cada 5 passos, −300 por vida perdida e +3000 pela vitória. No fim da
+partida, `registrarNoRanking` grava os 10 melhores em `ranking.txt`
+(uma linha por partida: `pontos;andar;venceu;nome`).
+
+## Equilíbrio com as etapas 6 a 9
+
+Medido com os robôs de teste: o explorador perde de 5% a 7% da vida por batalha
+e chega ao andar 10 na maioria das partidas; quem só desce morre entre os andares
+3 e 6. Contra o chefe (nível 24), um jogador de nível 22 vence cerca de 35% das
+tentativas — com 3 vidas, a chance total fica perto de 70%.

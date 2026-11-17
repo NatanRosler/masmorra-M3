@@ -7,8 +7,12 @@
 namespace {
 Font fonte{};
 bool fonteExterna = false;
+Color corDoHeroi = {95, 170, 202, 255};   // 'J': a cor escolhida na criação
 Color pixelCor(char p) {
     switch (p) {
+        case 'J': return corDoHeroi;
+        case 'E': return {200, 215, 255, 255};   // brilho do espírito
+        case 'O': return {150, 40, 55, 255};     // vermelho-escuro do chefe
         case 'K': return {15, 22, 36, 255};
         case 'S': return {241,190,146,255};
         case 'H': return {87,58,54,255};
@@ -33,6 +37,7 @@ Vector2 deslocamento() { float e=escala(); return {(GetScreenWidth()-Ui::LARGURA
 }
 
 namespace Ui {
+void definirCorDoHeroi(Color cor) { corDoHeroi = cor; }
 void iniciarRecursos() {
     fonte = GetFontDefault();
     // A fonte é procurada NO COMPUTADOR do jogador; não é distribuída no ZIP.
