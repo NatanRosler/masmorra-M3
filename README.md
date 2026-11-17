@@ -78,25 +78,20 @@ Mais detalhes:
 
 ## Como compilar
 
-Precisa de **CMake** e de um compilador C++17. A raylib 5.5 é baixada sozinha
-na primeira compilação.
+A biblioteca gráfica (raylib 5.5) já vem junto, na pasta `externo/`. Não é
+preciso baixar nada.
 
-- **Windows** (MinGW): dois cliques em `compilar_windows.bat`, ou no terminal:
-  ```
-  cmake -S . -B build -G "MinGW Makefiles"
-  cmake --build build --parallel 4
-  build\masmorra.exe
-  ```
-- **Linux / Mac**: `./compilar_linux_macos.sh`. No Linux, instale antes as
-  bibliotecas da janela:
-  `sudo apt install libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev`
+- **Windows**: precisa só do **g++ (MinGW)**, o mesmo usado nas aulas. Dê dois
+  cliques em `compilar_windows.bat`. Na primeira vez ele também compila a
+  raylib (cerca de 1 minuto); nas próximas, só o jogo. O jogo sai em
+  `build\masmorra.exe` e abre sozinho no final.
+- **Linux / Mac**: precisa de **CMake**. Rode `./compilar_linux_macos.sh`. No
+  Linux, instale antes as bibliotecas da janela:
+  `sudo apt install cmake libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev`
 
-A compilação gera dois programas: `masmorra` (gráfico) e `masmorra_console`
+São gerados dois programas: `masmorra` (gráfico) e `masmorra_console`
 (terminal). No Windows os dois são **estáticos**: o `.exe` roda em qualquer
 computador, sem DLLs extras.
-
-Se o download da raylib falhar (erro de certificado SSL), baixe o código-fonte
-da raylib 5.5, extraia e coloque a pasta `raylib-5.5` aqui na raiz do projeto.
 
 ## Como publicar uma versão para download
 
