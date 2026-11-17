@@ -21,6 +21,8 @@ const int RAPIDO   = 1;  // anda duas vezes mais rápido no mapa
 const int ERRATICO = 2;  // voa sem rumo: 1/3 das vezes se move ao acaso
 const int MEDROSO  = 4;  // foge (no mapa e na batalha) quando está com pouca vida
 const int EM_BANDO = 8;  // aparece em dupla (às vezes em trio)
+const int QUEBRA_CAIXAS = 16; // despedaça as caixas que encontra no caminho
+const int CHEFE    = 32; // o chefe final: só aparece no último andar
 
 const int LINHAS_DA_ARTE = 7;
 
@@ -29,7 +31,7 @@ struct TipoMonstro {
     const char* artigo;    // "o" ou "a"
     char simbolo;          // como aparece no mapa
     CorRGB cor;
-    Elemento elemento;
+    Elemento elemento;     // elemento "de fábrica" (na partida vale o sorteado)
     // Atributos-base: junto com o nível, definem os atributos de verdade
     // (ver vidaPeloNivel e atributoPeloNivel em batalha.h).
     int baseVida, baseAtaque, baseDefesa, baseVelocidade;
@@ -61,6 +63,7 @@ struct Monstro {
     int x, y;
     int nivel;
     int vida;
+    Elemento elemento;     // sorteado a cada partida (ver sortearElementosDasEspecies)
     EstadoMonstro estado;
     int destinoX, destinoY;    // para onde está indo quando VAGANDO
     int turnosSemVerJogador;   // quando CACANDO: desiste depois de um tempo
@@ -70,6 +73,28 @@ struct Monstro {
 };
 
 const int MAX_MONSTROS = 40;
+const int MAX_ESPECIES = 16;   // espaço reservado para a tabela de elementos sorteados
+
+// Cor de cada elemento (usada para pintar os monstros e os textos).
+extern const CorRGB CORES_DOS_ELEMENTOS[NUM_ELEMENTOS];
+
+// Índice do chefe final na tabela TIPOS_DE_MONSTRO.
+int tipoDoChefe();
+
+// Sorteia o elemento de cada espécie nesta partida, de forma equilibrada:
+// os 6 elementos são embaralhados e distribuídos em ordem de andar, então as
+// espécies que aparecem juntas nos mesmos andares ficam com elementos diferentes.
+void sortearElementosDasEspecies(Jogo& jogo, uint32_t semente);
+
+// Coloca o chefe final no ponto do andar mais longe da chegada do jogador.
+void colocarChefe(Andar& andar, int chegadaX, int chegadaY, Elemento elemento);
+
+// Golpes que o monstro usa na batalha: os da espécie, com um deles trocado
+// pelo golpe do elemento sorteado.
+void golpesDoMonstro(const Monstro& m, int golpes[MAX_GOLPES], int& numGolpes);
+
+// Chance (em %) de o monstro se esquivar de um golpe.
+int esquivaDoMonstro(const Monstro& m);
 
 // Espalha os monstros de um andar recém-gerado, longe da chegada do jogador.
 void povoarAndar(Andar& andar, int numeroDoAndar, uint32_t semente,

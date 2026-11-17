@@ -2,6 +2,8 @@
 #include "monstros.h"
 #include "jogo.h"
 #include "aleatorio.h"
+#include "cenario.h"
+#include "npcs.h"
 
 #include <cmath>
 
@@ -105,7 +107,7 @@ const TipoMonstro TIPOS_DE_MONSTRO[] = {
         "   /|________|\\",
         "  (_|  |  |  |_)",
         "     _|    |_" },
-      6, 10, 15, 0 },
+      6, 10, 15, QUEBRA_CAIXAS },
 
     { "naga", "a", 'N', { 70, 185, 165 }, AGUA,
       95, 75, 80, 70,  180,
@@ -118,8 +120,81 @@ const TipoMonstro TIPOS_DE_MONSTRO[] = {
         "           \\_/~~",
         "" },
       8, 10, 10, 0 },
+
+    // O CHEFE FINAL: nunca aparece por sorteio (frequência 0); é colocado no
+    // último andar por colocarChefe().
+    { "Senhor das Profundezas", "o", 'S', { 200, 60, 70 }, NORMAL,
+      100, 85, 75, 70,  400,
+      { G_ESMAGAR, G_GOLPE_SOMBRIO, G_RUGIDO, G_HIPNOSE }, 4,
+      { "     /\\_/\\____/\\_/\\",
+        "    (  @        @  )",
+        "     \\   ______   /",
+        "    __\\ |VVVVVV| /__",
+        "   /   \\|^^^^^^|/   \\",
+        "  /  /\\  \\____/  /\\  \\",
+        "    /  \\        /  \\" },
+      10, 10, 0, CHEFE | QUEBRA_CAIXAS },
 };
 const int NUM_TIPOS_DE_MONSTRO = sizeof(TIPOS_DE_MONSTRO) / sizeof(TIPOS_DE_MONSTRO[0]);
+
+const CorRGB CORES_DOS_ELEMENTOS[NUM_ELEMENTOS] = {
+    { 205, 200, 185 },  // Normal
+    { 240, 110,  60 },  // Fogo
+    {  80, 150, 240 },  // Água
+    {  90, 200,  90 },  // Planta
+    { 185,  95, 215 },  // Veneno
+    { 175, 140, 100 },  // Pedra
+};
+
+int tipoDoChefe() {
+    return NUM_TIPOS_DE_MONSTRO - 1;
+}
+
+// =============================================================================
+// ELEMENTOS SORTEADOS (Etapa 6)
+// =============================================================================
+void sortearElementosDasEspecies(Jogo& jogo, uint32_t semente) {
+    GeradorAleatorio g;
+    iniciarGerador(g, semente);
+    int saco[NUM_ELEMENTOS];
+    int restantes = 0;
+    // A tabela já está em ordem de andar (do rato ao chefe).
+    for (int tipo = 0; tipo < NUM_TIPOS_DE_MONSTRO; tipo++) {
+        if (restantes == 0) {
+            // Saco novo com os 6 elementos embaralhados (Fisher-Yates).
+            for (int e = 0; e < NUM_ELEMENTOS; e++) saco[e] = e;
+            for (int e = NUM_ELEMENTOS - 1; e > 0; e--) {
+                int k = sortear(g, 0, e);
+                int tmp = saco[e]; saco[e] = saco[k]; saco[k] = tmp;
+            }
+            restantes = NUM_ELEMENTOS;
+        }
+        jogo.elementoDaEspecie[tipo] = (Elemento)saco[--restantes];
+    }
+}
+
+void golpesDoMonstro(const Monstro& m, int golpes[MAX_GOLPES], int& numGolpes) {
+    const TipoMonstro& t = tipoDe(m);
+    numGolpes = t.numGolpes;
+    for (int s = 0; s < t.numGolpes; s++) golpes[s] = t.golpes[s];
+    // O primeiro golpe de dano "simples" (sem efeito extra) vira o golpe do
+    // elemento sorteado. Espécies dos andares fundos ganham a versão forte.
+    bool forte = t.andarMinimo >= 4;
+    for (int s = 0; s < numGolpes; s++) {
+        const Golpe& g = GOLPES[golpes[s]];
+        if (g.poder > 0 && g.efeito == SEM_EFEITO) {
+            golpes[s] = golpeElementalDosMonstros(m.elemento, forte);
+            return;
+        }
+    }
+}
+
+int esquivaDoMonstro(const Monstro& m) {
+    const TipoMonstro& t = tipoDe(m);
+    int esquiva = 5;
+    if (t.especial & (RAPIDO | ERRATICO)) esquiva += 10;   // chacais e morcegos são ágeis
+    return esquiva;
+}
 
 // Até onde um monstro acordado percebe o jogador (em passos). Quando o
 // jogador descansa, faz menos barulho e o alcance cai pela metade.
@@ -132,9 +207,9 @@ const TipoMonstro& tipoDe(const Monstro& m) {
     return TIPOS_DE_MONSTRO[m.tipo];
 }
 
-// Monstros são 15% mais resistentes que a fórmula do jogador: o jogador luta
+// Monstros são 30% mais resistentes que a fórmula do jogador: o jogador luta
 // sozinho contra a masmorra inteira, mas não deve vencer com um golpe só.
-const int VIDA_EXTRA_DOS_MONSTROS = 15; // em %
+const int VIDA_EXTRA_DOS_MONSTROS = 30; // em %
 
 int vidaMaximaDoMonstro(const Monstro& m) {
     return vidaPeloNivel(tipoDe(m).baseVida, m.nivel) * (100 + VIDA_EXTRA_DOS_MONSTROS) / 100;
@@ -192,6 +267,7 @@ static void criarMonstro(Andar& andar, int tipo, int x, int y, int nivel, Estado
     m.y = y;
     m.nivel = nivel;
     m.vida = vidaMaximaDoMonstro(m);
+    m.elemento = TIPOS_DE_MONSTRO[tipo].elemento;   // trocado pelo sorteado em jogo.cpp
     m.turnosSemBatalha = 0;
     m.carregaChave = false;
     // Começam com relógios diferentes, para não andarem todos juntos.
@@ -247,6 +323,23 @@ void povoarAndar(Andar& andar, int numeroDoAndar, uint32_t semente,
     }
 }
 
+void colocarChefe(Andar& andar, int chegadaX, int chegadaY, Elemento elemento) {
+    // O chefe espera no ponto mais distante da chegada.
+    static int distancia[MAPA_ALTURA][MAPA_LARGURA];
+    calcularDistancias(andar.mapa, chegadaX, chegadaY, distancia);
+    int melhorX = -1, melhorY = -1, maior = -1;
+    for (int y = 0; y < MAPA_ALTURA; y++) {
+        for (int x = 0; x < MAPA_LARGURA; x++) {
+            if (andar.mapa.celulas[y][x] != CHAO || distancia[y][x] == INALCANCAVEL) continue;
+            if (monstroEm(andar, x, y) >= 0) continue;
+            if (distancia[y][x] > maior) { maior = distancia[y][x]; melhorX = x; melhorY = y; }
+        }
+    }
+    if (melhorX < 0 || andar.numMonstros >= MAX_MONSTROS) return;
+    criarMonstro(andar, tipoDoChefe(), melhorX, melhorY, 24, DORMINDO);
+    andar.monstros[andar.numMonstros - 1].elemento = elemento;
+}
+
 // =============================================================================
 // INTELIGÊNCIA ARTIFICIAL
 // =============================================================================
@@ -256,6 +349,7 @@ static bool celulaLivre(const Jogo& jogo, int x, int y) {
     const Andar& andar = andarAtual(jogo);
     if (!ehPassavel(andar.mapa, x, y) || ehEscada(andar.mapa, x, y)) return false;
     if (x == jogo.jogador.x && y == jogo.jogador.y) return false;
+    if (npcEm(andar, x, y) >= 0) return false;
     return monstroEm(andar, x, y) < 0;
 }
 
@@ -446,7 +540,12 @@ void agirMonstros(Jogo& jogo, int ms) {
         while (m.vivo && m.tempoAcumulado >= intervaloDoMonstro(m)) {
             m.tempoAcumulado -= intervaloDoMonstro(m);
             if (m.turnosSemBatalha > 0) m.turnosSemBatalha--;
+            // O ogro (e o chefe) despedaça as caixas que estão encostadas nele.
+            if ((tipoDe(m).especial & QUEBRA_CAIXAS) && m.estado != DORMINDO) quebrarCaixasPerto(jogo, m);
+            int antesX = m.x, antesY = m.y;
             if (agirUmaVez(jogo, m, i)) return; // batalha: os outros esperam
+            // Andou para cima de uma armadilha?
+            if (m.x != antesX || m.y != antesY) armadilhaPegaMonstro(jogo, m);
         }
     }
 }

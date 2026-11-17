@@ -1,18 +1,19 @@
 // main.cpp
 // -----------------------------------------------------------------------------
-// Masmorra — roguelike de console inspirado no Brogue.
-// Trabalho de Algoritmos e Programação — UNIVALI.
+// Masmorra — roguelike inspirado no Brogue (versão gráfica, raylib).
+// Trabalho de Algoritmos e Programação II — UNIVALI.
 //
-// O laço principal é simples porque o jogo é por TURNOS:
+// Menu principal -> criação do personagem -> partida em tempo real:
 //   1. desenha a tela
-//   2. espera o jogador apertar uma tecla
-//   3. executa a ação (e, nas próximas etapas, os monstros agem)
+//   2. espera uma tecla por no máximo 50 ms
+//   3. executa a ação e faz o tempo do mapa andar (os monstros se mexem)
 // -----------------------------------------------------------------------------
 #include "terminal.h"
 #include "tela.h"
 #include "jogo.h"
 #include "aleatorio.h"
 #include "menu_principal.h"
+#include "pontuacao.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -50,12 +51,13 @@ int main(int argc, char* argv[]) {
     uint32_t sementeInicial = lerSemente(argc, argv);
     iniciarTerminal();
 
-    // O jogo original permanece inteiro. So adicionamos menu inicial e pausa.
+    // "static" porque o Jogo é grande (10 andares de 79 x 21 células).
     static Jogo jogo;
     bool primeiraPartida = true;
     bool sair = false;
     while (!sair && mostrarMenuPrincipal()) {
-        iniciarJogo(jogo, primeiraPartida ? sementeInicial : sementeDoRelogio());
+        // Criação do personagem + história. Esc na criação volta ao menu.
+        if (!novaPartida(jogo, primeiraPartida ? sementeInicial : sementeDoRelogio())) continue;
         primeiraPartida = false;
         long long ultimoInstante = relogioMs();
 
@@ -63,11 +65,13 @@ int main(int argc, char* argv[]) {
             if (!garantirTamanhoDaJanela()) { sair = true; break; }
             desenharJogo(jogo);
 
-            if (jogo.morto) {
+            // Fim da partida (vitória ou derrota): pontuação e ranking.
+            if (jogo.morto || jogo.venceu) {
+                registrarNoRanking(jogo);
                 desenharMorte(jogo);
                 int tecla = lerTecla();
                 if (tecla == 'n' || tecla == 'N') {
-                    iniciarJogo(jogo, sementeDoRelogio());
+                    if (!novaPartida(jogo, sementeDoRelogio())) jogo.rodando = false;
                 } else if (tecla == 'q' || tecla == 'Q' || tecla == TECLA_ESC) {
                     jogo.rodando = false; // voltar ao menu grafico
                 }
@@ -84,10 +88,10 @@ int main(int argc, char* argv[]) {
                 continue;
             }
             if (tecla != TECLA_NENHUMA && tecla != TECLA_REDIMENSIONOU) {
-                processarTecla(jogo, tecla); // funcao ORIGINAL
+                processarTecla(jogo, tecla);
             }
             long long agora = relogioMs();
-            avancarTempo(jogo, (int)(agora - ultimoInstante)); // IA ORIGINAL
+            avancarTempo(jogo, (int)(agora - ultimoInstante));
             ultimoInstante = relogioMs();
         }
     }

@@ -28,6 +28,8 @@ extraia. Não é preciso instalar nada.
 | Diagonais | `Y` `U` `B` `N`, Home / PgUp / End / PgDn |
 | Batalhar | ande na direção do monstro |
 | Mochila (usar / equipar) | `I` |
+| Ficha (distribuir pontos de atributo) | `C` |
+| Empurrar caixa / conversar | ande na direção dela / da pessoa |
 | Descansar | `Z`: +1 de vida por segundo (qualquer tecla para) |
 | Histórico de mensagens | `M` |
 | Ajuda | `?` |
@@ -64,6 +66,10 @@ src/
 | `src/batalha.h/.cpp` | Batalha em turnos: golpes, elementos, status, dano, experiência |
 | `src/itens.h/.cpp` | Itens: espalhar, sala do tesouro, pegar, usar e equipar |
 | `src/aleatorio.h/.cpp` | Números aleatórios com semente (xorshift32) |
+| `src/personagem.cpp` | Criação do personagem (nome, elemento, cor, atributos) e ficha (tecla C) |
+| `src/cenario.h/.cpp` | Armadilhas escondidas e caixas que se empurram (mapa que muda) |
+| `src/npcs.h/.cpp` | Personagens que conversam, ajudam e mudam o mapa |
+| `src/pontuacao.h/.cpp` | Pontuação, ranking em arquivo (`ranking.txt`) e textos do menu |
 | `src/grafico/main.cpp` | Laço principal da versão gráfica, menu e pausa |
 | `src/grafico/tela_grafica.cpp` | Desenho do mapa, painéis e batalha em 2D |
 | `src/grafico/terminal_raylib.cpp` | Teclado, mouse e janela (raylib) |
@@ -121,10 +127,31 @@ publicar → Run workflow**.
 - [x] **4b. Batalha em turnos**: golpes com PP, elementos, status, níveis, 3 vidas, até 3 inimigos
 - [x] **5. Itens**: poções, armas, escudos, cristais, pergaminhos, chave e sala do tesouro
 - [x] **Versão gráfica 2D**: janela com raylib, pixel art, menu principal e pausa
-- [ ] **6. Personagem**: criação (nome, elemento) e atributos distribuídos ao subir de nível
-- [ ] **7. Mapa vivo**: armadilhas, obstáculos interativos, mapa que muda com jogador, monstros e NPCs
-- [ ] **8. História**: abertura, NPCs, chefe final no andar 10 e tela de vitória
-- [ ] **9. Pontuação**: tela de como jogar, itens e pontuação, pontuação na tela, ranking em arquivo
+- [x] **6. Personagem**: criação (nome, elemento, cor, 5 pontos), 1 ponto por nível (Força, Constituição, Destreza, Agilidade) e elementos dos monstros sorteados a cada partida
+- [x] **7. Mapa vivo**: armadilhas que ferem jogador e monstros, caixas que se empurram ou quebram, ogros que despedaçam caixas
+- [x] **8. História**: abertura, 3 NPCs (um deles destranca a sala do tesouro), chefe final no andar 10 e tela de vitória
+- [x] **9. Pontuação**: menu com como jogar, itens e pontuação; pontos na tela e no fim; ranking salvo em `ranking.txt`
+
+## Requisitos do trabalho (T3) e onde estão
+
+| Requisito | Onde |
+|---|---|
+| Sem piscar, boa apresentação | quadro desenhado de uma vez (`tela_grafica.cpp`, `console/tela.cpp`) |
+| Menu: como jogar, itens, pontuação | `menu_principal.cpp`, textos em `pontuacao.cpp` |
+| Movimento em todas as direções, paredes | `jogo.cpp` (`moverJogador`), `mapa.cpp` (`podeMover`) |
+| Inimigos diferentes, aleatórios e que perseguem | `monstros.cpp` (estados, BFS, cheiro) |
+| Vitória: último andar + chefe final | `monstros.cpp` (`colocarChefe`), `jogo.cpp` (`resolverBatalha`) |
+| Itens, chave e porta, poções | `itens.cpp` |
+| Derrota com vida 0 | `jogo.cpp` (`desmaiar`) |
+| Mapa escuro que se revela | `visao.cpp`, `Andar::descoberto` |
+| Sistema de batalha | `batalha.cpp` |
+| Pontuação e vida na tela | HUD em `tela_grafica.cpp`; fórmula em `pontuacao.cpp` |
+| Armadilhas | `cenario.cpp` |
+| Experiência e níveis | `batalha.cpp` (`ganharExperiencia`) |
+| Atributos distribuíveis e seus efeitos | `personagem.cpp`, `jogo.cpp` (`recalcularAtributos`), `batalha.cpp` (precisão, esquiva, crítico) |
+| História e NPCs | `pontuacao.cpp` (`textoDaHistoria`), `npcs.cpp` |
+| Mapa que muda (NPC, monstros, jogador) | `npcs.cpp` (porta), `cenario.cpp` (caixas, armadilhas) |
+| Chefe final | `monstros.cpp` (Senhor das Profundezas) |
 
 ## Licença
 

@@ -1,17 +1,18 @@
-// main.cpp
+// main.cpp (versão de terminal)
 // -----------------------------------------------------------------------------
-// Masmorra — roguelike de console inspirado no Brogue.
-// Trabalho de Algoritmos e Programação — UNIVALI.
+// Masmorra — roguelike inspirado no Brogue.
+// Trabalho de Algoritmos e Programação II — UNIVALI.
 //
-// O laço principal é simples porque o jogo é por TURNOS:
+// Menu principal -> criação do personagem -> partida em tempo real:
 //   1. desenha a tela
-//   2. espera o jogador apertar uma tecla
-//   3. executa a ação (e, nas próximas etapas, os monstros agem)
+//   2. espera uma tecla por no máximo 50 ms
+//   3. executa a ação e faz o tempo do mapa andar (os monstros se mexem)
 // -----------------------------------------------------------------------------
 #include "terminal.h"
 #include "tela.h"
 #include "jogo.h"
 #include "aleatorio.h"
+#include "pontuacao.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -45,32 +46,47 @@ static uint32_t lerSemente(int argc, char* argv[]) {
     return sementeDoRelogio();
 }
 
-int main(int argc, char* argv[]) {
-    uint32_t semente = lerSemente(argc, argv);
+enum OpcaoDoMenu { JOGAR, COMO_JOGAR, ITENS, PONTUACAO, SAIR };
 
-    iniciarTerminal();
+static int menuPrincipal() {
+    const std::vector<std::string> opcoes = { "Jogar", "Como jogar", "Itens", "Pontuação e ranking", "Sair" };
+    const std::vector<std::string> descricoes = {
+        "Crie seu personagem e desça a masmorra.",
+        "Objetivo, comandos, batalha e atributos.",
+        "Poções, armas, escudos, cristais, pergaminhos e chave.",
+        "Como os pontos são contados e as melhores partidas.",
+        "Fechar o jogo.",
+    };
+    int cursor = 0;
+    while (true) {
+        desenharAviso("  MASMORRA  -  um roguelike nas profundezas de Valdoria", "");
+        desenharMenuEmCaixa("MENU PRINCIPAL", opcoes, descricoes[cursor], cursor);
+        int t = lerTecla();
+        if (t == TECLA_CIMA || t == 'k') cursor = (cursor + 4) % 5;
+        if (t == TECLA_BAIXO || t == 'j') cursor = (cursor + 1) % 5;
+        if (t == TECLA_ENTER || t == ' ') return cursor;
+        if (t == TECLA_ESC || t == 'Q') return SAIR;
+    }
+}
 
-    // "static" porque o Jogo é grande (10 andares de 79 x 21 células) e fica
-    // melhor fora da pilha.
-    static Jogo jogo;
-    iniciarJogo(jogo, semente);
+// Uma partida inteira. Devolve false se o jogador quiser fechar o jogo.
+static bool jogarPartida(Jogo& jogo, uint32_t semente) {
+    if (!novaPartida(jogo, semente)) return true;   // desistiu na criação: volta ao menu
 
-    // Laço em TEMPO REAL: a cada volta, espera uma tecla por no máximo
-    // 50 ms. Com ou sem tecla, o tempo do mapa anda (os monstros se mexem
-    // sozinhos) e a tela é redesenhada.
     long long ultimoInstante = relogioMs();
     while (jogo.rodando) {
-        if (!garantirTamanhoDaJanela()) break;
+        if (!garantirTamanhoDaJanela()) return false;
         desenharJogo(jogo);
 
-        // As vidas acabaram: a partida terminou. Nova partida = nova masmorra.
-        if (jogo.morto) {
+        // Fim da partida (vitória ou derrota): pontuação e ranking.
+        if (jogo.morto || jogo.venceu) {
+            registrarNoRanking(jogo);
             desenharMorte(jogo);
             int tecla = lerTecla();
             if (tecla == 'n' || tecla == 'N') {
-                iniciarJogo(jogo, sementeDoRelogio());
+                if (!novaPartida(jogo, sementeDoRelogio())) return true;
             } else if (tecla == 'q' || tecla == 'Q' || tecla == TECLA_ESC) {
-                jogo.rodando = false;
+                return true;
             }
             ultimoInstante = relogioMs();
             continue;
@@ -86,6 +102,29 @@ int main(int argc, char* argv[]) {
         long long agora = relogioMs();
         avancarTempo(jogo, (int)(agora - ultimoInstante));
         ultimoInstante = relogioMs();
+    }
+    return true;
+}
+
+int main(int argc, char* argv[]) {
+    uint32_t sementeInicial = lerSemente(argc, argv);
+    iniciarTerminal();
+
+    // "static" porque o Jogo é grande (10 andares de 79 x 21 células) e fica
+    // melhor fora da pilha.
+    static Jogo jogo;
+    bool primeira = true;
+    bool continuar = true;
+    while (continuar) {
+        int opcao = menuPrincipal();
+        if (opcao == JOGAR) {
+            continuar = jogarPartida(jogo, primeira ? sementeInicial : sementeDoRelogio());
+            primeira = false;
+        }
+        if (opcao == COMO_JOGAR) mostrarPagina("COMO JOGAR", textoComoJogar());
+        if (opcao == ITENS)      mostrarPagina("ITENS", textoDosItens());
+        if (opcao == PONTUACAO)  mostrarPagina("PONTUAÇÃO", textoDaPontuacao());
+        if (opcao == SAIR)       continuar = false;
     }
 
     finalizarTerminal();

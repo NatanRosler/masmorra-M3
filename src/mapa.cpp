@@ -31,7 +31,7 @@ bool ehPassavel(const Mapa& mapa, int x, int y) {
 // origem da visão, então ela não atrapalha).
 bool ehOpaco(const Mapa& mapa, int x, int y) {
     if (!dentroDoMapa(x, y)) return true;
-    return mapa.celulas[y][x] != CHAO;
+    return mapa.celulas[y][x] != CHAO && mapa.celulas[y][x] != CAIXA;
 }
 
 bool ehEscada(const Mapa& mapa, int x, int y) {

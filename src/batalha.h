@@ -79,6 +79,9 @@ enum IdGolpe {
     G_MORDIDA, G_ROSNADO, G_ATAQUE_RAPIDO, G_ARRANHAO, G_FOLHA_NAVALHA,
     G_LINGUA_GRUDENTA, G_FERRAO_VENENOSO, G_SUGAR_SANGUE, G_ESMAGAR, G_RUGIDO,
     G_CHICOTE_DAGUA, G_HIPNOSE, G_BRASA,
+    // Etapa 6: golpe inicial do elemento Planta e golpes elementais dos monstros
+    G_CHICOTE_DE_VINHA, G_INVESTIDA, G_LABAREDA, G_BOLHA, G_ESPINHOS, G_ACIDO,
+    G_PEDREGULHO, G_GOLPE_SOMBRIO,
     NUM_GOLPES
 };
 
@@ -94,6 +97,13 @@ int atributoPeloNivel(int base, int nivel);
 
 // Experiência total necessária para estar no nível n (4/5 de n ao cubo).
 int experienciaParaNivel(int nivel);
+
+// Golpe inicial do jogador de cada elemento (Etapa 6: criação do personagem).
+int golpeInicialDoElemento(Elemento e);
+
+// Golpe elemental que um monstro ganha conforme o elemento sorteado.
+// "forte" = para as espécies dos andares mais fundos.
+int golpeElementalDosMonstros(Elemento e, bool forte);
 
 // ---- Quem está lutando ---------------------------------------------------------
 // Um Lutador é a "ficha de batalha" do jogador ou do monstro. A vida e os PP
@@ -117,6 +127,11 @@ struct Lutador {
     int numGolpes;
     int* pp;                 // aponta para os PP reais; nullptr = infinitos (monstros)
     int elementoDaArma;      // golpes deste elemento causam +25% (-1 = nenhum)
+    // Atributos da Etapa 6 (em %): somam ou tiram da chance de acertar e de crítico.
+    int precisaoExtra;       // Destreza: + chance de acertar
+    int esquiva;             // Agilidade: - chance de o inimigo acertar
+    int criticoExtra;        // Destreza: + chance de golpe crítico
+    bool ehChefe;            // o chefe final: não dá para fugir dele
     bool ehJogador;
     int indice;              // 0 = jogador; 1, 2, 3 = inimigos (posição na tela)
 };

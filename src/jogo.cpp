@@ -3,6 +3,7 @@
 #include "aleatorio.h"
 #include "terminal.h"
 #include "tela.h"
+#include "pontuacao.h"
 
 Mapa& mapaAtual(Jogo& jogo) {
     return jogo.andares[jogo.andar - 1].mapa;
@@ -35,13 +36,26 @@ static Andar& prepararAndar(Jogo& jogo, int numero) {
             }
         }
         a.numMonstros = 0;
+        a.numArmadilhas = 0;
+        a.numNpcs = 0;
+        int chegadaX = a.escadas.chegadaSobeX, chegadaY = a.escadas.chegadaSobeY;
         if (jogo.comMonstros) {
             // Semente separada: os monstros não mudam o desenho do mapa.
-            povoarAndar(a, numero, misturar(jogo.semente, (uint32_t)numero + 1000),
-                        a.escadas.chegadaSobeX, a.escadas.chegadaSobeY);
+            povoarAndar(a, numero, misturar(jogo.semente, (uint32_t)numero + 1000), chegadaX, chegadaY);
+            // No último andar, o chefe final espera no ponto mais distante.
+            if (numero == NUM_ANDARES) {
+                colocarChefe(a, chegadaX, chegadaY, jogo.elementoDaEspecie[tipoDoChefe()]);
+            }
+            // Cada monstro recebe o elemento sorteado para a sua espécie.
+            for (int i = 0; i < a.numMonstros; i++) {
+                a.monstros[i].elemento = jogo.elementoDaEspecie[a.monstros[i].tipo];
+            }
         }
         // Itens depois dos monstros: a chave pode ficar com um deles.
         espalharItens(a, numero, misturar(jogo.semente, (uint32_t)numero + 2000));
+        // Caixas, armadilhas e NPCs por último, nos lugares que sobraram.
+        colocarCenario(a, numero, misturar(jogo.semente, (uint32_t)numero + 3000), chegadaX, chegadaY);
+        colocarNpcs(a, numero, chegadaX, chegadaY);
         a.gerado = true;
     }
     return a;
@@ -63,12 +77,18 @@ void adicionarMensagem(Jogo& jogo, const std::string& texto) {
 // -----------------------------------------------------------------------------
 // ATRIBUTOS DO JOGADOR
 // -----------------------------------------------------------------------------
-// Atributo final = valor do nível + bônus dos cristais + bônus do equipamento.
+// Atributo final = valor do nível + pontos distribuídos + bônus dos cristais
+// + bônus do equipamento.
 void recalcularAtributos(Jogador& j) {
-    j.vidaMaxima = vidaPeloNivel(BASE_VIDA_JOGADOR, j.nivel) + j.bonusVida;
-    j.ataque     = atributoPeloNivel(BASE_ATAQUE_JOGADOR, j.nivel) + j.bonusAtaque;
-    j.defesa     = atributoPeloNivel(BASE_DEFESA_JOGADOR, j.nivel) + j.bonusDefesa;
-    j.velocidade = atributoPeloNivel(BASE_VELOCIDADE_JOGADOR, j.nivel) + j.bonusVelocidade;
+    const int* pontos = j.atributos;
+    j.vidaMaxima = vidaPeloNivel(BASE_VIDA_JOGADOR, j.nivel) + j.bonusVida + 3 * pontos[CONSTITUICAO];
+    j.ataque     = atributoPeloNivel(BASE_ATAQUE_JOGADOR, j.nivel) + j.bonusAtaque + pontos[FORCA];
+    j.defesa     = atributoPeloNivel(BASE_DEFESA_JOGADOR, j.nivel) + j.bonusDefesa + pontos[CONSTITUICAO] / 2;
+    j.velocidade = atributoPeloNivel(BASE_VELOCIDADE_JOGADOR, j.nivel) + j.bonusVelocidade + pontos[AGILIDADE];
+    j.precisaoExtra = 3 * pontos[DESTREZA];
+    j.criticoExtra  = pontos[DESTREZA];
+    j.esquiva       = 2 * pontos[AGILIDADE];
+    if (j.esquiva > 40) j.esquiva = 40;
 
     if (j.arma != nullptr) {
         j.ataque += j.arma->bonusAtaque;
@@ -174,13 +194,14 @@ static void irParaAndar(Jogo& jogo, int novoAndar) {
     bool descendo = novoAndar > jogo.andar;
     Andar& destino = prepararAndar(jogo, novoAndar);
     jogo.andar = novoAndar;
+    if (novoAndar > jogo.andarMaisFundo) jogo.andarMaisFundo = novoAndar;
 
     if (descendo) {
         jogo.jogador.x = destino.escadas.chegadaSobeX;
         jogo.jogador.y = destino.escadas.chegadaSobeY;
         adicionarMensagem(jogo, "Você desce para o andar " + std::to_string(novoAndar) + ".");
         if (novoAndar == NUM_ANDARES) {
-            adicionarMensagem(jogo, "Você sente que chegou ao fundo da masmorra.");
+            adicionarMensagem(jogo, "Você chegou ao fundo da masmorra. O Senhor das Profundezas está aqui.");
         }
     } else {
         jogo.jogador.x = destino.escadas.chegadaDesceX;
@@ -193,6 +214,7 @@ void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros) {
     jogo.semente = semente;
     jogo.comMonstros = comMonstros;
     iniciarGerador(jogo.sorte, misturar(semente, 0xC0FFEEu));
+    sortearElementosDasEspecies(jogo, misturar(semente, 777u));
     for (int i = 0; i < NUM_ANDARES; i++) {
         jogo.andares[i].gerado = false;
     }
@@ -212,12 +234,16 @@ void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros) {
     j.bonusVida = j.bonusAtaque = j.bonusDefesa = j.bonusVelocidade = 0;
     j.nivel = NIVEL_INICIAL;
     j.experiencia = experienciaParaNivel(NIVEL_INICIAL);
-    recalcularAtributos(j);
-    j.vida = j.vidaMaxima;
-    j.numGolpes = 2;
-    j.golpes[0] = G_GOLPE;
-    j.golpes[1] = G_ESCUDO;
-    restaurarPP(j);
+    // Personagem padrão (os testes usam este; o jogo de verdade troca pelo
+    // que o jogador criou, com aplicarCriacao).
+    Criacao padrao;
+    criacaoPadrao(padrao);
+    padrao.atributos[FORCA] = 2;
+    padrao.atributos[CONSTITUICAO] = 1;
+    padrao.atributos[DESTREZA] = 1;
+    padrao.atributos[AGILIDADE] = 1;
+    padrao.pontosLivres = 0;
+    aplicarCriacao(jogo, padrao);
     j.vidas = VIDAS_INICIAIS;
     jogo.batalhaPendente = -1;
 
@@ -230,7 +256,12 @@ void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros) {
     jogo.rodadasDaUltimaBatalha = 0;
     jogo.monstrosMortos = 0;
     jogo.itensColetados = 0;
+    jogo.andarMaisFundo = 1;
     jogo.morto = false;
+    jogo.venceu = false;
+    jogo.rankingRegistrado = false;
+    jogo.pontuacaoFinal = 0;
+    jogo.posicaoNoRanking = -1;
     jogo.causaDaMorte = "";
     jogo.rodando = true;
     jogo.mensagensDoTurno.clear();
@@ -257,19 +288,14 @@ static std::string nomeComArtigoDoMonstro(const Monstro& m) {
     return std::string(tipoDe(m).artigo) + " " + tipoDe(m).nome;
 }
 
-// O jogador perdeu uma batalha: gasta uma vida e volta para a entrada do
-// andar. Sem vidas, é o fim do jogo.
-static void perderVida(Jogo& jogo, Monstro* participantes[], int quantos) {
+// Gasta uma vida e volta para a entrada do andar. Sem vidas, é o fim do jogo.
+void desmaiar(Jogo& jogo, const std::string& causa) {
     Jogador& j = jogo.jogador;
-    // Quem "venceu": o primeiro monstro da batalha que continua de pé.
-    Monstro* vencedor = participantes[0];
-    for (int i = 0; i < quantos; i++) {
-        if (participantes[i]->vivo) { vencedor = participantes[i]; break; }
-    }
     j.vidas--;
+    jogo.descansando = false;
     if (j.vidas <= 0) {
         jogo.morto = true;
-        jogo.causaDaMorte = "derrotado por " + umOuUma(tipoDe(*vencedor)) + tipoDe(*vencedor).nome;
+        jogo.causaDaMorte = causa;
         return;
     }
     // Volta para a entrada do andar (ou a célula livre mais perto dela, se
@@ -292,6 +318,18 @@ static void perderVida(Jogo& jogo, Monstro* participantes[], int quantos) {
     j.vida = j.vidaMaxima;
     restaurarPP(j);
 
+    std::string restam = (j.vidas == 1) ? "Resta 1 vida." : "Restam " + std::to_string(j.vidas) + " vidas.";
+    adicionarMensagem(jogo, "Você desmaiou e acordou na entrada do andar. " + restam);
+    atualizarVisao(jogo);
+}
+
+// O jogador perdeu uma batalha.
+static void perderVida(Jogo& jogo, Monstro* participantes[], int quantos) {
+    // Quem "venceu": o primeiro monstro da batalha que continua de pé.
+    Monstro* vencedor = participantes[0];
+    for (int i = 0; i < quantos; i++) {
+        if (participantes[i]->vivo) { vencedor = participantes[i]; break; }
+    }
     // Os monstros que venceram se recuperam e voltam a vagar.
     for (int i = 0; i < quantos; i++) {
         Monstro& m = *participantes[i];
@@ -300,10 +338,7 @@ static void perderVida(Jogo& jogo, Monstro* participantes[], int quantos) {
         m.estado = VAGANDO;
         m.turnosSemBatalha = 10;
     }
-
-    std::string restam = (j.vidas == 1) ? "Resta 1 vida." : "Restam " + std::to_string(j.vidas) + " vidas.";
-    adicionarMensagem(jogo, "Você desmaiou e acordou na entrada do andar. " + restam);
-    atualizarVisao(jogo);
+    desmaiar(jogo, "derrotado por " + umOuUma(tipoDe(*vencedor)) + tipoDe(*vencedor).nome);
 }
 
 // Quem entra na batalha: o monstro que a começou e até mais 2 que estejam
@@ -345,6 +380,10 @@ static void resolverBatalha(Jogo& jogo) {
         if (!m.vivo) {
             jogo.monstrosMortos++;
             adicionarMensagem(jogo, "Você derrotou " + nome + "!");
+            if (tipoDe(m).especial & CHEFE) {
+                jogo.venceu = true;   // fim de jogo: vitória!
+                adicionarMensagem(jogo, "O Senhor das Profundezas caiu! Valdoria está livre!");
+            }
             if (m.carregaChave) {
                 jogo.jogador.mochila[I_CHAVE]++;
                 jogo.itensColetados++;
@@ -414,7 +453,7 @@ static void comecarDescanso(Jogo& jogo) {
 }
 
 void avancarTempo(Jogo& jogo, int ms) {
-    if (jogo.morto) return;
+    if (jogo.morto || jogo.venceu) return;
     if (ms > 250) ms = 250;   // depois de um menu ou batalha, o relógio não "pula"
     jogo.tempoMs += ms;
     if (jogo.esperaDoJogadorMs > 0) jogo.esperaDoJogadorMs -= ms;
@@ -452,6 +491,8 @@ void avancarTempo(Jogo& jogo, int ms) {
 // esperar o próprio intervalo para dar o próximo passo.
 static void depoisDoPasso(Jogo& jogo) {
     jogo.passos++;
+    armadilhaPegaJogador(jogo);   // pisou numa armadilha? (Etapa 7)
+    if (jogo.morto) return;
     atualizarVisao(jogo);
     deixarCheiro(jogo);
     jogo.esperaDoJogadorMs = intervaloDoJogador(jogo.jogador);
@@ -499,6 +540,18 @@ static bool moverJogador(Jogo& jogo, int dx, int dy) {
         mapaAtual(jogo).celulas[novoY][novoX] = PORTA;
         adicionarMensagem(jogo, "Você usa a chave e destranca a porta!");
         return true;
+    }
+
+    // Caixa: empurra (ou quebra, se ela estiver presa).
+    if (dentroDoMapa(novoX, novoY) && mapa.celulas[novoY][novoX] == CAIXA) {
+        return empurrarCaixa(jogo, dx, dy);
+    }
+
+    // NPC: andar na direção dele abre a conversa (não gasta tempo).
+    int npc = npcEm(andarAtual(jogo), novoX, novoY);
+    if (npc >= 0) {
+        conversarComNpc(jogo, npc);
+        return false;
     }
 
     // Bater na parede (ou tentar cortar uma quina) não gasta turno.
@@ -598,11 +651,12 @@ static void confirmarSaida(Jogo& jogo) {
 }
 
 void processarTecla(Jogo& jogo, int tecla) {
-    if (jogo.morto) return;
+    if (jogo.morto || jogo.venceu) return;
 
     // Telas de consulta não gastam tempo nem apagam as mensagens.
     if (tecla == '?') { esperarTecla(jogo, desenharAjuda); return; }
     if (tecla == 'M') { esperarTecla(jogo, desenharHistorico); return; }
+    if (tecla == 'c' || tecla == 'C') { jogo.descansando = false; abrirFicha(jogo); return; }
 
     // Teclas que não fazem nada são ignoradas (e não apagam as mensagens).
     int dx, dy;

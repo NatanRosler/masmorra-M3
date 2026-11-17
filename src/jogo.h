@@ -13,6 +13,8 @@
 #include "aleatorio.h"
 #include "monstros.h"
 #include "itens.h"
+#include "cenario.h"
+#include "npcs.h"
 
 // Quantos andares a masmorra tem. O chefe final ficará no último.
 const int NUM_ANDARES = 10;
@@ -28,7 +30,36 @@ const int NIVEL_MAXIMO = 50;
 const int VIDAS_INICIAIS = 3;
 const int POCOES_INICIAIS = 3;
 
+// ---- Atributos que o jogador distribui (Etapa 6) ----------------------------
+enum Atributo {
+    FORCA,          // +1 de ataque por ponto: mais dano
+    CONSTITUICAO,   // +3 de vida máxima e +1 de defesa (armadura) por ponto
+    DESTREZA,       // +3% de precisão e +1% de chance de crítico por ponto
+    AGILIDADE,      // +2% de esquiva e +1 de velocidade (andar mais rápido) por ponto
+    NUM_ATRIBUTOS
+};
+extern const char* NOMES_DOS_ATRIBUTOS[NUM_ATRIBUTOS];
+extern const char* EFEITOS_DOS_ATRIBUTOS[NUM_ATRIBUTOS];
+
+const int PONTOS_INICIAIS = 5;    // na criação do personagem
+const int PONTOS_POR_NIVEL = 1;   // a cada nível novo
+const int TAMANHO_MAXIMO_DO_NOME = 12;
+
+// Cores que o jogador pode escolher para o personagem.
+const int NUM_CORES_DO_JOGADOR = 6;
+extern const char* NOMES_DAS_CORES_DO_JOGADOR[NUM_CORES_DO_JOGADOR];
+extern const CorRGB CORES_DO_JOGADOR[NUM_CORES_DO_JOGADOR];
+
 struct Jogador {
+    // Criação do personagem (Etapa 6)
+    std::string nome;
+    Elemento elemento;
+    int cor;                   // índice em CORES_DO_JOGADOR
+    int atributos[NUM_ATRIBUTOS];
+    int pontosLivres;          // ganhos ao subir de nível, ainda não distribuídos
+    // Efeitos dos atributos em % (calculados por recalcularAtributos)
+    int precisaoExtra, esquiva, criticoExtra;
+
     int x, y;
     int nivel;
     int experiencia;           // total acumulado
@@ -67,6 +98,11 @@ struct Andar {
     int numItens;
     SalaDoTesouro tesouro;     // sala trancada (se este andar tiver uma)
 
+    Armadilha armadilhas[MAX_ARMADILHAS];   // Etapa 7
+    int numArmadilhas;
+    Npc npcs[MAX_NPCS];                     // Etapa 8
+    int numNpcs;
+
     // Rastro de cheiro que o jogador deixa por onde passa. Quanto maior o
     // número, mais recente o cheiro. Monstros que perderam o jogador de
     // vista seguem o cheiro mais forte.
@@ -97,9 +133,12 @@ struct Jogo {
     int msDeDescanso;
     int segundosDeDescanso;
 
+    Elemento elementoDaEspecie[MAX_ESPECIES]; // sorteado a cada partida (Etapa 6)
+
     int passos;                     // quantos passos o jogador já deu
     int monstrosMortos;
     int itensColetados;
+    int andarMaisFundo;             // para a pontuação
     int rodadasDaUltimaBatalha;     // estatística (usada nos testes de equilíbrio)
 
     std::vector<std::string> mensagensDoTurno; // aparecem no topo da tela
@@ -107,8 +146,56 @@ struct Jogo {
 
     bool morto;                     // as vidas acabaram: fim de jogo
     std::string causaDaMorte;       // "derrotado por um ogro"
+    bool venceu;                    // derrotou o chefe final
     bool rodando;                   // false = sair do jogo
+
+    // Fim da partida (Etapa 9): preenchidos por registrarNoRanking().
+    bool rankingRegistrado;
+    int pontuacaoFinal;
+    int posicaoNoRanking;           // 0 = primeiro; -1 = ficou fora do top 10
 };
+
+// Escolhas da tela de criação do personagem (Etapa 6).
+struct Criacao {
+    std::string nome;
+    int elemento;                   // Elemento
+    int cor;                        // índice em CORES_DO_JOGADOR
+    int atributos[NUM_ATRIBUTOS];
+    int pontosLivres;
+    int linha;                      // linha selecionada na tela
+};
+
+// Linhas da tela de criação.
+enum LinhaDaCriacao {
+    LINHA_NOME, LINHA_ELEMENTO, LINHA_COR,
+    LINHA_FORCA, LINHA_CONSTITUICAO, LINHA_DESTREZA, LINHA_AGILIDADE,
+    LINHA_COMECAR,
+    NUM_LINHAS_DA_CRIACAO
+};
+
+// Valores iniciais da criação (usados também pelos testes automáticos).
+void criacaoPadrao(Criacao& c);
+
+// Mostra a tela de criação. Devolve false se o jogador apertou Esc.
+bool criarPersonagem(Criacao& c);
+
+// Aplica as escolhas da criação no jogador (chamar logo depois de iniciarJogo).
+void aplicarCriacao(Jogo& jogo, const Criacao& c);
+
+// Começa uma partida de verdade: criação do personagem, masmorra nova e a
+// história. Devolve false se o jogador desistiu (Esc) na criação.
+bool novaPartida(Jogo& jogo, uint32_t semente);
+
+// Gasta "quantos" pontos de atributo; nos testes automáticos são
+// distribuídos sozinhos.
+void ganharPontosDeAtributo(Jogo& jogo, int quantos);
+
+// Tecla C: ficha do personagem, onde se distribuem os pontos livres.
+void abrirFicha(Jogo& jogo);
+
+// O jogador desmaiou (batalha perdida ou armadilha): gasta uma vida e volta
+// para a entrada do andar. Sem vidas, é o fim do jogo.
+void desmaiar(Jogo& jogo, const std::string& causa);
 
 // comMonstros = false serve só para os testes automáticos.
 void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros = true);

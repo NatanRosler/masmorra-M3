@@ -25,6 +25,10 @@ set(FONTES_DA_LOGICA
     src/mapa.cpp
     src/monstros.cpp
     src/visao.cpp
+    src/personagem.cpp
+    src/cenario.cpp
+    src/npcs.cpp
+    src/pontuacao.cpp
 )
 
 # Junta tudo que é estático, para o jogo rodar em outro computador sem

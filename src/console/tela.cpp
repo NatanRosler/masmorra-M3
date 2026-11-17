@@ -4,6 +4,7 @@
 #include "terminal.h"
 #include "batalha.h"
 #include "itens.h"
+#include "pontuacao.h"
 
 #include <string>
 #include <vector>
@@ -44,6 +45,7 @@ static Aparencia aparenciaDaCelula(const Mapa& mapa, int x, int y) {
         case ESCADA_SOBE:  return { '<', { 255, 255, 255 }, { 110, 110, 120 }, false };
         case TOCHA:        return { '#', { 255, 215, 90 },  { 150, 80, 25 }, true };
         case PORTA_TRANCADA: return { '+', { 255, 215, 0 }, { 120, 30, 30 }, false };
+        case CAIXA:        return { '=', { 225, 170, 95 },  { 95, 60, 30 },  false };
     }
     return { '?', { 255, 0, 0 }, { 0, 0, 0 }, true };
 }
@@ -340,15 +342,24 @@ void desenharJogo(const Jogo& jogo) {
                         frente = iluminar(frente, jogo.luz[y][x]);
                         fundo = iluminar(fundo, jogo.luz[y][x]);
                     }
+                    int npc = npcEm(andar, x, y);
+                    int armadilha = armadilhaEm(andar, x, y);
                     if (x == jogo.jogador.x && y == jogo.jogador.y) {
-                        a.simbolo = '@';                 // jogador por cima,
-                        frente = { 255, 255, 255 };      // mantendo o fundo
+                        a.simbolo = '@';                 // jogador por cima, na cor
+                        frente = CORES_DO_JOGADOR[jogo.jogador.cor]; // escolhida
                     } else if (monstroNaCelula[y][x] >= 0) {
                         // Monstro: só aparece se a célula está visível (no
-                        // escuro ou fora da visão, ele fica escondido).
-                        const TipoMonstro& t = tipoDe(andar.monstros[monstroNaCelula[y][x]]);
-                        a.simbolo = t.simbolo;
-                        frente = t.cor;
+                        // escuro ou fora da visão, ele fica escondido). A cor
+                        // mostra o elemento sorteado.
+                        const Monstro& m = andar.monstros[monstroNaCelula[y][x]];
+                        a.simbolo = tipoDe(m).simbolo;
+                        frente = CORES_DOS_ELEMENTOS[m.elemento];
+                    } else if (npc >= 0) {
+                        a.simbolo = FICHAS_DOS_NPCS[andar.npcs[npc].tipo].simbolo;
+                        frente = FICHAS_DOS_NPCS[andar.npcs[npc].tipo].cor;
+                    } else if (armadilha >= 0 && andar.armadilhas[armadilha].descoberta) {
+                        a.simbolo = '^';
+                        frente = { 255, 90, 90 };
                     } else if (itemNaCelula[y][x] >= 0) {
                         const TipoItem& t = TIPOS_DE_ITEM[andar.itens[itemNaCelula[y][x]].tipo];
                         a.simbolo = t.simbolo;
@@ -384,8 +395,9 @@ void desenharJogo(const Jogo& jogo) {
     std::string inicio = " Andar " + std::to_string(jogo.andar) + "  Nv " + std::to_string(j.nivel) + "  ";
     p.texto(inicio, COR_TEXTO);
     desenharBarra(p, "Vida", j.vida, j.vidaMaxima, 16, 124, 52);
-    std::string resto = "  Vidas " + std::to_string(j.vidas) + "  Tempo " + textoDoTempo(jogo.tempoMs)
-                      + (jogo.descansando ? "  zZz  " : "  ");
+    std::string resto = "  Vidas " + std::to_string(j.vidas) + "  Pts " + std::to_string(calcularPontuacao(jogo))
+                      + "  " + textoDoTempo(jogo.tempoMs) + (jogo.descansando ? " zZz " : " ")
+                      + (j.pontosLivres > 0 ? "[C] " : "");
     p.texto(resto, COR_TEXTO);
     int usadas = contarLetras(inicio) + 16 + contarLetras(resto);
 
@@ -394,8 +406,9 @@ void desenharJogo(const Jogo& jogo) {
     int sobra = TELA_COLUNAS - 1 - usadas;
     if (perto != nullptr && sobra > 2) {
         const TipoMonstro& t = tipoDe(*perto);
-        p.letra(t.simbolo, { rgbPara256(t.cor), FUNDO_PRETO });
-        std::string info = std::string(" ") + t.nome + " Nv" + std::to_string(perto->nivel);
+        p.letra(t.simbolo, { rgbPara256(CORES_DOS_ELEMENTOS[perto->elemento]), FUNDO_PRETO });
+        std::string info = std::string(" ") + t.nome + " Nv" + std::to_string(perto->nivel)
+                         + " " + NOMES_DOS_ELEMENTOS[perto->elemento];
         if (perto->estado == DORMINDO) info += " (dormindo)";
         if (perto->estado == FUGINDO)  info += " (fugindo)";
         p.texto(ajustarLargura(info, sobra - 1), COR_TEXTO);
@@ -405,7 +418,7 @@ void desenharJogo(const Jogo& jogo) {
 
     // Linha 24: lembrete de comandos
     p.irPara(24, 1);
-    p.texto(ajustarLargura(" Mover: setas/hjkl  Lutar: ande no monstro  i: mochila  Z: descansar  ?: ajuda",
+    p.texto(ajustarLargura(" Mover: setas/hjkl  i: mochila  C: ficha  Z: descansar  M: mensagens  ?: ajuda",
                            TELA_COLUNAS - 1), COR_DICA);
 
     p.saida += ansiResetar();
@@ -450,12 +463,14 @@ void desenharAjuda(const Jogo& jogo) {
         "Batalhar       ande na direção do monstro",
         "Descansar      z  ou  Z   (+1 de vida por segundo)",
         "               qualquer tecla para de descansar",
-        "Mochila        i          Mensagens   M          Sair   Q",
+        "Mochila        i          Ficha (atributos)   C",
+        "Mensagens      M          Sair   Q",
         "",
         "Na batalha: setas escolhem, Enter confirma, Esc volta.",
         "Pegue monstros dormindo: eles começam a luta dormindo.",
         "Escadas: ande para dentro de  >  (desce)  ou  <  (sobe)",
         "Itens:  ! poção  ) arma  ] escudo  * cristal  ? pergaminho  - chave",
+        "Mapa:   = caixa (empurre)   ^ armadilha   & pessoa (converse)",
         "",
         "Semente desta partida: " + semente,
         "Para jogar a mesma masmorra:  masmorra " + semente,
@@ -487,18 +502,87 @@ void desenharHistorico(const Jogo& jogo) {
 }
 
 void desenharMorte(const Jogo& jogo) {
-    desenharCaixa({
-        "FIM DE JOGO",
-        "",
-        "Suas vidas acabaram no andar " + std::to_string(jogo.andar) + ",",
-        jogo.causaDaMorte + ".",
-        "Nível " + std::to_string(jogo.jogador.nivel) + ", tempo " + textoDoTempo(jogo.tempoMs)
-            + ", " + std::to_string(jogo.monstrosMortos) + " monstros derrotados.",
-        "",
-        "Semente: " + std::to_string(jogo.semente),
-        "",
-        "N: nova partida      Q: sair",
-    });
+    std::vector<std::string> linhas;
+    if (jogo.venceu) {
+        linhas.push_back("VITÓRIA!");
+        linhas.push_back("");
+        linhas.push_back(jogo.jogador.nome + " derrotou o Senhor das Profundezas");
+        linhas.push_back("e libertou Valdoria!");
+    } else {
+        linhas.push_back("FIM DE JOGO");
+        linhas.push_back("");
+        linhas.push_back("Suas vidas acabaram no andar " + std::to_string(jogo.andar) + ",");
+        linhas.push_back(jogo.causaDaMorte + ".");
+    }
+    linhas.push_back("");
+    linhas.push_back("PONTUAÇÃO: " + std::to_string(jogo.pontuacaoFinal) + "   (andar " +
+                     std::to_string(jogo.andarMaisFundo) + ", " + std::to_string(jogo.monstrosMortos) +
+                     " monstros, " + std::to_string(jogo.itensColetados) + " itens, " +
+                     std::to_string(jogo.passos) + " passos)");
+    if (jogo.posicaoNoRanking >= 0) {
+        linhas.push_back("Você ficou em " + std::to_string(jogo.posicaoNoRanking + 1) + "o lugar no ranking!");
+    }
+    linhas.push_back("");
+    std::vector<RegistroRanking> ranking = lerRanking();
+    for (int i = 0; i < (int)ranking.size() && i < 5; i++) {
+        linhas.push_back(std::to_string(i + 1) + ". " + ranking[i].nome + "  " + std::to_string(ranking[i].pontos) +
+                         (ranking[i].venceu ? "  (venceu)" : ""));
+    }
+    linhas.push_back("");
+    linhas.push_back("N: nova partida      Q: menu");
+    desenharCaixa(linhas);
+}
+
+void desenharPagina(const std::string& titulo, const std::vector<std::string>& linhas,
+                    const std::string& rodape) {
+    std::vector<std::string> todas;
+    todas.push_back(titulo);
+    todas.push_back("");
+    for (const std::string& l : linhas) todas.push_back(l);
+    todas.push_back("");
+    todas.push_back(rodape);
+    forcarLimpezaDaTela();
+    escreverNaTela(ajustarAoTamanhoDaJanela());
+    desenharCaixa(todas);
+}
+
+void desenharCriacao(const Criacao& c) {
+    std::vector<std::string> linhas;
+    linhas.push_back("CRIE SEU PERSONAGEM");
+    linhas.push_back("");
+    std::vector<std::string> rotulos(NUM_LINHAS_DA_CRIACAO);
+    rotulos[LINHA_NOME] = "Nome:         " + c.nome + (c.linha == LINHA_NOME ? "_" : "");
+    rotulos[LINHA_ELEMENTO] = "Elemento:   < " + std::string(NOMES_DOS_ELEMENTOS[c.elemento]) + " >";
+    rotulos[LINHA_COR] = "Cor:        < " + std::string(NOMES_DAS_CORES_DO_JOGADOR[c.cor]) + " >";
+    for (int a = 0; a < NUM_ATRIBUTOS; a++) {
+        std::string nome = NOMES_DOS_ATRIBUTOS[a];
+        rotulos[LINHA_FORCA + a] = nome + ":" + std::string(13 - contarLetras(nome), ' ') + "- " +
+                                   std::to_string(c.atributos[a]) + " +";
+    }
+    rotulos[LINHA_COMECAR] = "[ COMEÇAR A AVENTURA ]";
+    for (int i = 0; i < NUM_LINHAS_DA_CRIACAO; i++) {
+        linhas.push_back((i == c.linha ? "> " : "  ") + rotulos[i]);
+        if (i == LINHA_COR) linhas.push_back("");
+        if (i == LINHA_AGILIDADE) {
+            linhas.push_back("  Pontos livres: " + std::to_string(c.pontosLivres));
+            linhas.push_back("");
+        }
+    }
+    linhas.push_back("");
+    std::string dica;
+    if (c.linha == LINHA_NOME) dica = "Digite o nome (Backspace apaga).";
+    if (c.linha == LINHA_ELEMENTO) {
+        Elemento e = (Elemento)c.elemento;
+        dica = "Golpe inicial: " + std::string(GOLPES[golpeInicialDoElemento(e)].nome);
+    }
+    if (c.linha == LINHA_COR) dica = "A cor do seu @ no mapa.";
+    if (c.linha >= LINHA_FORCA && c.linha <= LINHA_AGILIDADE) dica = EFEITOS_DOS_ATRIBUTOS[c.linha - LINHA_FORCA];
+    if (c.linha == LINHA_COMECAR) dica = "Enter para começar.";
+    linhas.push_back(dica);
+    linhas.push_back("Setas: escolher e mudar   Enter: próximo   Esc: voltar");
+    forcarLimpezaDaTela();
+    escreverNaTela(ajustarAoTamanhoDaJanela());
+    desenharCaixa(linhas);
 }
 
 // =============================================================================

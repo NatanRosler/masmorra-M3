@@ -15,12 +15,12 @@ inline const Sprite HEROI = {{
     ".....KSSSSK.....",
     ".....KSWWSK.....",
     "......KSSK......",
-    "....KKABBAKK....",
-    "...KBAAAAABK....",
-    "...KBAMMABAK....",
-    "...KBAMMABAK....",
-    "....KAAAAAK.....",
-    ".....KABBAK.....",
+    "....KKJBBJKK....",
+    "...KBJJJJJBK....",
+    "...KBJMMJBJK....",
+    "...KBJMMJBJK....",
+    "....KJJJJJK.....",
+    ".....KJBBJK.....",
     "....KBB..BBK....",
     "....KBB..BBK....",
     "....KK....KK....",
@@ -100,5 +100,81 @@ inline const Sprite MORCEGO = {{
     ".......KK.......",
     "................",
     "................",
+    "................"
+}};
+
+inline const Sprite EXPLORADORA = {{
+    "................",
+    ".....KKKKKK.....",
+    "....KHHHHHHK....",
+    "...KHHSSSSHK....",
+    "...KHSWSSWSK....",
+    "....KKSSSSK.....",
+    ".....KKSSKK.....",
+    "....KTTTTTTK....",
+    "...KTTFTTFTTK...",
+    "...KSKTTTTKSK...",
+    "....KKTTTTKK....",
+    ".....KBBKBBK....",
+    ".....KBBKBBK....",
+    ".....KCCKCCK....",
+    ".....KKK.KKK....",
+    "................"
+}};
+
+inline const Sprite MINEIRO = {{
+    "................",
+    ".....KKKKKK.....",
+    "....KYYYYYYK....",
+    "...KYYYWWYYYK...",
+    "...KKKKKKKKKK...",
+    "....KSWSSWSK....",
+    "....KSSSSSSK....",
+    "....KFFSSFFK....",
+    "...KCFFFFFFCK...",
+    "..KSKCCFFCCKSK..",
+    "..KSKCCCCCCKSK..",
+    "...KKBBBBBBKK...",
+    "....KBBKKBBK....",
+    "....KBBK.KBBK...",
+    "....KKK...KKK...",
+    "................"
+}};
+
+inline const Sprite ESPIRITO = {{
+    "................",
+    "......KKKK......",
+    ".....KEEEEK.....",
+    "....KEEEEEEK....",
+    "....KEKEEKEK....",
+    "....KEEEEEEK....",
+    ".....KETTEK.....",
+    "....KEEEEEEK....",
+    "...KEETEETEEK...",
+    "...KEEEEEEEEK...",
+    "....KEEEEEEK....",
+    "....KETEETEK....",
+    ".....KEEEEK.....",
+    "......KETK......",
+    ".......KK.......",
+    "................"
+}};
+
+inline const Sprite SENHOR = {{
+    "..K..........K..",
+    ".KOK........KOK.",
+    ".KOOK......KOOK.",
+    "..KOOKKKKKKOOK..",
+    "...KOOOOOOOOK...",
+    "..KOOYOOOOYOOK..",
+    "..KOOKOOOOKOOK..",
+    "..KOOOOWWOOOOK..",
+    "...KOKWKKWKOK...",
+    "..KKOOOOOOOOKK..",
+    ".KOOKOOOOOOKOOK.",
+    "KOOKKOOOOOOKKOOK",
+    "KOK.KOOKKOOK.KOK",
+    "KK..KOOK.KOOK.KK",
+    "....KKK...KKK...",
     "................"
 }};
