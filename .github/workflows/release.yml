@@ -3,8 +3,9 @@
 #
 # - Ao criar uma tag que começa com "v" (ex.: v0.2), os três .zip são
 #   publicados automaticamente na página de Releases.
-# - Também dá para rodar manualmente na aba "Actions" (botão "Run workflow");
-#   nesse caso os .zip ficam disponíveis como "artifacts" da execução.
+# - Também dá para rodar manualmente na aba "Actions" (botão "Run workflow").
+#   Preenchendo "versao" (ex.: v1.0), a versão é publicada nos Releases;
+#   vazio, os arquivos ficam só como "artifacts" da execução.
 #
 # Os executáveis são estáticos: quem baixa só extrai e joga, sem instalar nada.
 # -----------------------------------------------------------------------------
@@ -14,6 +15,11 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      versao:
+        description: "Nome da versão a publicar (ex.: v1.0). Vazio = só compilar."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -93,14 +99,15 @@ jobs:
       # O Mac às vezes demora na fila do GitHub: ele publica sozinho quando
       # terminar, sem atrasar os downloads de Windows e Linux.
       - name: Publicar versão do Mac
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.versao != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.versao || github.ref_name }}
           files: dist/*.tar.gz
 
   publicar:
     needs: [windows, linux]
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || inputs.versao != ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -110,4 +117,11 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.versao || github.ref_name }}
+          name: Masmorra ${{ inputs.versao || github.ref_name }}
+          body: |
+            Baixe o arquivo do seu sistema, extraia e jogue. Não precisa instalar nada.
+            - **Windows:** `masmorra-windows.zip` → dois cliques em `masmorra.exe`
+            - **Linux:** `masmorra-linux.tar.gz` → `./masmorra`
+            - **Mac:** `masmorra-mac.tar.gz` (aparece quando o GitHub terminar de compilar)
           files: dist/*
