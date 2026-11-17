@@ -6,6 +6,7 @@
 #include "terminal.h"
 #include "aleatorio.h"
 #include "itens.h"
+#include "som.h"
 
 // =============================================================================
 // TABELAS
@@ -214,8 +215,8 @@ static int escolherOpcao(Jogo& jogo, Batalha& b, int menu, int numOpcoes, int co
         desenharBatalha(jogo, b);
         int t = lerTecla();
         if (t == TECLA_REDIMENSIONOU) continue;
-        if (teclaConfirma(t)) return b.cursor;
-        if (t >= TECLA_CLIQUE_MENU && t < TECLA_CLIQUE_MENU+numOpcoes) return t-TECLA_CLIQUE_MENU;
+        if (teclaConfirma(t)) { tocarSom(SOM_MENU); return b.cursor; }
+        if (t >= TECLA_CLIQUE_MENU && t < TECLA_CLIQUE_MENU+numOpcoes) { tocarSom(SOM_MENU); return t-TECLA_CLIQUE_MENU; }
         if (teclaVolta(t)) return -1;
         if (t >= '1' && t < '1' + numOpcoes) return t - '1';
 
@@ -230,7 +231,10 @@ static int escolherOpcao(Jogo& jogo, Batalha& b, int menu, int numOpcoes, int co
         if (linha < 0) linha = linhas - 1;
         if (linha >= linhas) linha = 0;
         int novo = linha * colunas + coluna;
-        if (novo < numOpcoes) b.cursor = novo;
+        if (novo < numOpcoes && novo != b.cursor) {
+            b.cursor = novo;
+            tocarSom(SOM_MENU);
+        }
     }
 }
 
@@ -314,6 +318,7 @@ static void usarGolpe(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo, 
     if (chanceDeAcertar > 100) chanceDeAcertar = 100;
     if (chanceDeAcertar < 10) chanceDeAcertar = 10;
     if (sortear(jogo.sorte, 1, 100) > chanceDeAcertar) {
+        tocarSom(SOM_ERROU);
         if (golpe.precisao >= 100 && contraOAlvo) narrar(jogo, b, comMaiuscula(alvo.nome) + " se esquivou!");
         else narrar(jogo, b, "Mas errou!");
         return;
@@ -334,10 +339,14 @@ static void usarGolpe(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo, 
         if (*alvo.vida < 0) *alvo.vida = 0;
         danoTotal += dano;
         acertos++;
+        tocarSom(critico ? SOM_CRITICO : (alvo.ehJogador ? SOM_DANO : SOM_GOLPE));
         animarVida(jogo, b, ladoDe(alvo));
         if (critico) narrar(jogo, b, "Um golpe crítico!");
     }
-    if (efic > 2) narrar(jogo, b, "É super eficaz!");
+    if (efic > 2) {
+        tocarSom(SOM_SUPER_EFICAZ);
+        narrar(jogo, b, "É super eficaz!");
+    }
     if (efic < 2) narrar(jogo, b, "Não é muito eficaz...");
     if (vezes > 1) narrar(jogo, b, "Acertou " + std::to_string(acertos) + " vezes!");
 
@@ -615,6 +624,7 @@ static void ganharExperiencia(Jogo& jogo, Batalha& b, int pontos) {
         b.jogador.defesa = j.defesa;
         b.jogador.velocidade = j.velocidade;
         b.vidaMostrada[0] = j.vida;
+        tocarSom(SOM_NIVEL);
         narrar(jogo, b, "Você subiu para o nível " + std::to_string(j.nivel) + "!");
         ganharPontosDeAtributo(jogo, PONTOS_POR_NIVEL);
         if (!jogo.modoAutomatico) {
@@ -709,6 +719,7 @@ static bool conferirDesmaios(Jogo& jogo, Batalha& b) {
         b.naLuta[i] = false;
         Monstro& m = *b.monstros[i];
         m.vivo = false;   // derrotado: some do mapa
+        tocarSom(SOM_DESMAIO);
         narrar(jogo, b, comMaiuscula(b.inimigos[i].nome) + " desmaiou!");
         ganharExperiencia(jogo, b, tipoDe(m).experienciaBase * m.nivel / 6);
     }
@@ -767,6 +778,11 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
         }
         if (iguais > 1) b.inimigos[i].nome += std::string(" ") + (char)('A' + minhaLetra);
     }
+    bool contraOChefe = false;
+    for (int i = 0; i < quantos; i++) {
+        if (tipoDe(*participantes[i]).especial & CHEFE) contraOChefe = true;
+    }
+    tocarMusica(contraOChefe ? MUSICA_CHEFE : MUSICA_BATALHA);
     b.tentativasDeFuga = 0;
     b.menu = MENU_NENHUM;
     b.cursor = 0;
@@ -828,6 +844,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
             const TipoItem& item = TIPOS_DE_ITEM[acao.slot];
             j.mochila[acao.slot]--;
             narrar(jogo, b, "Você usa " + nomeComArtigo(acao.slot) + ".");
+            tocarSom(SOM_CURA);
             if (item.curaPorcento > 0) {
                 j.vida += j.vidaMaxima * item.curaPorcento / 100;
                 if (j.vida > j.vidaMaxima) j.vida = j.vidaMaxima;

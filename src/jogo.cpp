@@ -4,6 +4,7 @@
 #include "terminal.h"
 #include "tela.h"
 #include "pontuacao.h"
+#include "som.h"
 
 Mapa& mapaAtual(Jogo& jogo) {
     return jogo.andares[jogo.andar - 1].mapa;
@@ -192,6 +193,7 @@ static void deixarCheiro(Jogo& jogo) {
 // sobe do novo andar; quem sobe chega na frente da escada que desce.
 static void irParaAndar(Jogo& jogo, int novoAndar) {
     bool descendo = novoAndar > jogo.andar;
+    tocarSom(SOM_ESCADA);
     Andar& destino = prepararAndar(jogo, novoAndar);
     jogo.andar = novoAndar;
     if (novoAndar > jogo.andarMaisFundo) jogo.andarMaisFundo = novoAndar;
@@ -293,9 +295,11 @@ void desmaiar(Jogo& jogo, const std::string& causa) {
     Jogador& j = jogo.jogador;
     j.vidas--;
     jogo.descansando = false;
+    tocarSom(SOM_DERROTA);
     if (j.vidas <= 0) {
         jogo.morto = true;
         jogo.causaDaMorte = causa;
+        tocarMusica(SEM_MUSICA);
         return;
     }
     // Volta para a entrada do andar (ou a célula livre mais perto dela, se
@@ -372,6 +376,7 @@ static void resolverBatalha(Jogo& jogo) {
 
     ResultadoBatalha resultado = batalhar(jogo, participantes, quantos);
     forcarLimpezaDaTela();
+    tocarMusica(MUSICA_MASMORRA);
 
     // O que aconteceu com cada monstro.
     for (int i = 0; i < quantos; i++) {
@@ -382,6 +387,8 @@ static void resolverBatalha(Jogo& jogo) {
             adicionarMensagem(jogo, "Você derrotou " + nome + "!");
             if (tipoDe(m).especial & CHEFE) {
                 jogo.venceu = true;   // fim de jogo: vitória!
+                tocarMusica(SEM_MUSICA);
+                tocarSom(SOM_VITORIA);
                 adicionarMensagem(jogo, "O Senhor das Profundezas caiu! Valdoria está livre!");
             }
             if (m.carregaChave) {
@@ -449,6 +456,7 @@ static void comecarDescanso(Jogo& jogo) {
     jogo.descansando = true;
     jogo.msDeDescanso = 0;
     jogo.segundosDeDescanso = 0;
+    tocarSom(SOM_CURA);
     adicionarMensagem(jogo, "Você descansa... (+1 de vida por segundo; qualquer tecla para parar)");
 }
 
@@ -538,6 +546,7 @@ static bool moverJogador(Jogo& jogo, int dx, int dy) {
         }
         j.mochila[I_CHAVE]--;
         mapaAtual(jogo).celulas[novoY][novoX] = PORTA;
+        tocarSom(SOM_PORTA);
         adicionarMensagem(jogo, "Você usa a chave e destranca a porta!");
         return true;
     }
@@ -608,11 +617,11 @@ int escolherEmCaixa(const Jogo& jogo, const std::string& titulo,
         desenharMenuEmCaixa(titulo, opcoes, descricao, cursor);
         int t = lerTecla();
         if (t == TECLA_REDIMENSIONOU) continue;
-        if (t == TECLA_ENTER || t == ' ' || t == 'z') return cursor;
-        if (t >= TECLA_CLIQUE_MENU && t < TECLA_CLIQUE_MENU+total) return t-TECLA_CLIQUE_MENU;
+        if (t == TECLA_ENTER || t == ' ' || t == 'z') { tocarSom(SOM_MENU); return cursor; }
+        if (t >= TECLA_CLIQUE_MENU && t < TECLA_CLIQUE_MENU+total) { tocarSom(SOM_MENU); return t-TECLA_CLIQUE_MENU; }
         if (t == TECLA_ESC || t == 'x' || t == 'i') return -1;
-        if (t == TECLA_CIMA || t == 'k')  cursor = (cursor + total - 1) % total;
-        if (t == TECLA_BAIXO || t == 'j') cursor = (cursor + 1) % total;
+        if (t == TECLA_CIMA || t == 'k')  { cursor = (cursor + total - 1) % total; tocarSom(SOM_MENU); }
+        if (t == TECLA_BAIXO || t == 'j') { cursor = (cursor + 1) % total; tocarSom(SOM_MENU); }
     }
 }
 

@@ -34,6 +34,7 @@ extraia. Não é preciso instalar nada.
 | Histórico de mensagens | `M` |
 | Ajuda | `?` |
 | Pausa | `Esc` |
+| Ligar / desligar o som | `O` (ou na pausa) |
 | **Na batalha** | setas escolhem, `Enter` confirma, `Esc` volta, `1`–`4` atalhos, ou clique com o mouse |
 
 ### Semente (seed)
@@ -76,6 +77,7 @@ src/
 | `src/grafico/menu_principal.cpp` | Menu principal e menu de pausa |
 | `src/grafico/visual.cpp/.h` | Cores, fontes, painéis e barras |
 | `src/grafico/sprites.h`, `extra_sprites.h` | Personagens em pixel art (16 x 16) |
+| `src/som.h`, `src/grafico/audio.cpp` | Sons e músicas gerados no código (sem arquivos de áudio) |
 | `src/console/` | A mesma coisa para o terminal: `main.cpp`, `tela.cpp`, `terminal.cpp` |
 
 Mais detalhes:
@@ -130,6 +132,7 @@ publicar → Run workflow**.
 - [x] **6. Personagem**: criação (nome, elemento, cor, 5 pontos), 1 ponto por nível (Força, Constituição, Destreza, Agilidade) e elementos dos monstros sorteados a cada partida
 - [x] **7. Mapa vivo**: armadilhas que ferem jogador e monstros, caixas que se empurram ou quebram, ogros que despedaçam caixas
 - [x] **8. História**: abertura, 3 NPCs (um deles destranca a sala do tesouro), chefe final no andar 10 e tela de vitória
+- [x] **Som (v1.1)**: efeitos e 4 músicas (menu, masmorra, batalha, chefe) gerados no código
 - [x] **9. Pontuação**: menu com como jogar, itens e pontuação; pontos na tela e no fim; ranking salvo em `ranking.txt`
 
 ## Requisitos do trabalho (T3) e onde estão

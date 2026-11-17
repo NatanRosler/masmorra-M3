@@ -2,6 +2,7 @@
 // continuam nos arquivos jogo.cpp, batalha.cpp, monstros.cpp, itens.cpp etc.
 #include "terminal.h"
 #include "visual.h"
+#include "audio.h"
 #include "raylib.h"
 #include <chrono>
 #include <cstdlib>
@@ -35,10 +36,12 @@ void iniciarTerminal() {
     SetExitKey(KEY_NULL); // Esc é usada nos menus; fechar pela janela continua funcionando.
     SetTargetFPS(60);
     Ui::iniciarRecursos();
+    iniciarAudio();
 }
 void finalizarTerminal() {
     if (!IsWindowReady()) return;
     Ui::finalizarRecursos();
+    finalizarAudio();
     CloseWindow();
 }
 static int teclaDoFrame() {

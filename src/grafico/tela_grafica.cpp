@@ -8,6 +8,7 @@
 #include "itens.h"
 #include "monstros.h"
 #include "pontuacao.h"
+#include "som.h"
 #include "sprites.h"
 #include "extra_sprites.h"
 #include <algorithm>
@@ -233,7 +234,7 @@ void hud(const Jogo& jogo) {
         textoCentro(rotulos[i],r.x+r.width/2,r.y+14,18,CIANO);
         registrarAtalho(r,atalhos[i]);
     }
-    texto("ESC: pausa",62,830,17,APAGADO);
+    texto(std::string("ESC: pausa   O: som ")+(somLigado()?"(ligado)":"(desligado)"),62,830,17,APAGADO);
 }
 void mapa(const Jogo& jogo) {
     titulo("EXPLORAÇÃO   |   O mapa se revela conforme você caminha");

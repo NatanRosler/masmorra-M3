@@ -5,6 +5,7 @@
 #include "extra_sprites.h"
 #include "raylib.h"
 #include "pontuacao.h"
+#include "som.h"
 #include <array>
 #include <string>
 
@@ -72,7 +73,8 @@ void inicio(int cursor) {
     sprite(HEROI.data(),794,375,15.6f);
     sprite(GOBLIN.data(),1099,521,8.0f);
     texto("SEU JOGO, SUAS REGRAS",749,705,22,CIANO);
-    texto("Setas / mouse para escolher  |  Enter para confirmar",151,770,20,APAGADO);
+    texto("Setas / mouse para escolher  |  Enter para confirmar  |  O: som "+
+          std::string(somLigado()?"ligado":"desligado"),151,770,20,APAGADO);
 }
 }
 
@@ -90,6 +92,7 @@ static int executar(int opcao, Pagina& pagina) {
 bool mostrarMenuPrincipal() {
     Pagina pagina=INICIO;
     int cursor=0;
+    tocarMusica(MUSICA_MENU);
     while(!WindowShouldClose()) {
         // Desenha ANTES de ler o teclado: terminarQuadro() atualiza as teclas.
         // Assim a tecla que abriu este menu (Esc, Enter...) não é lida de novo.
@@ -99,12 +102,14 @@ bool mostrarMenuPrincipal() {
         terminarQuadro();
 
         if(pagina==INICIO) {
-            if(teclaSubir()) cursor=(cursor+NUM_BOTOES-1)%NUM_BOTOES;
-            if(teclaDescer()) cursor=(cursor+1)%NUM_BOTOES;
+            if(teclaSubir()) { cursor=(cursor+NUM_BOTOES-1)%NUM_BOTOES; tocarSom(SOM_MENU); }
+            if(teclaDescer()) { cursor=(cursor+1)%NUM_BOTOES; tocarSom(SOM_MENU); }
+            if(IsKeyPressed(KEY_O)) alternarSom();
             int escolhida=-1;
             for(int i=0;i<NUM_BOTOES;i++) if(clicou(BOTAO[i])) escolhida=i;
             if(confirmar()) escolhida=cursor;
             if(escolhida>=0) {
+                tocarSom(SOM_MENU);
                 cursor=escolhida;
                 int r=executar(escolhida,pagina);
                 if(r>=0) return r==1;
@@ -119,22 +124,25 @@ bool mostrarMenuPrincipal() {
 
 int mostrarMenuDePausa() {
     int cursor=0;
-    const char* nomes[]={"CONTINUAR","MENU PRINCIPAL","SAIR"};
     while(!WindowShouldClose()) {
+        const char* nomes[]={"CONTINUAR","MENU PRINCIPAL","SAIR",somLigado()?"SOM: LIGADO":"SOM: DESLIGADO"};
         // Desenha antes de ler o teclado (mesmo motivo do menu principal):
         // sem isso, o Esc que abriu a pausa fechava a pausa na mesma hora.
         iniciarQuadro();
         titulo();
-        painel({397,275,646,477});
-        textoCentro("JOGO PAUSADO",720,301,39,OURO);
-        for(int i=0;i<3;i++)botao({460.0f,387.0f+i*92,520,68},nomes[i],cursor==i);
+        painel({397,265,646,520});
+        textoCentro("JOGO PAUSADO",720,291,39,OURO);
+        for(int i=0;i<4;i++)botao({460.0f,367.0f+i*92,520,68},nomes[i],cursor==i);
         terminarQuadro();
 
         if(IsKeyPressed(KEY_ESCAPE))return 0;
-        if(teclaSubir())cursor=(cursor+2)%3;
-        if(teclaDescer())cursor=(cursor+1)%3;
-        if(confirmar())return cursor;
-        for(int i=0;i<3;i++) if(clicou({460.0f,387.0f+i*92,520,68}))return i;
+        if(teclaSubir()) { cursor=(cursor+3)%4; tocarSom(SOM_MENU); }
+        if(teclaDescer()) { cursor=(cursor+1)%4; tocarSom(SOM_MENU); }
+        int escolhida=-1;
+        if(confirmar()) escolhida=cursor;
+        for(int i=0;i<4;i++) if(clicou({460.0f,367.0f+i*92,520,68})) { escolhida=i; cursor=i; }
+        if(escolhida==3) { alternarSom(); tocarSom(SOM_MENU); continue; }
+        if(escolhida>=0) { tocarSom(SOM_MENU); return escolhida; }
     }
     return 2;
 }

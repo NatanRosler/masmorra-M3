@@ -7,6 +7,7 @@
 #include "tela.h"
 #include "terminal.h"
 #include "pontuacao.h"
+#include "som.h"
 
 const char* NOMES_DOS_ATRIBUTOS[NUM_ATRIBUTOS] = {
     "Força", "Constituição", "Destreza", "Agilidade"
@@ -188,11 +189,13 @@ void abrirFicha(Jogo& jogo) {
 bool novaPartida(Jogo& jogo, uint32_t semente) {
     Criacao c;
     criacaoPadrao(c);
+    tocarMusica(MUSICA_MENU);
     if (!criarPersonagem(c)) return false;
     iniciarJogo(jogo, semente);
     aplicarCriacao(jogo, c);
     mostrarPagina("A MASMORRA DE VALDORIA", textoDaHistoria(jogo.jogador.nome));
     jogo.mensagensDoTurno.clear();
     adicionarMensagem(jogo, "Boa sorte, " + jogo.jogador.nome + ". O único caminho é para baixo.");
+    tocarMusica(MUSICA_MASMORRA);
     return true;
 }

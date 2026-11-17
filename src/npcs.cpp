@@ -2,6 +2,7 @@
 #include "npcs.h"
 #include "jogo.h"
 #include "pontuacao.h"
+#include "som.h"
 
 const FichaNpc FICHAS_DOS_NPCS[NUM_TIPOS_DE_NPC] = {
     { "Eldra, a exploradora",  '&', { 120, 210, 230 }, 1 },
@@ -100,6 +101,7 @@ void conversarComNpc(Jogo& jogo, int indice) {
                 falas.push_back("");
                 falas.push_back("(Você ouve uma fechadura se abrir em algum lugar do andar.)");
                 adicionarMensagem(jogo, "Borin destrancou a sala do tesouro deste andar!");
+                tocarSom(SOM_PORTA);
             } else if (!npc.conversou) {
                 j.mochila[I_ETER]++;
                 falas.push_back("\"Não tenho mais portas para abrir, mas leve este Éter.\"  (+1 Éter)");
