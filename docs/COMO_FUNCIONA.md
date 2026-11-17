@@ -255,3 +255,23 @@ Medido com os robôs de teste: o explorador perde de 5% a 7% da vida por batalha
 e chega ao andar 10 na maioria das partidas; quem só desce morre entre os andares
 3 e 6. Contra o chefe (nível 24), um jogador de nível 22 vence cerca de 35% das
 tentativas — com 3 vidas, a chance total fica perto de 70%.
+
+
+## Som e música (v1.1)
+
+Não há nenhum arquivo de áudio: tudo é **gerado no código** (`src/grafico/audio.cpp`),
+como nos videogames de 8 bits.
+
+- **Ondas:** quadrada (o "bip" clássico), triangular (som macio, usado no baixo)
+  e ruído (números aleatórios, usado em pancadas e espinhos).
+- **Efeitos:** cada um é uma lista de notas `{frequência, frequência final,
+  duração, onda, volume}`. `gerarSom` calcula as amostras (22050 por segundo)
+  com um envelope que entra rápido e vai sumindo, e entrega para a raylib.
+- **Música:** um sequenciador de duas vozes (melodia + baixo) roda dentro do
+  callback de áudio da raylib. Cada música é uma lista de notas MIDI
+  (69 = Lá 440 Hz; frequência = 440 x 2^((nota-69)/12)), tocada em loop.
+  As 4 melodias foram compostas para o jogo.
+- A lógica só chama `tocarSom(SOM_GOLPE)` ou `tocarMusica(MUSICA_CHEFE)` (`som.h`).
+  Na versão de terminal essas funções não fazem nada (`console/sem_som.cpp`).
+- Tecla `O` (ou a opção na pausa) liga e desliga o som. Sem placa de som, o jogo
+  segue mudo.

@@ -68,6 +68,7 @@ if(MASMORRA_GRAFICO)
         src/grafico/terminal_raylib.cpp
         src/grafico/visual.cpp
         src/grafico/menu_principal.cpp
+        src/grafico/audio.cpp
     )
     configurar_executavel(masmorra)
     target_link_libraries(masmorra PRIVATE raylib)
@@ -86,5 +87,6 @@ add_executable(masmorra_console ${FONTES_DA_LOGICA}
     src/console/main.cpp
     src/console/tela.cpp
     src/console/terminal.cpp
+    src/console/sem_som.cpp
 )
 configurar_executavel(masmorra_console)

@@ -1,5 +1,6 @@
 // itens.cpp
 #include "itens.h"
+#include "som.h"
 #include "jogo.h"
 #include "aleatorio.h"
 
@@ -263,6 +264,7 @@ void pegarItensDoChao(Jogo& jogo) {
     const TipoItem& t = TIPOS_DE_ITEM[item.tipo];
     item.ativo = false;
     jogo.itensColetados++;
+    tocarSom(SOM_ITEM);
 
     // Cristais fazem efeito na hora e para sempre.
     if (t.categoria == CRISTAL) {
@@ -353,6 +355,7 @@ bool usarItemForaDaBatalha(Jogo& jogo, int tipo) {
                     return false;
                 }
                 int antes = j.vida;
+                tocarSom(SOM_CURA);
                 j.vida += j.vidaMaxima * t.curaPorcento / 100;
                 if (j.vida > j.vidaMaxima) j.vida = j.vidaMaxima;
                 adicionarMensagem(jogo, "Você bebe " + nomeComArtigo(tipo) + " e recupera "

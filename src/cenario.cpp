@@ -2,6 +2,7 @@
 #include "cenario.h"
 #include "jogo.h"
 #include "aleatorio.h"
+#include "som.h"
 
 // -----------------------------------------------------------------------------
 // COLOCAR CAIXAS E ARMADILHAS
@@ -84,6 +85,7 @@ void armadilhaPegaJogador(Jogo& jogo) {
     if (i >= 0) {
         Armadilha& a = andar.armadilhas[i];
         a.descoberta = true;
+        tocarSom(SOM_ARMADILHA);
         int dano = danoDaArmadilha(j.vidaMaxima, 15);
         j.vida -= dano;
         adicionarMensagem(jogo, "Espinhos saltam do chão! Você perde " + std::to_string(dano) + " de vida.");
@@ -152,6 +154,7 @@ bool empurrarCaixa(Jogo& jogo, int dx, int dy) {
                         npcEm(andar, destinoX, destinoY) < 0 &&
                         itemEm(andar, destinoX, destinoY) < 0;
     andar.mapa.celulas[caixaY][caixaX] = CHAO;
+    tocarSom(SOM_CAIXA);
     if (!podeEmpurrar) {
         // Presa (parede, monstro, item...) ou empurrada na diagonal: o
         // jogador quebra a caixa e o caminho fica livre.
@@ -180,6 +183,7 @@ void quebrarCaixasPerto(Jogo& jogo, Monstro& m) {
         if (!chance(jogo.sorte, 50)) continue;
         andar.mapa.celulas[y][x] = CHAO;
         if (jogo.visivel[y][x]) {
+            tocarSom(SOM_CAIXA);
             std::string nome = nomeDoMonstro(jogo, m);
             if (!nome.empty()) nome[0] = (char)(nome[0] - 'a' + 'A');
             adicionarMensagem(jogo, nome + " despedaça uma caixa!");

@@ -14,6 +14,7 @@
 #include "aleatorio.h"
 #include "menu_principal.h"
 #include "pontuacao.h"
+#include "som.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -85,6 +86,10 @@ int main(int argc, char* argv[]) {
                 if (acao == 1) jogo.rodando = false;
                 if (acao == 2) { jogo.rodando = false; sair = true; }
                 ultimoInstante = relogioMs(); // pausa nao gasta tempo no mapa
+                continue;
+            }
+            if (tecla == 'o' || tecla == 'O') {
+                adicionarMensagem(jogo, alternarSom() ? "Som ligado." : "Som desligado.");
                 continue;
             }
             if (tecla != TECLA_NENHUMA && tecla != TECLA_REDIMENSIONOU) {
