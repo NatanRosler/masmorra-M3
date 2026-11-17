@@ -1,0 +1,93 @@
+#pragma once
+#include "sprites.h"
+// Personagens 2D adicionais, editaveis linha a linha.
+inline const Sprite RATO = {{
+    "....KK....KK....",
+    "...KCCK..KCCK...",
+    "..KCCCCKKCCCCK..",
+    "..KCCCCCCCCCCK..",
+    "..KCCWCCCCWCCK..",
+    "...KCCCCCCCCK...",
+    "....KCCRRCCK....",
+    ".....KCCCCK.....",
+    "......KCCK......",
+    ".....KCCCCK.....",
+    "....KCCCCCCK....",
+    "....KCCCCCCK....",
+    "....KCCKKCCK....",
+    ".....KK..KK.....",
+    "................",
+    "................"
+}};
+inline const Sprite KOBOLD = {{
+    "......KKKK......",
+    ".....KCCCCK.....",
+    "....KCCCCCCK....",
+    "...KCCYCCYCCK...",
+    "...KCCCRRCCCK...",
+    "....KCCCCCCK....",
+    ".....KKCCKK.....",
+    "....KCCCCCCK....",
+    "...KCCCDCCCCK...",
+    "...KCCCDCCCCK...",
+    "....KCCCCCCK....",
+    ".....KCCCCK.....",
+    "....KCCKKCCK....",
+    "....KCC..CCK....",
+    ".....KK..KK.....",
+    "................"
+}};
+inline const Sprite CHACAL = {{
+    "....KK....KK....",
+    "...KCCK..KCCK...",
+    "..KCCCCKKCCCCK..",
+    "..KCCCCCCCCCCK..",
+    "..KCCWCCCCWCCK..",
+    "...KCCCCCCCCK...",
+    "....KCCRRCCK....",
+    ".....KCCCCK.....",
+    "....KCCCCCCK....",
+    "...KCCCCCCCCK...",
+    "...KCCKKKKCCK...",
+    "....KCCCCCCK....",
+    "....KCCKKCCK....",
+    ".....KK..KK.....",
+    "................",
+    "................"
+}};
+inline const Sprite MACACO = {{
+    "......KKKK......",
+    "....KKCCCCKK....",
+    "...KCCCCCCCCK...",
+    "..KCCCKKKKCCCK..",
+    "..KCCKWCCWKCCK..",
+    "...KCCCCCCCCK...",
+    "....KCCRRCCK....",
+    ".....KCCCCK.....",
+    "...KKCCCCCCKK...",
+    "..KCCCCCCCCCCK..",
+    "..KCCCCCCCCCCK..",
+    "...KCCCCCCCCK...",
+    "....KCCKKCCK....",
+    "....KCC..CCK....",
+    ".....KK..KK.....",
+    "................"
+}};
+inline const Sprite SAPO = {{
+    "....KK....KK....",
+    "...KGGK..KGGK...",
+    "...KGWK..KWGK...",
+    "....KGGKKGGK....",
+    "...KGGGGGGGGK...",
+    "..KGGGGGGGGGGK..",
+    "..KGGGGRRGGGGK..",
+    "...KGGGGGGGGK...",
+    "....KGGGGGGK....",
+    "...KGGGGGGGGK...",
+    "..KGGGGGGGGGGK..",
+    "..KGGGGGGGGGGK..",
+    "...KGGKKKKGGK...",
+    "....KK....KK....",
+    "................",
+    "................"
+}};

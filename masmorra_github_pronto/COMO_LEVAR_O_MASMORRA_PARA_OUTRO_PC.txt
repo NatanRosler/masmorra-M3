@@ -1,0 +1,22 @@
+COMO LEVAR O MASMORRA 2D PARA OUTRO COMPUTADOR (WINDOWS)
+
+1. Garanta que o jogo funcione no seu PC.
+2. Copie o arquivo preparar_masmorra_portatil.bat para a pasta
+   masmorra_original_2d onde estao CMakeLists.txt e build.
+3. Clique duas vezes no arquivo .bat.
+4. Ele criara:
+   dist\Masmorra_2D_Windows\masmorra_2d.exe
+   dist\Masmorra_2D_Windows.zip
+5. Envie o arquivo ZIP para outro computador Windows 64 bits.
+6. Extraia e execute masmorra_2d.exe.
+
+O programa tenta incluir DLLs comuns do MinGW. Dependendo da compilacao
+pode haver outras dependencias. Se o Windows apresentar um erro indicando
+uma DLL ausente, anote o nome e verifique-a com o compilador original.
+
+O .exe funciona em Windows. Para Linux e macOS, compile o projeto C++
+nesses sistemas usando CMake e raylib. Um .exe de Windows nao e um binario
+nativo de Linux/macOS.
+
+Se modificar o codigo, compile de novo antes de criar o ZIP:
+cmake --build build --parallel 4

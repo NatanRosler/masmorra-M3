@@ -1,0 +1,103 @@
+#include "visual.h"
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <filesystem>
+
+namespace {
+Font fonte{};
+bool fonteExterna = false;
+Color pixelCor(char p) {
+    switch (p) {
+        case 'K': return {15, 22, 36, 255};
+        case 'S': return {241,190,146,255};
+        case 'H': return {87,58,54,255};
+        case 'W': return {234,240,250,255};
+        case 'A': return {95,170,202,255};
+        case 'M': return {225,199,92,255};
+        case 'B': return {75,83,113,255};
+        case 'G': return {90,170,104,255};
+        case 'D': return {61,117,73,255};
+        case 'Y': return {253,229,112,255};
+        case 'R': return {208,98,98,255};
+        case 'F': return {238,235,200,255};
+        case 'T': return {89,181,161,255};
+        case 'V': return {132,101,180,255};
+        case 'P': return {100,82,146,255};
+        case 'C': return {210,136,78,255};
+        default: return {0,0,0,0};
+    }
+}
+float escala() { return std::min((float)GetScreenWidth()/Ui::LARGURA, (float)GetScreenHeight()/Ui::ALTURA); }
+Vector2 deslocamento() { float e=escala(); return {(GetScreenWidth()-Ui::LARGURA*e)/2.0f,(GetScreenHeight()-Ui::ALTURA*e)/2.0f}; }
+}
+
+namespace Ui {
+void iniciarRecursos() {
+    fonte = GetFontDefault();
+    // A fonte é procurada NO COMPUTADOR do jogador; não é distribuída no ZIP.
+    const char* possibilidades[] = {
+        "C:/Windows/Fonts/segoeui.ttf", "C:/Windows/Fonts/arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf"
+    };
+    int codigos[224]; for (int i=0;i<224;i++) codigos[i]=i+32;
+    for (const char* caminho: possibilidades) {
+        if (!std::filesystem::exists(caminho)) continue;
+        Font carregada = LoadFontEx(caminho, 48, codigos, 224);
+        if (carregada.texture.id != 0 && carregada.glyphCount > 0) {
+            SetTextureFilter(carregada.texture, TEXTURE_FILTER_BILINEAR);
+            fonte = carregada;
+            fonteExterna = true;
+            break;
+        }
+    }
+}
+void finalizarRecursos() { if (fonteExterna) UnloadFont(fonte); }
+void iniciarQuadro() {
+    BeginDrawing(); ClearBackground(FUNDO);
+    float e=escala(); Vector2 d=deslocamento();
+    BeginMode2D({d,{0,0},0.0f,e});
+}
+void terminarQuadro() { EndMode2D(); EndDrawing(); }
+void texto(const std::string& s, float x, float y, float tam, Color cor) {
+    DrawTextEx(fonte,s.c_str(),{x,y},tam,1.0f,cor);
+}
+void textoCentro(const std::string& s, float x, float y, float tam, Color cor) {
+    Vector2 m=MeasureTextEx(fonte,s.c_str(),tam,1.0f);
+    texto(s,x-m.x/2.0f,y,tam,cor);
+}
+void painel(Rectangle r, Color cor, Color borda) {
+    DrawRectangleRounded(r,0.13f,8,cor);
+    DrawRectangleRoundedLinesEx(r,0.13f,8,1.7f,borda);
+}
+void barra(float x, float y, float w, float h, int atual, int maximo, Color cor) {
+    DrawRectangleRounded({x,y,w,h},0.35f,8,PAINEL2);
+    float p = maximo > 0 ? std::clamp((float)atual/(float)maximo,0.0f,1.0f) : 0.0f;
+    if(p>0) DrawRectangleRounded({x+2,y+2,(w-4)*p,h-4},0.35f,8,cor);
+    DrawRectangleRoundedLinesEx({x,y,w,h},0.35f,8,1.0f,{88,98,112,255});
+}
+Vector2 mouseVirtual() {
+    Vector2 d=deslocamento(); float e=escala(); Vector2 p=GetMousePosition();
+    return {(p.x-d.x)/e,(p.y-d.y)/e};
+}
+void fundoEstrelado() {
+    for (int i=0; i<105;i++) {
+        float x=(float)((i*257+43)%LARGURA),y=(float)((i*149+77)%ALTURA);
+        DrawCircleV({x,y},i%7==0 ? 1.8f : 0.9f,{109,222,209,(unsigned char)(60+i%70)});
+    }
+    DrawCircleGradient(1200,190,250,{44,96,103,105},{12,17,32,0});
+    DrawCircleGradient(150,770,310,{81,54,93,110},{12,17,32,0});
+}
+void sprite(const char* const linhas[16], float x, float y, float pixel, float brilho) {
+    DrawEllipse((int)(x+pixel*8),(int)(y+pixel*16),pixel*7.2f,pixel*1.4f,{0,0,0,65});
+    for (int l=0;l<16;l++) {
+        if(!linhas[l]) continue;
+        for (int c=0;c<16 && linhas[l][c];c++) {
+            Color p=pixelCor(linhas[l][c]); if (!p.a) continue;
+            p.r=(unsigned char)(p.r*brilho); p.g=(unsigned char)(p.g*brilho); p.b=(unsigned char)(p.b*brilho);
+            DrawRectangle((int)(x+c*pixel),(int)(y+l*pixel),std::max(1,(int)std::ceil(pixel)),std::max(1,(int)std::ceil(pixel)),p);
+        }
+    }
+}
+}

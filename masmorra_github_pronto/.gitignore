@@ -1,0 +1,26 @@
+# Arquivos produzidos pela compilacao
+/build/
+/dist/
+/cmake-build-*/
+/.cache/
+CMakeUserPresets.json
+CMakeFiles/
+CMakeCache.txt
+*.o
+*.obj
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.a
+*.lib
+*.log
+
+# Biblioteca externa opcional (obtenha pelo CMake ou baixe manualmente)
+/raylib-5.5/
+
+# Ajustes pessoais do editor
+/.vscode/
+/.idea/
+.DS_Store
+Thumbs.db

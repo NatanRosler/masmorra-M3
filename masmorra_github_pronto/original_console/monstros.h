@@ -1,0 +1,97 @@
+// monstros.h
+// -----------------------------------------------------------------------------
+// Monstros: tipos (a "ficha" de cada espécie), o estado de cada monstro vivo
+// e a inteligência artificial que decide o que cada um faz no seu turno.
+// -----------------------------------------------------------------------------
+#pragma once
+
+#include <cstdint>
+#include <string>
+#include "mapa.h"
+#include "visao.h"
+#include "batalha.h"
+
+struct Jogo;   // definido em jogo.h
+struct Andar;
+
+// ---- Ficha de cada espécie --------------------------------------------------
+
+// Características especiais (podem ser combinadas com |).
+const int RAPIDO   = 1;  // anda duas vezes mais rápido no mapa
+const int ERRATICO = 2;  // voa sem rumo: 1/3 das vezes se move ao acaso
+const int MEDROSO  = 4;  // foge (no mapa e na batalha) quando está com pouca vida
+const int EM_BANDO = 8;  // aparece em dupla (às vezes em trio)
+
+const int LINHAS_DA_ARTE = 7;
+
+struct TipoMonstro {
+    const char* nome;      // "rato"
+    const char* artigo;    // "o" ou "a"
+    char simbolo;          // como aparece no mapa
+    CorRGB cor;
+    Elemento elemento;
+    // Atributos-base: junto com o nível, definem os atributos de verdade
+    // (ver vidaPeloNivel e atributoPeloNivel em batalha.h).
+    int baseVida, baseAtaque, baseDefesa, baseVelocidade;
+    int experienciaBase;   // quanto de experiência vale derrotá-lo
+    int golpes[MAX_GOLPES];
+    int numGolpes;
+    const char* arte[LINHAS_DA_ARTE]; // desenho para a tela de batalha
+    int andarMinimo;       // em que andares aparece
+    int andarMaximo;
+    int frequencia;        // quanto maior, mais comum
+    int especial;          // RAPIDO, ERRATICO, MEDROSO, EM_BANDO
+};
+
+extern const TipoMonstro TIPOS_DE_MONSTRO[];
+extern const int NUM_TIPOS_DE_MONSTRO;
+
+// ---- Cada monstro no mapa ---------------------------------------------------
+
+enum EstadoMonstro {
+    DORMINDO,   // parado; pode acordar se o jogador chegar perto
+    VAGANDO,    // anda pelo andar até um destino sorteado
+    CACANDO,    // persegue o jogador
+    FUGINDO     // foge do jogador (só os MEDROSOS, com pouca vida)
+};
+
+struct Monstro {
+    bool vivo;
+    int tipo;              // índice em TIPOS_DE_MONSTRO
+    int x, y;
+    int nivel;
+    int vida;
+    EstadoMonstro estado;
+    int destinoX, destinoY;    // para onde está indo quando VAGANDO
+    int turnosSemVerJogador;   // quando CACANDO: desiste depois de um tempo
+    int turnosSemBatalha;      // depois de uma fuga, demora a puxar briga de novo
+    bool carregaChave;         // deixa a chave da sala do tesouro ao ser derrotado
+    int tempoAcumulado;        // milissegundos desde a última ação (tempo real)
+};
+
+const int MAX_MONSTROS = 40;
+
+// Espalha os monstros de um andar recém-gerado, longe da chegada do jogador.
+void povoarAndar(Andar& andar, int numeroDoAndar, uint32_t semente,
+                 int chegadaX, int chegadaY);
+
+// Índice do monstro vivo em (x, y) no andar, ou -1 se não houver.
+int monstroEm(const Andar& andar, int x, int y);
+
+const TipoMonstro& tipoDe(const Monstro& m);
+
+// Nome com artigo, para as mensagens: "o rato", "a naga".
+// Se o jogador não está vendo o monstro, vira "algo".
+std::string nomeDoMonstro(const Jogo& jogo, const Monstro& m);
+
+// Vida máxima do monstro (depende da espécie e do nível).
+int vidaMaximaDoMonstro(const Monstro& m);
+
+// O tempo passou "ms" milissegundos no mapa: cada monstro age quando completa
+// o seu intervalo (ver intervaloDoMonstro). Se um monstro alcançar o jogador,
+// ele marca jogo.batalhaPendente e os outros esperam: a batalha começa.
+void agirMonstros(Jogo& jogo, int ms);
+
+// De quantos em quantos milissegundos o monstro age. Depende da velocidade
+// (que cresce com o nível); os RAPIDOS agem no dobro do ritmo.
+int intervaloDoMonstro(const Monstro& m);
