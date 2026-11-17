@@ -81,10 +81,14 @@ Mais detalhes:
 A biblioteca gráfica (raylib 5.5) já vem junto, na pasta `externo/`. Não é
 preciso baixar nada.
 
-- **Windows**: precisa só do **g++ (MinGW)**, o mesmo usado nas aulas. Dê dois
-  cliques em `compilar_windows.bat`. Na primeira vez ele também compila a
-  raylib (cerca de 1 minuto); nas próximas, só o jogo. O jogo sai em
-  `build\masmorra.exe` e abre sozinho no final.
+- **Windows**: precisa só do **g++ do MinGW-w64**. Dê dois cliques em
+  `compilar_windows.bat`. Na primeira vez ele também compila a raylib (cerca de
+  1 minuto); nas próximas, só o jogo. O jogo sai em `build\masmorra.exe` e abre
+  sozinho no final.
+  - Se o seu g++ for o MinGW **antigo** (o que vem com alguns cursos), o `.bat`
+    compila só a versão de console e mostra como instalar o novo. Basta rodar
+    uma vez no terminal: `winget install -e --id BrechtSanders.WinLibs.POSIX.UCRT`
+    e depois o `.bat` de novo, que encontra o compilador novo sozinho.
 - **Linux / Mac**: precisa de **CMake**. Rode `./compilar_linux_macos.sh`. No
   Linux, instale antes as bibliotecas da janela:
   `sudo apt install cmake libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev`
