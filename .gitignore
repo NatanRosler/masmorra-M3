@@ -24,3 +24,6 @@ CMakeCache.txt
 /.idea/
 .DS_Store
 Thumbs.db
+
+# Ranking gerado ao jogar
+ranking.txt
