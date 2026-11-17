@@ -90,8 +90,16 @@ jobs:
           name: mac
           path: dist/*.tar.gz
 
+      # O Mac às vezes demora na fila do GitHub: ele publica sozinho quando
+      # terminar, sem atrasar os downloads de Windows e Linux.
+      - name: Publicar versão do Mac
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.tar.gz
+
   publicar:
-    needs: [windows, linux, mac]
+    needs: [windows, linux]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
