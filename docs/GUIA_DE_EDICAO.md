@@ -79,13 +79,8 @@ Quando você escolhe LUTAR, o botão envia uma escolha ao sistema original. É p
 
 ## 7. Como testar mudanças
 
-Sempre salve com **Ctrl + S**. Depois, no terminal aberto na pasta principal do projeto:
-
-```powershell
-cmake --build build --parallel 4
-.\build\masmorra.exe
-```
-
-Não é necessário repetir a configuração inicial do CMake toda vez que mudar apenas um `.cpp` ou `.h`.
+Sempre salve com **Ctrl + S**. Depois dê dois cliques em `compilar_windows.bat`
+(ou rode-o no terminal, na pasta principal do projeto). Ele recompila o jogo e
+abre `build\masmorra.exe` sozinho. A raylib só é compilada na primeira vez.
 
 Se aparecer um erro de compilação, copie as **primeiras linhas vermelhas** do terminal, porque os erros seguintes muitas vezes são consequência do primeiro.

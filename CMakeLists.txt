@@ -46,9 +46,10 @@ endfunction()
 # ------------------------------- versão gráfica ------------------------------
 option(MASMORRA_GRAFICO "Compilar a versao grafica (raylib)" ON)
 if(MASMORRA_GRAFICO)
-    # Usa a pasta raylib-5.5 se ela existir aqui; senão baixa a raylib 5.5.
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/raylib-5.5/CMakeLists.txt")
-        add_subdirectory(raylib-5.5 raylib_build EXCLUDE_FROM_ALL)
+    # A raylib 5.5 já vem junto no projeto (externo/raylib-5.5), então não
+    # precisa baixar nada. Só se a pasta faltar é que ela é baixada.
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/externo/raylib-5.5/CMakeLists.txt")
+        add_subdirectory(externo/raylib-5.5 raylib_build EXCLUDE_FROM_ALL)
     else()
         include(FetchContent)
         FetchContent_Declare(raylib
