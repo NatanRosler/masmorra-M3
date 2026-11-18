@@ -122,7 +122,8 @@ std::vector<std::string> textoComoJogar() {
         "Força = dano   Constituição = vida e armadura",
         "Destreza = precisão e crítico   Agilidade = esquiva e velocidade",
         "",
-        "Cuidado com armadilhas escondidas. Caixas podem ser empurradas.",
+        "Caixas: empurre contra um monstro para atordoá-lo (ele perde a 1a rodada).",
+        "Quebradas, elas podem soltar poções, armas e cristais.",
     };
 }
 

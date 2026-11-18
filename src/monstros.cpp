@@ -269,6 +269,7 @@ static void criarMonstro(Andar& andar, int tipo, int x, int y, int nivel, Estado
     m.vida = vidaMaximaDoMonstro(m);
     m.elemento = TIPOS_DE_MONSTRO[tipo].elemento;   // trocado pelo sorteado em jogo.cpp
     m.turnosSemBatalha = 0;
+    m.atordoadoMs = 0;
     m.carregaChave = false;
     // Começam com relógios diferentes, para não andarem todos juntos.
     m.tempoAcumulado = (andar.numMonstros * 137) % 400;
@@ -535,6 +536,12 @@ void agirMonstros(Jogo& jogo, int ms) {
     for (int i = 0; i < andar.numMonstros && jogo.batalhaPendente < 0; i++) {
         Monstro& m = andar.monstros[i];
         if (!m.vivo) continue;
+        // Atordoado por uma caixa: fica parado até passar o tempo.
+        if (m.atordoadoMs > 0) {
+            m.atordoadoMs -= ms;
+            if (m.atordoadoMs < 0) m.atordoadoMs = 0;
+            continue;
+        }
         m.tempoAcumulado += ms;
         // Age quantas vezes o tempo acumulado permitir (normalmente uma).
         while (m.vivo && m.tempoAcumulado >= intervaloDoMonstro(m)) {

@@ -358,6 +358,8 @@ void desenharJogo(const Jogo& jogo) {
                         const Monstro& m = andar.monstros[monstroNaCelula[y][x]];
                         a.simbolo = tipoDe(m).simbolo;
                         frente = CORES_DOS_ELEMENTOS[m.elemento];
+                        // Atordoado: pisca em amarelo.
+                        if (m.atordoadoMs > 0 && (relogioMs() / 300) % 2 == 0) frente = { 255, 226, 90 };
                     } else if (npc >= 0) {
                         a.simbolo = FICHAS_DOS_NPCS[andar.npcs[npc].tipo].simbolo;
                         frente = FICHAS_DOS_NPCS[andar.npcs[npc].tipo].cor;
@@ -474,7 +476,8 @@ void desenharAjuda(const Jogo& jogo) {
         "Pegue monstros dormindo: eles começam a luta dormindo.",
         "Escadas: ande para dentro de  >  (desce)  ou  <  (sobe)",
         "Itens:  ! poção  ) arma  ] escudo  * cristal  ? pergaminho  - chave",
-        "Mapa:   = caixa (empurre)   ^ armadilha   & pessoa (converse)",
+        "Mapa:   = caixa (empurre num monstro: atordoa; pode ter item)",
+        "        ^ armadilha   & pessoa (converse)",
         "",
         "Semente desta partida: " + semente,
         "Para jogar a mesma masmorra:  masmorra " + semente,

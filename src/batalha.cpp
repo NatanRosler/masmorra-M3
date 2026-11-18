@@ -815,10 +815,18 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
 
     // ---- Apresentação. Monstros pegos dormindo começam a luta dormindo. -------
     std::string apresentacao;
+    bool tonto = false;   // algum monstro entrou tonto (levou uma caixa)
     for (int i = 0; i < quantos; i++) {
         std::string nome = b.inimigos[i].nome + " (Nv " + std::to_string(participantes[i]->nivel) + ")";
         bool chefe = (tipoDe(*participantes[i]).especial & CHEFE) != 0;
-        if (participantes[i]->estado == DORMINDO && !chefe) {
+        if (participantes[i]->atordoadoMs > 0) {
+            // Ainda tonto da caixa: perde a primeira rodada (até o chefe).
+            b.inimigos[i].status = ADORMECIDO;
+            b.inimigos[i].rodadasDormindo = 1;
+            participantes[i]->atordoadoMs = 0;
+            nome += ", tonto";
+            tonto = true;
+        } else if (participantes[i]->estado == DORMINDO && !chefe) {
             b.inimigos[i].status = ADORMECIDO;
             b.inimigos[i].rodadasDormindo = sortear(jogo.sorte, 2, 3);
             nome += ", dormindo";
@@ -827,7 +835,11 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
         apresentacao += nome;
         participantes[i]->estado = CACANDO;
     }
-    if (quantos == 1 && b.inimigos[0].status == ADORMECIDO) {
+    if (quantos == 1 && tonto) {
+        bool feminino = tipoDe(*participantes[0]).artigo[0] == 'a';
+        narrar(jogo, b, comMaiuscula(b.inimigos[0].nome) + (feminino ? " ainda está tonta" : " ainda está tonto") +
+                        " da caixa e perde a primeira rodada!", MSG_BOA);
+    } else if (quantos == 1 && b.inimigos[0].status == ADORMECIDO) {
         narrar(jogo, b, comMaiuscula(b.inimigos[0].nome) + " (Nv " + std::to_string(participantes[0]->nivel)
                         + ") está dormindo. Você o pegou desprevenido!");
     } else if (quantos == 1) {

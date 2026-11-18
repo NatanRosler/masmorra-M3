@@ -27,6 +27,7 @@ struct Armadilha {
 };
 
 const int MAX_ARMADILHAS = 12;
+const int TEMPO_ATORDOADO_MS = 5000;   // monstro atingido por uma caixa
 
 // Espalha caixas e armadilhas num andar recém-gerado (depois dos monstros e
 // dos itens, para não cair em cima deles).
@@ -42,7 +43,8 @@ void armadilhaPegaJogador(Jogo& jogo);
 // Um monstro pisou em (m.x, m.y): se houver armadilha, ele se fere.
 void armadilhaPegaMonstro(Jogo& jogo, Monstro& m);
 
-// O jogador andou para dentro de uma caixa: empurra (ou quebra).
+// O jogador andou para dentro de uma caixa: empurra, quebra (se estiver presa)
+// ou, se houver um monstro logo atrás, a caixa bate nele e o deixa atordoado.
 // Devolve true se gastou o passo.
 bool empurrarCaixa(Jogo& jogo, int dx, int dy);
 

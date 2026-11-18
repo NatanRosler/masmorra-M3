@@ -26,10 +26,37 @@ static bool cercadaDeChao(const Mapa& mapa, int x, int y) {
     return true;
 }
 
+// O que vem dentro de uma caixa (70% das caixas têm algo):
+//   Poção de Vida 35% | Arma 25% | Antídoto 12% | Éter 10% | Poção Grande 10% | Cristal 8%
+// A arma é uma das que aparecem neste andar (Espada Curta no começo, Espada
+// Longa no fundo, armas elementais no meio).
+static int sortearConteudo(GeradorAleatorio& g, int numeroDoAndar) {
+    if (!chance(g, 70)) return -1;
+    int r = sortear(g, 1, 100);
+    if (r <= 35) return I_POCAO_DE_VIDA;
+    if (r <= 60) {
+        int armas[NUM_TIPOS_DE_ITEM];
+        int quantas = 0;
+        for (int i = 0; i < NUM_TIPOS_DE_ITEM; i++) {
+            const TipoItem& t = TIPOS_DE_ITEM[i];
+            if (t.categoria == ARMA && i != I_ADAGA &&
+                numeroDoAndar >= t.andarMinimo && numeroDoAndar <= t.andarMaximo) armas[quantas++] = i;
+        }
+        if (quantas > 0) return armas[sortear(g, 0, quantas - 1)];
+        return I_POCAO_DE_VIDA;
+    }
+    if (r <= 72) return I_ANTIDOTO;
+    if (r <= 82) return I_ETER;
+    if (r <= 92) return I_POCAO_GRANDE;
+    return I_CRISTAL_DE_VIDA + sortear(g, 0, 3);   // um dos 4 cristais
+}
+
 void colocarCenario(Andar& andar, int numeroDoAndar, uint32_t semente, int chegadaX, int chegadaY) {
     GeradorAleatorio g;
     iniciarGerador(g, semente);
     andar.numArmadilhas = 0;
+    for (int y = 0; y < MAPA_ALTURA; y++)
+        for (int x = 0; x < MAPA_LARGURA; x++) andar.conteudoDasCaixas[y][x] = -1;
 
     static int distancia[MAPA_ALTURA][MAPA_LARGURA];
     calcularDistancias(andar.mapa, chegadaX, chegadaY, distancia);
@@ -42,6 +69,7 @@ void colocarCenario(Andar& andar, int numeroDoAndar, uint32_t semente, int chega
         if (!celulaVazia(andar, x, y) || !cercadaDeChao(andar.mapa, x, y)) continue;
         if (distancia[y][x] == INALCANCAVEL || distancia[y][x] < 3) continue;
         andar.mapa.celulas[y][x] = CAIXA;
+        andar.conteudoDasCaixas[y][x] = sortearConteudo(g, numeroDoAndar);
         caixas--;
     }
 
@@ -143,11 +171,43 @@ void armadilhaPegaMonstro(Jogo& jogo, Monstro& m) {
 // -----------------------------------------------------------------------------
 // CAIXAS
 // -----------------------------------------------------------------------------
+// A caixa que estava em (caixaX, caixaY) quebrou: o que havia dentro cai no
+// chão em (x, y).
+static void soltarConteudo(Jogo& jogo, Andar& andar, int caixaX, int caixaY, int x, int y) {
+    int item = andar.conteudoDasCaixas[caixaY][caixaX];
+    andar.conteudoDasCaixas[caixaY][caixaX] = -1;
+    if (item < 0 || andar.numItens >= MAX_ITENS_NO_CHAO || itemEm(andar, x, y) >= 0) return;
+    ItemNoChao& novo = andar.itens[andar.numItens++];
+    novo.ativo = true;
+    novo.tipo = item;
+    novo.x = x;
+    novo.y = y;
+    novo.visto = jogo.visivel[y][x];
+    if (jogo.visivel[y][x]) {
+        adicionarMensagem(jogo, "A caixa se quebra e revela " + nomeComArtigo(item) + "!", MSG_BOA);
+    }
+}
+
 bool empurrarCaixa(Jogo& jogo, int dx, int dy) {
     Andar& andar = andarAtual(jogo);
     Jogador& j = jogo.jogador;
     int caixaX = j.x + dx, caixaY = j.y + dy;
     int destinoX = caixaX + dx, destinoY = caixaY + dy;
+
+    // Um monstro logo atrás da caixa: ela bate nele, se despedaça e o deixa
+    // atordoado (parado por alguns segundos e tonto se a batalha começar).
+    int alvo = dentroDoMapa(destinoX, destinoY) ? monstroEm(andar, destinoX, destinoY) : -1;
+    if ((dx == 0 || dy == 0) && alvo >= 0) {
+        Monstro& m = andar.monstros[alvo];
+        andar.mapa.celulas[caixaY][caixaX] = CHAO;
+        tocarSom(SOM_CAIXA);
+        m.atordoadoMs = TEMPO_ATORDOADO_MS;
+        bool feminino = tipoDe(m).artigo[0] == 'a';
+        adicionarMensagem(jogo, "A caixa acerta " + nomeDoMonstro(jogo, m) +
+                                (feminino ? "! Ela fica atordoada." : "! Ele fica atordoado."), MSG_BOA);
+        soltarConteudo(jogo, andar, caixaX, caixaY, caixaX, caixaY);
+        return true;
+    }
 
     bool podeEmpurrar = (dx == 0 || dy == 0) && dentroDoMapa(destinoX, destinoY) &&
                         andar.mapa.celulas[destinoY][destinoX] == CHAO &&
@@ -157,9 +217,10 @@ bool empurrarCaixa(Jogo& jogo, int dx, int dy) {
     andar.mapa.celulas[caixaY][caixaX] = CHAO;
     tocarSom(SOM_CAIXA);
     if (!podeEmpurrar) {
-        // Presa (parede, monstro, item...) ou empurrada na diagonal: o
-        // jogador quebra a caixa e o caminho fica livre.
+        // Presa (parede, item...) ou empurrada na diagonal: o jogador quebra
+        // a caixa e o caminho fica livre.
         adicionarMensagem(jogo, "A caixa não se mexe, então você a quebra em pedaços.");
+        soltarConteudo(jogo, andar, caixaX, caixaY, caixaX, caixaY);
         return true;
     }
 
@@ -167,8 +228,12 @@ bool empurrarCaixa(Jogo& jogo, int dx, int dy) {
     if (armadilha >= 0) {
         andar.armadilhas[armadilha].ativa = false;
         adicionarMensagem(jogo, "A caixa cai sobre uma armadilha e a desarma! Os espinhos a despedaçam.", MSG_BOA);
+        soltarConteudo(jogo, andar, caixaX, caixaY, destinoX, destinoY);
     } else {
+        // A caixa anda e leva junto o que tem dentro.
         andar.mapa.celulas[destinoY][destinoX] = CAIXA;
+        andar.conteudoDasCaixas[destinoY][destinoX] = andar.conteudoDasCaixas[caixaY][caixaX];
+        andar.conteudoDasCaixas[caixaY][caixaX] = -1;
     }
     j.x = caixaX;
     j.y = caixaY;
@@ -189,6 +254,7 @@ void quebrarCaixasPerto(Jogo& jogo, Monstro& m) {
             if (!nome.empty()) nome[0] = (char)(nome[0] - 'a' + 'A');
             adicionarMensagem(jogo, nome + " despedaça uma caixa!");
         }
+        soltarConteudo(jogo, andar, x, y, x, y);
         return;
     }
 }

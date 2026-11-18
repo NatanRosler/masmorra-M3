@@ -79,8 +79,8 @@ void conversarComNpc(Jogo& jogo, int indice) {
                 "\"Os monstros mudam a cada vez que alguém entra aqui: o rato de",
                 "fogo de hoje pode ser de água amanhã. Olhe o elemento deles!\"",
                 "",
-                "\"O chão esconde armadilhas de espinhos. Se vir uma, empurre uma",
-                "caixa para cima dela: os espinhos quebram a caixa e param.\"",
+                "\"Está vendo essas caixas? Empurre uma contra um monstro e ele",
+                "fica tonto. E quebradas, às vezes elas escondem poções e armas!\"",
             };
             if (!npc.conversou) {
                 j.mochila[I_POCAO_DE_VIDA]++;

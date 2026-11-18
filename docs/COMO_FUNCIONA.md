@@ -232,6 +232,14 @@ dano simples de cada espécie vira o golpe daquele elemento (`golpesDoMonstro`).
   um caminho). Andar contra uma caixa a empurra; se não der, o jogador a quebra.
   Caixa empurrada sobre uma armadilha a desarma. Ogros e o chefe despedaçam as
   caixas encostadas neles.
+- **Conteúdo (v1.4):** 70% das caixas escondem um item, guardado em
+  `Andar::conteudoDasCaixas[y][x]` (anda junto quando a caixa é empurrada).
+  Poção de Vida 35%, arma do andar 25%, Antídoto 12%, Éter 10%, Poção Grande 10%,
+  cristal 8%. Quando a caixa quebra, por qualquer motivo, o item cai no chão.
+- **Atordoar (v1.4):** empurrar uma caixa contra um monstro a despedaça e deixa o
+  monstro parado por `TEMPO_ATORDOADO_MS` (5 s), com estrelinhas na cabeça. Se a
+  batalha começar enquanto ele está tonto, ele perde a primeira rodada
+  (começa `ADORMECIDO` por 1 rodada) — vale até contra o chefe.
 - **NPCs** (`npcs.cpp`): Borin, o mineiro (andar 4), destranca a sala do tesouro.
 
 ## História, NPCs e chefe (Etapa 8)

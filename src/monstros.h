@@ -64,6 +64,7 @@ struct Monstro {
     int nivel;
     int vida;
     Elemento elemento;     // sorteado a cada partida (ver sortearElementosDasEspecies)
+    int atordoadoMs;       // > 0: levou uma caixa e está tonto (não se mexe)
     EstadoMonstro estado;
     int destinoX, destinoY;    // para onde está indo quando VAGANDO
     int turnosSemVerJogador;   // quando CACANDO: desiste depois de um tempo

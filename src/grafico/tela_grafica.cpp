@@ -172,6 +172,14 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
             const Monstro& m = a.monstros[idx];
             desenharSprite(imagemMonstro(m.tipo),px+2,py+1,1.25f,claridade);
             DrawCircle(px+21,py+4,3.5f,corDoElemento(m.elemento));   // elemento sorteado
+            if(m.atordoadoMs>0) {
+                // Atordoado: três estrelinhas girando sobre a cabeça.
+                float giro=(float)relogioMs()/180.0f;
+                for(int k=0;k<3;k++) {
+                    float a=giro+k*2.094f;
+                    DrawPoly({px+12+std::cos(a)*8,(float)py+2+std::sin(a)*3},4,3.2f,45,{255,226,90,255});
+                }
+            }
         } else if(npc>=0) {
             desenharSprite(imagemNpc(a.npcs[npc].tipo),px+2,py+1,1.25f,1.0f);
             if(!a.npcs[npc].conversou) textoCentro("!",px+20,py-6,16,OURO);
@@ -449,7 +457,7 @@ void desenharAjuda(const Jogo& jogo) {
         "Encoste nos monstros para começar a batalha",
         "I: mochila      C: ficha (distribuir pontos de atributo)",
         "Z: descansar e recuperar vida      M: mensagens",
-        "Caixas: ande contra elas para empurrar (ou quebrar)",
+        "Caixas: empurre contra um monstro para atordoá-lo; podem ter itens",
         "Espinhos vermelhos: armadilha! Empurre uma caixa em cima",
         "Pessoas com '!': ande até elas para conversar",
         "O chefe final espera no 10o andar. Dele não dá para fugir",

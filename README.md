@@ -135,6 +135,7 @@ publicar → Run workflow**.
 - [x] **8. História**: abertura, 3 NPCs (um deles destranca a sala do tesouro), chefe final no andar 10 e tela de vitória
 - [x] **Som (v1.1)**: efeitos e 4 músicas (menu, masmorra, batalha, chefe) gerados no código
 - [x] **Dificuldades (v1.2)**: Fácil, Médio e Difícil, escolhidos na criação do personagem
+- [x] **v1.4**: caixas com itens (poções, armas, cristais) e caixa empurrada contra um monstro o deixa atordoado
 - [x] **v1.3**: botão Aleatório na criação; mensagens importantes em destaque (trava contra Enter apressado, faixa no mapa, vida baixa piscando)
 - [x] **9. Pontuação**: menu com como jogar, itens e pontuação; pontos na tela e no fim; ranking salvo em `ranking.txt`
 

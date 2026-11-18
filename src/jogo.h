@@ -106,6 +106,9 @@ struct Andar {
     SalaDoTesouro tesouro;     // sala trancada (se este andar tiver uma)
 
     Armadilha armadilhas[MAX_ARMADILHAS];   // Etapa 7
+    // Item escondido em cada caixa (-1 = vazia). Acompanha a caixa quando
+    // ela é empurrada e cai no chão quando ela quebra.
+    int conteudoDasCaixas[MAPA_ALTURA][MAPA_LARGURA];
     int numArmadilhas;
     Npc npcs[MAX_NPCS];                     // Etapa 8
     int numNpcs;
