@@ -6,7 +6,9 @@
 #include "raylib.h"
 #include "pontuacao.h"
 #include "som.h"
+#include "efeitos.h"
 #include <array>
+#include <cmath>
 #include <string>
 
 namespace {
@@ -26,8 +28,28 @@ bool teclaSubir() { return IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W); }
 bool teclaDescer() { return IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S); }
 bool confirmar() { return IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE); }
 void botao(Rectangle r, const std::string& legenda, bool ativo) {
-    painel(r,ativo?OURO:PAINEL2,ativo?OURO:Color{69,89,110,255});
-    textoCentro(legenda,r.x+r.width/2,r.y+(r.height-27)/2,27,ativo?FUNDO:TEXTO);
+    bool sobre=mouseSobre(r);
+    bool chegou=true;   // o destaque já está (quase todo) sobre este botão?
+    if(ativo) {
+        // O destaque dourado desliza entre os botões.
+        painel(r,PAINEL2,Color{69,89,110,255});
+        Rectangle d=Efeitos::destaqueDeslizante(r);
+        painel(d,OURO,OURO);
+        chegou=std::fabs(d.y-r.y)<r.height*0.5f && std::fabs(d.x-r.x)<r.width*0.5f;
+    } else {
+        // Mouse em cima: o botão cresce um pouquinho e ganha borda ciano.
+        Rectangle g=sobre?Rectangle{r.x-4,r.y-2,r.width+8,r.height+4}:r;
+        painel(g,sobre?Color{43,58,88,255}:PAINEL2,sobre?CIANO:Color{69,89,110,255});
+    }
+    textoCentro(legenda,r.x+r.width/2,r.y+(r.height-27)/2,27,(ativo&&chegou)?FUNDO:TEXTO);
+}
+// Mostra o botão "afundando" por um instante antes de executar a escolha.
+void apertar(Rectangle r, void (*desenhar)(int), int cursor) {
+    Efeitos::marcarClique(r);
+    double inicio=GetTime();
+    while(GetTime()-inicio<0.12 && !WindowShouldClose()) {
+        iniciarQuadro(); desenhar(cursor); terminarQuadro();
+    }
 }
 void titulo() {
     fundoEstrelado();
@@ -96,6 +118,7 @@ bool mostrarMenuPrincipal() {
     while(!WindowShouldClose()) {
         // Desenha ANTES de ler o teclado: terminarQuadro() atualiza as teclas.
         // Assim a tecla que abriu este menu (Esc, Enter...) não é lida de novo.
+        Efeitos::trocarDeTela(pagina==INICIO?50:51);   // escurece ao trocar de página
         iniciarQuadro();
         if(pagina==INICIO)inicio(cursor);
         else personagens();
@@ -111,6 +134,7 @@ bool mostrarMenuPrincipal() {
             if(escolhida>=0) {
                 tocarSom(SOM_MENU);
                 cursor=escolhida;
+                apertar(BOTAO[escolhida],inicio,cursor);
                 int r=executar(escolhida,pagina);
                 if(r>=0) return r==1;
             }
@@ -122,18 +146,21 @@ bool mostrarMenuPrincipal() {
     return false;
 }
 
+static void desenharPausa(int cursor) {
+    const char* nomes[]={"CONTINUAR","MENU PRINCIPAL","SAIR",somLigado()?"SOM: LIGADO":"SOM: DESLIGADO"};
+    titulo();
+    painel({397,265,646,520});
+    textoCentro("JOGO PAUSADO",720,291,39,OURO);
+    for(int i=0;i<4;i++)botao({460.0f,367.0f+i*92,520,68},nomes[i],cursor==i);
+}
+
 int mostrarMenuDePausa() {
     int cursor=0;
     while(!WindowShouldClose()) {
-        const char* nomes[]={"CONTINUAR","MENU PRINCIPAL","SAIR",somLigado()?"SOM: LIGADO":"SOM: DESLIGADO"};
         // Desenha antes de ler o teclado (mesmo motivo do menu principal):
         // sem isso, o Esc que abriu a pausa fechava a pausa na mesma hora.
-        iniciarQuadro();
-        titulo();
-        painel({397,265,646,520});
-        textoCentro("JOGO PAUSADO",720,291,39,OURO);
-        for(int i=0;i<4;i++)botao({460.0f,367.0f+i*92,520,68},nomes[i],cursor==i);
-        terminarQuadro();
+        Efeitos::trocarDeTela(52);
+        iniciarQuadro(); desenharPausa(cursor); terminarQuadro();
 
         if(IsKeyPressed(KEY_ESCAPE))return 0;
         if(teclaSubir()) { cursor=(cursor+3)%4; tocarSom(SOM_MENU); }
@@ -141,8 +168,9 @@ int mostrarMenuDePausa() {
         int escolhida=-1;
         if(confirmar()) escolhida=cursor;
         for(int i=0;i<4;i++) if(clicou({460.0f,367.0f+i*92,520,68})) { escolhida=i; cursor=i; }
-        if(escolhida==3) { alternarSom(); tocarSom(SOM_MENU); continue; }
-        if(escolhida>=0) { tocarSom(SOM_MENU); return escolhida; }
+        if(escolhida>=0) { tocarSom(SOM_MENU); apertar({460.0f,367.0f+escolhida*92,520,68},desenharPausa,cursor); }
+        if(escolhida==3) { alternarSom(); continue; }
+        if(escolhida>=0) return escolhida;
     }
     return 2;
 }

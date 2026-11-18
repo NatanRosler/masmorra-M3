@@ -329,3 +329,28 @@ eficaz do inimigo, armadilha, vida baixa, grupo de monstros, chefe, desmaio).
 Na criação do personagem, `sortearPersonagem` sorteia nome (de uma lista de 30
 nomes), elemento, cor e os 5 pontos de atributo. A dificuldade não é sorteada, e
 um nome digitado pelo jogador é mantido.
+
+## Animações (v1.5)
+
+Só a versão gráfica anima; no terminal as funções `animarBatalha` e
+`efeitoNoMapa` existem mas não fazem nada. A lógica só avisa **o que aconteceu**
+(ex.: "o jogador acertou o rato com Fogo, 9 de dano, crítico") e a parte gráfica
+decide como mostrar.
+
+- **`src/grafico/efeitos.cpp`:** partículas (estrelas, chamas, bolhas, folhas,
+  pedras, lascas, espinhos), números flutuantes, tremor da tela, clarão, o
+  escurecimento ao trocar de tela, o "afundar" do botão clicado e o destaque
+  dourado que desliza entre as opções. A posição de cada partícula é calculada
+  pelo tempo (`x = x0 + v·t + g·t²/2`), então não depende da velocidade do PC.
+- **Batalha (`animarBatalha` em `tela_grafica.cpp`):** entrada dos lutadores,
+  bote de quem ataca, partículas do elemento no alvo, alvo piscando com o dano
+  subindo (crítico maior, dourado e com tremor), "ERROU" com pulinho, cura com
+  brilho verde, desmaio afundando e sumindo, e brilho dourado ao subir de nível.
+  Cada animação dura de 0,5 a 0,8 s e não roda no modo automático dos testes.
+- **Mapa:** o desenho "persegue" a posição real (`PosicaoSuave`), então o
+  jogador e os monstros deslizam entre as casas e a câmera acompanha. Itens
+  flutuam, tochas tremulam, e armadilha, caixa quebrada, item pego, monstro
+  atordoado e descanso têm efeito próprio (`efeitoNoMapa`).
+- **Telas paradas continuam animando:** cada função `desenhar...` registra com
+  `definirRedesenho` como se redesenhar; enquanto o jogo espera uma tecla, essa
+  função é chamada a cada quadro.

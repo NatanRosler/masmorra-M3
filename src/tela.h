@@ -32,6 +32,26 @@ void desenharJogo(const Jogo& jogo);
 void posicaoDaCamera(const Jogo& jogo, int& cameraX, int& cameraY);
 void desenharAjuda(const Jogo& jogo);
 void desenharHistorico(const Jogo& jogo);
+// ---- Animações (só na versão gráfica; no terminal não fazem nada) ----------
+// A lógica só AVISA o que aconteceu; quem desenha a animação é a tela.
+enum AnimacaoDaBatalha {
+    ANIM_ENTRADA,         // começo da batalha: flash e personagens entrando
+    ANIM_GOLPE,           // "quem" acerta "alvo" (valor = dano, 0 = golpe de status)
+    ANIM_ERRO,            // "quem" erra "alvo"
+    ANIM_EFEITO_PROPRIO,  // golpe em si mesmo (ex.: Escudo)
+    ANIM_CURA,            // "quem" recupera "valor" de vida
+    ANIM_DESMAIO,         // "quem" desmaia
+    ANIM_NIVEL,           // o jogador sobe para o nível "valor"
+};
+// quem/alvo: 0 = jogador, 1 a 3 = inimigos.
+void animarBatalha(const Jogo& jogo, const Batalha& b, int animacao, int quem, int alvo,
+                   int elemento, int valor, bool critico);
+
+enum EfeitoNoMapa { EFEITO_ARMADILHA, EFEITO_ESPINHOS, EFEITO_ITEM, EFEITO_CAIXA, EFEITO_ATORDOAR, EFEITO_CURA };
+// Efeito rápido numa célula do mapa (não trava o jogo). "valor" depende do
+// efeito: dano da armadilha, tipo do item, vida recuperada...
+void efeitoNoMapa(const Jogo& jogo, int efeito, int x, int y, int valor);
+
 // Fim da partida: derrota (vidas acabaram) ou vitória (chefe derrotado),
 // com a pontuação e o ranking.
 void desenharMorte(const Jogo& jogo);

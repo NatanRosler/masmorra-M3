@@ -3,7 +3,9 @@
 #include "terminal.h"
 #include "visual.h"
 #include "audio.h"
+#include "efeitos.h"
 #include "raylib.h"
+#include <functional>
 #include <chrono>
 #include <cstdlib>
 #include <deque>
@@ -19,7 +21,26 @@ std::vector<Atalho> atalhos;
 std::vector<Opcao> opcoes;
 std::deque<int> pendentes;
 bool modoTexto = false;   // digitando o nome: W A S D não viram movimento
+std::function<void()> redesenho;   // a última tela desenhada (ver definirRedesenho)
+
+// Redesenha a última tela. Usa uma CÓPIA da função: assim a tela pode
+// registrar a si mesma de novo (definirRedesenho) sem apagar quem está rodando.
+void redesenhar() {
+    if (!redesenho) { std::this_thread::sleep_for(std::chrono::milliseconds(7)); PollInputEvents(); return; }
+    std::function<void()> copia = redesenho;
+    copia();
 }
+
+// Mostra o botão "afundando" por um instante antes de executar a escolha.
+void mostrarClique(Rectangle r) {
+    Efeitos::marcarClique(r);
+    double inicio = GetTime();
+    while (GetTime() - inicio < 0.11) {
+        redesenhar();
+    }
+}
+}
+void definirRedesenho(std::function<void()> funcao) { redesenho = std::move(funcao); }
 void definirModoTexto(bool ligado) { modoTexto = ligado; }
 void registrarOpcao(Rectangle r, int indice, int cursor) { opcoes.push_back({r,indice,cursor}); }
 void registrarAtalho(Rectangle r, int tecla) { atalhos.push_back({r,tecla}); }
@@ -61,7 +82,11 @@ static int teclaDoFrame() {
     if (IsKeyPressed(KEY_END) || IsKeyPressed(KEY_KP_1)) return TECLA_END;
     if (IsKeyPressed(KEY_PAGE_DOWN) || IsKeyPressed(KEY_KP_3)) return TECLA_PAGE_DOWN;
     if (IsKeyPressed(KEY_ESCAPE)) return TECLA_ESC;
-    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) return TECLA_ENTER;
+    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) {
+        // Enter num menu: a opção selecionada "afunda" antes de executar.
+        for (const auto& o:opcoes) if (o.indice>=0 && o.indice==o.cursor) { mostrarClique(o.r); break; }
+        return TECLA_ENTER;
+    }
     if (IsKeyPressed(KEY_BACKSPACE)) return 8;
     // WASD opcional para exploracao. A logica do jogo continua recebendo HJKL.
     if (!modoTexto) {
@@ -72,11 +97,12 @@ static int teclaDoFrame() {
     }
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         Vector2 p=Ui::mouseVirtual();
-        for (const auto& a:atalhos) if (CheckCollisionPointRec(p,a.r)) return a.tecla;
+        for (const auto& a:atalhos) if (CheckCollisionPointRec(p,a.r)) { Rectangle r=a.r; int t=a.tecla; mostrarClique(r); return t; }
         for (const auto& o:opcoes) {
             if (CheckCollisionPointRec(p,o.r)) {
-                // Menus de batalha aceitam números como atalhos.
-                if (o.indice>=0) return TECLA_CLIQUE_MENU+o.indice;
+                Opcao escolhida=o;
+                mostrarClique(escolhida.r);
+                if (escolhida.indice>=0) return TECLA_CLIQUE_MENU+escolhida.indice;
                 return TECLA_ENTER;
             }
         }
@@ -91,8 +117,9 @@ int lerTeclaComEspera(int esperaMs) {
         int t=teclaDoFrame();
         if (t!=TECLA_NENHUMA) return t;
         if (esperaMs>=0 && relogioMs()-inicio>=esperaMs) return TECLA_NENHUMA;
-        std::this_thread::sleep_for(std::chrono::milliseconds(7));
-        PollInputEvents();
+        // Enquanto espera, redesenha a tela: as animações continuam rodando.
+        // (EndDrawing já lê o teclado e segura o ritmo em 60 quadros/s.)
+        redesenhar();
     } while (true);
 }
 int lerTecla() {return lerTeclaComEspera(-1);}

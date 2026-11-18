@@ -995,3 +995,7 @@ void desenharMenuEmCaixa(const std::string& titulo, const std::vector<std::strin
     escreverNaTela(p.saida);
 }
 
+
+// Animações e efeitos: só existem na versão gráfica.
+void animarBatalha(const Jogo&, const Batalha&, int, int, int, int, int, bool) {}
+void efeitoNoMapa(const Jogo&, int, int, int, int) {}

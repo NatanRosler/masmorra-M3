@@ -1,6 +1,7 @@
 // itens.cpp
 #include "itens.h"
 #include "som.h"
+#include "tela.h"
 #include "jogo.h"
 #include "aleatorio.h"
 
@@ -265,6 +266,7 @@ void pegarItensDoChao(Jogo& jogo) {
     item.ativo = false;
     jogo.itensColetados++;
     tocarSom(SOM_ITEM);
+    efeitoNoMapa(jogo, EFEITO_ITEM, item.x, item.y, item.tipo);
 
     // Cristais fazem efeito na hora e para sempre.
     if (t.categoria == CRISTAL) {

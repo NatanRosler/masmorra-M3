@@ -501,7 +501,10 @@ void avancarTempo(Jogo& jogo, int ms) {
         while (jogo.msDeDescanso >= 1000) {
             jogo.msDeDescanso -= 1000;
             jogo.segundosDeDescanso++;
-            if (j.vida < j.vidaMaxima) j.vida++;
+            if (j.vida < j.vidaMaxima) {
+                j.vida++;
+                efeitoNoMapa(jogo, EFEITO_CURA, j.x, j.y, 1);
+            }
             if (jogo.segundosDeDescanso % 5 == 0) {
                 for (int s = 0; s < j.numGolpes; s++) {
                     if (j.pp[s] < GOLPES[j.golpes[s]].ppMaximo) j.pp[s]++;

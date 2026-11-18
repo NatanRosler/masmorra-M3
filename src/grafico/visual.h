@@ -25,10 +25,20 @@ void painel(Rectangle r, Color cor = PAINEL, Color borda = {65,88,113,255});
 void barra(float x, float y, float w, float h, int atual, int maximo, Color cor = VIDA);
 Vector2 mouseVirtual();
 void fundoEstrelado();
-void sprite(const char* const linhas[16], float x, float y, float pixel, float brilho = 1.0f);
+void sprite(const char* const linhas[16], float x, float y, float pixel, float brilho = 1.0f, float alfa = 1.0f);
 // Cor da roupa do herói (letra 'J' nos sprites), escolhida na criação.
 void definirCorDoHeroi(Color cor);
+// Só desenha dentro do retângulo (ex.: o mapa, quando a câmera desliza).
+void recortar(Rectangle r);
+void pararDeRecortar();
+// O mouse está em cima do retângulo?
+bool mouseSobre(Rectangle r);
 }
+
+// Tela que deve ser redesenhada enquanto o jogo espera uma tecla (assim as
+// animações continuam rodando). Cada função desenhar...() registra a sua.
+#include <functional>
+void definirRedesenho(std::function<void()> funcao);
 
 // Auxilia a integrar os cliques às seleções antigas por teclado.
 void registrarOpcao(Rectangle retangulo, int indice, int cursor);

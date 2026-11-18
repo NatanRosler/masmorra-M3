@@ -1,4 +1,5 @@
 #include "visual.h"
+#include "efeitos.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -60,11 +61,23 @@ void iniciarRecursos() {
 }
 void finalizarRecursos() { if (fonteExterna) UnloadFont(fonte); }
 void iniciarQuadro() {
+    // Cada quadro registra de novo os botões clicáveis que desenhar.
+    limparOpcoes();
     BeginDrawing(); ClearBackground(FUNDO);
     float e=escala(); Vector2 d=deslocamento();
-    BeginMode2D({d,{0,0},0.0f,e});
+    Vector2 tremor=Efeitos::deslocamentoDoTremor();   // golpe crítico, armadilha...
+    BeginMode2D({{d.x+tremor.x*e,d.y+tremor.y*e},{0,0},0.0f,e});
 }
-void terminarQuadro() { EndMode2D(); EndDrawing(); }
+void terminarQuadro() {
+    Efeitos::desenharSobreposicoes();   // piscada, escurecimento, botão apertado
+    EndMode2D(); EndDrawing();
+}
+void recortar(Rectangle r) {
+    float e=escala(); Vector2 d=deslocamento();
+    BeginScissorMode((int)(d.x+r.x*e),(int)(d.y+r.y*e),(int)(r.width*e),(int)(r.height*e));
+}
+void pararDeRecortar() { EndScissorMode(); }
+bool mouseSobre(Rectangle r) { return CheckCollisionPointRec(mouseVirtual(),r); }
 void texto(const std::string& s, float x, float y, float tam, Color cor) {
     DrawTextEx(fonte,s.c_str(),{x,y},tam,1.0f,cor);
 }
@@ -94,13 +107,15 @@ void fundoEstrelado() {
     DrawCircleGradient(1200,190,250,{44,96,103,105},{12,17,32,0});
     DrawCircleGradient(150,770,310,{81,54,93,110},{12,17,32,0});
 }
-void sprite(const char* const linhas[16], float x, float y, float pixel, float brilho) {
-    DrawEllipse((int)(x+pixel*8),(int)(y+pixel*16),pixel*7.2f,pixel*1.4f,{0,0,0,65});
+void sprite(const char* const linhas[16], float x, float y, float pixel, float brilho, float alfa) {
+    if (alfa <= 0.01f) return;
+    DrawEllipse((int)(x+pixel*8),(int)(y+pixel*16),pixel*7.2f,pixel*1.4f,{0,0,0,(unsigned char)(65*alfa)});
     for (int l=0;l<16;l++) {
         if(!linhas[l]) continue;
         for (int c=0;c<16 && linhas[l][c];c++) {
             Color p=pixelCor(linhas[l][c]); if (!p.a) continue;
             p.r=(unsigned char)(p.r*brilho); p.g=(unsigned char)(p.g*brilho); p.b=(unsigned char)(p.b*brilho);
+            p.a=(unsigned char)(p.a*alfa);
             DrawRectangle((int)(x+c*pixel),(int)(y+l*pixel),std::max(1,(int)std::ceil(pixel)),std::max(1,(int)std::ceil(pixel)),p);
         }
     }

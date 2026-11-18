@@ -70,6 +70,7 @@ if(MASMORRA_GRAFICO)
         src/grafico/visual.cpp
         src/grafico/menu_principal.cpp
         src/grafico/audio.cpp
+        src/grafico/efeitos.cpp
     )
     configurar_executavel(masmorra)
     target_link_libraries(masmorra PRIVATE raylib)

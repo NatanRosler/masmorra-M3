@@ -334,6 +334,7 @@ static void usarGolpe(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo, 
     if (chanceDeAcertar < 10) chanceDeAcertar = 10;
     if (sortear(jogo.sorte, 1, 100) > chanceDeAcertar) {
         tocarSom(SOM_ERROU);
+        animarBatalha(jogo, b, ANIM_ERRO, ladoDe(atacante), ladoDe(alvo), golpe.elemento, 0, false);
         if (golpe.precisao >= 100 && contraOAlvo) narrar(jogo, b, comMaiuscula(alvo.nome) + " se esquivou!");
         else narrar(jogo, b, "Mas errou!");
         return;
@@ -341,6 +342,8 @@ static void usarGolpe(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo, 
 
     // Golpes de status: só o efeito.
     if (golpe.poder == 0) {
+        if (contraOAlvo) animarBatalha(jogo, b, ANIM_GOLPE, ladoDe(atacante), ladoDe(alvo), golpe.elemento, 0, false);
+        else animarBatalha(jogo, b, ANIM_EFEITO_PROPRIO, ladoDe(atacante), ladoDe(atacante), golpe.elemento, 0, false);
         aplicarEfeito(jogo, b, atacante, alvo, golpe, true);
         return;
     }
@@ -355,6 +358,7 @@ static void usarGolpe(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo, 
         danoTotal += dano;
         acertos++;
         tocarSom(critico ? SOM_CRITICO : (alvo.ehJogador ? SOM_DANO : SOM_GOLPE));
+        animarBatalha(jogo, b, ANIM_GOLPE, ladoDe(atacante), ladoDe(alvo), golpe.elemento, dano, critico);
         animarVida(jogo, b, ladoDe(alvo));
         if (critico) narrar(jogo, b, "Um golpe crítico!", atacante.ehJogador ? MSG_BOA : MSG_PERIGO);
     }
@@ -371,8 +375,10 @@ static void usarGolpe(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo, 
     }
 
     if (golpe.efeito == DRENAR && *atacante.vida > 0) {
+        int antes = *atacante.vida;
         *atacante.vida += danoTotal / 2;
         if (*atacante.vida > atacante.vidaMaxima) *atacante.vida = atacante.vidaMaxima;
+        animarBatalha(jogo, b, ANIM_CURA, ladoDe(atacante), ladoDe(atacante), 0, *atacante.vida - antes, false);
         animarVida(jogo, b, ladoDe(atacante));
         narrar(jogo, b, nome + " sugou a vida de " + alvo.nome + "!");
     }
@@ -645,6 +651,7 @@ static void ganharExperiencia(Jogo& jogo, Batalha& b, int pontos) {
         b.jogador.velocidade = j.velocidade;
         b.vidaMostrada[0] = j.vida;
         tocarSom(SOM_NIVEL);
+        animarBatalha(jogo, b, ANIM_NIVEL, 0, 0, 0, j.nivel, false);
         narrar(jogo, b, "Você subiu para o nível " + std::to_string(j.nivel) + "!", MSG_BOA);
         ganharPontosDeAtributo(jogo, PONTOS_POR_NIVEL);
         if (!jogo.modoAutomatico) {
@@ -735,6 +742,7 @@ static void danoDoVeneno(Jogo& jogo, Batalha& b, Lutador& l) {
 static bool conferirDesmaios(Jogo& jogo, Batalha& b) {
     for (int i = 0; i < b.numInimigos; i++) {
         if (!b.naLuta[i] || *b.inimigos[i].vida > 0) continue;
+        animarBatalha(jogo, b, ANIM_DESMAIO, i + 1, i + 1, 0, 0, false);
         b.naLuta[i] = false;
         Monstro& m = *b.monstros[i];
         m.vivo = false;   // derrotado: some do mapa
@@ -813,6 +821,8 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
     b.numItensUsaveis = 0;
     b.numAlvos = 0;
 
+    animarBatalha(jogo, b, ANIM_ENTRADA, 0, 0, 0, 0, false);
+
     // ---- Apresentação. Monstros pegos dormindo começam a luta dormindo. -------
     std::string apresentacao;
     bool tonto = false;   // algum monstro entrou tonto (levou uma caixa)
@@ -882,8 +892,10 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
             narrar(jogo, b, "Você usa " + nomeComArtigo(acao.slot) + ".");
             tocarSom(SOM_CURA);
             if (item.curaPorcento > 0) {
+                int antes = j.vida;
                 j.vida += j.vidaMaxima * item.curaPorcento / 100;
                 if (j.vida > j.vidaMaxima) j.vida = j.vidaMaxima;
+                animarBatalha(jogo, b, ANIM_CURA, 0, 0, 0, j.vida - antes, false);
                 animarVida(jogo, b, 0);
             }
             if (item.curaStatus) {
@@ -936,6 +948,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
                 if (b.naLuta[i]) usarGolpe(jogo, b, b.inimigos[i], b.jogador, ag.slot);
             }
             if (*b.jogador.vida <= 0) {
+                animarBatalha(jogo, b, ANIM_DESMAIO, 0, 0, 0, 0, false);
                 narrar(jogo, b, "Você desmaiou...", MSG_PERIGO);
                 return DERROTA;
             }
@@ -948,7 +961,8 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
             if (b.naLuta[i]) danoDoVeneno(jogo, b, b.inimigos[i]);
         }
         if (*b.jogador.vida <= 0) {
-            narrar(jogo, b, "Você desmaiou...", MSG_PERIGO);
+            animarBatalha(jogo, b, ANIM_DESMAIO, 0, 0, 0, 0, false);
+                narrar(jogo, b, "Você desmaiou...", MSG_PERIGO);
             return DERROTA;
         }
         if (conferirDesmaios(jogo, b)) return VITORIA;

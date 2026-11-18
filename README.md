@@ -77,6 +77,7 @@ src/
 | `src/grafico/terminal_raylib.cpp` | Teclado, mouse e janela (raylib) |
 | `src/grafico/menu_principal.cpp` | Menu principal e menu de pausa |
 | `src/grafico/visual.cpp/.h` | Cores, fontes, painéis e barras |
+| `src/grafico/efeitos.cpp/.h` | Animações: partículas, números flutuantes, tremor e transições |
 | `src/grafico/sprites.h`, `extra_sprites.h` | Personagens em pixel art (16 x 16) |
 | `src/som.h`, `src/grafico/audio.cpp` | Sons e músicas gerados no código (sem arquivos de áudio) |
 | `src/console/` | A mesma coisa para o terminal: `main.cpp`, `tela.cpp`, `terminal.cpp` |

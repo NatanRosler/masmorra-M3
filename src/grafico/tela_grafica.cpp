@@ -12,6 +12,7 @@
 #include "dificuldade.h"
 #include "sprites.h"
 #include "extra_sprites.h"
+#include "efeitos.h"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -93,10 +94,12 @@ const Sprite& imagemNpc(int tipo) {
     if (tipo==NPC_ESPIRITO) return ESPIRITO;
     return EXPLORADORA;
 }
-void desenharSprite(const Sprite& sp,float x,float y,float pixel,float iluminacao=1.0f) {
+void desenharSprite(const Sprite& sp,float x,float y,float pixel,float iluminacao=1.0f,float alfa=1.0f) {
     // A arte e a paleta de pixels ficam em sprites.h, extra_sprites.h e visual.cpp.
-    sprite(sp.data(),x,y,pixel,iluminacao);
+    sprite(sp.data(),x,y,pixel,iluminacao,alfa);
 }
+// Identificação de cada tela, para o escurecimento ao trocar de uma para outra.
+enum IdDaTela { TELA_MAPA = 1, TELA_BATALHA, TELA_CRIACAO, TELA_MORTE, TELA_AVISO, TELA_PAGINA = 100 };
 // Etiqueta colorida com o nome do elemento (ex.: [ FOGO ]).
 float etiquetaDeElemento(int elemento,float x,float y,float tam=16) {
     std::string nome = emMaiusculas(NOMES_DOS_ELEMENTOS[elemento]);
@@ -145,9 +148,12 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
         for(int i=0;i<3;i++)DrawRectangle(px+5,py+6+i*4,14,2,CIANO);
         textoCentro(tipo==ESCADA_DESCE?"v":"^",px+12,py-2,18,OURO);
     } else if(tipo==TOCHA && agora) {
+        // A chama tremula: o tamanho muda com duas ondas de ritmos diferentes.
+        float t=(float)GetTime();
+        float tremula=std::sin(t*11.0f+x*1.7f)*1.5f+std::sin(t*17.0f+y*2.3f)*1.0f;
         DrawRectangle(px+10,py+13,4,9,{105,75,50,255});
-        DrawCircleGradient(px+12,py+8,11,{255,173,48,150},{255,173,48,0});
-        DrawCircle(px+12,py+8,4,{255,211,96,255});
+        DrawCircleGradient(px+12,py+8,11+tremula,{255,173,48,(unsigned char)(140+tremula*10)},{255,173,48,0});
+        DrawCircle(px+12,(int)(py+8-tremula*0.4f),4+tremula*0.3f,{255,211,96,255});
     } else if(tipo==CAIXA) {
         // Caixa de madeira (dá para empurrar).
         float f = agora ? claridade : 0.45f;
@@ -166,25 +172,14 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
         }
     }
     if (agora) {
-        int idx = monstroEm(a,x,y);
         int npc = npcEm(a,x,y);
-        if(idx>=0) {
-            const Monstro& m = a.monstros[idx];
-            desenharSprite(imagemMonstro(m.tipo),px+2,py+1,1.25f,claridade);
-            DrawCircle(px+21,py+4,3.5f,corDoElemento(m.elemento));   // elemento sorteado
-            if(m.atordoadoMs>0) {
-                // Atordoado: três estrelinhas girando sobre a cabeça.
-                float giro=(float)relogioMs()/180.0f;
-                for(int k=0;k<3;k++) {
-                    float a=giro+k*2.094f;
-                    DrawPoly({px+12+std::cos(a)*8,(float)py+2+std::sin(a)*3},4,3.2f,45,{255,226,90,255});
-                }
-            }
-        } else if(npc>=0) {
+        if(npc>=0) {
             desenharSprite(imagemNpc(a.npcs[npc].tipo),px+2,py+1,1.25f,1.0f);
-            if(!a.npcs[npc].conversou) textoCentro("!",px+20,py-6,16,OURO);
+            if(!a.npcs[npc].conversou) textoCentro("!",px+20,py-6+std::sin((float)GetTime()*5)*2,16,OURO);
         } else {
             int item=itemEm(a,x,y);
+            // Itens no chão flutuam de leve.
+            py += (int)std::round(std::sin((float)GetTime()*3.0f+x*0.9f+y*1.3f)*1.5f);
             if(item>=0) {
                 auto cat=TIPOS_DE_ITEM[a.itens[item].tipo].categoria;
                 Color c=(cat==POCAO)?PERIGO:(cat==CRISTAL)?CIANO:(cat==CHAVE)?OURO:Color{190,182,146,255};
@@ -205,9 +200,19 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
             DrawCircle(px+12,py+12,4,{87,103,130,255});
         }
     }
-    if(x==jogo.jogador.x && y==jogo.jogador.y) {
-        DrawCircle(px+12,py+12,12,{220,205,141,55});
-        desenharSprite(HEROI,px+2,py+1,1.25f,1.0f);
+}
+// Monstro no mapa (desenhado fora do tile para poder deslizar entre células).
+void desenharMonstroNoMapa(const Jogo& jogo,const Monstro& m,float px,float py) {
+    float claridade=std::clamp(brilho(jogo.luz[m.y][m.x]),0.27f,1.0f);
+    desenharSprite(imagemMonstro(m.tipo),px+2,py+1,1.25f,claridade);
+    DrawCircle((int)px+21,(int)py+4,3.5f,corDoElemento(m.elemento));   // elemento sorteado
+    if(m.atordoadoMs>0) {
+        // Atordoado: três estrelinhas girando sobre a cabeça.
+        float giro=(float)GetTime()*5.5f;
+        for(int k=0;k<3;k++) {
+            float a=giro+k*2.094f;
+            DrawPoly({px+12+std::cos(a)*8,py+2+std::sin(a)*3},4,3.2f,45,{255,226,90,255});
+        }
     }
 }
 void hud(const Jogo& jogo) {
@@ -256,8 +261,9 @@ void hud(const Jogo& jogo) {
     const int atalhos[]={'i','c','z','?','M'};
     for(int i=0;i<5;i++) {
         Rectangle r={392.0f+i*202,794,190,48};
-        painel(r,PAINEL,Color{67,100,129,255});
-        textoCentro(rotulos[i],r.x+r.width/2,r.y+14,18,CIANO);
+        bool sobre=mouseSobre(r);
+        painel(r,sobre?Color{40,56,84,255}:PAINEL,sobre?CIANO:Color{67,100,129,255});
+        textoCentro(rotulos[i],r.x+r.width/2,r.y+14,18,sobre?TEXTO:CIANO);
         registrarAtalho(r,atalhos[i]);
     }
     texto(std::string("ESC: pausa   O: som ")+(somLigado()?"(ligado)":"(desligado)"),62,830,17,APAGADO);
@@ -278,15 +284,70 @@ void faixaDeDestaque(const Jogo& jogo) {
     Color letra=jogo.tipoDaFaixa==MSG_BOA?OURO:Color{255,170,160,255}; letra.a=(unsigned char)(255*alfa);
     textoCentro(jogo.faixa,r.x+r.width/2,r.y+13,21,letra);
 }
+// ---------------------------------------------------------------------------
+// MOVIMENTO SUAVE NO MAPA
+// A lógica anda de célula em célula; aqui o desenho "persegue" a posição real,
+// então o jogador e os monstros deslizam em vez de pular. A câmera segue a
+// posição desenhada do jogador.
+// ---------------------------------------------------------------------------
+struct PosicaoSuave { float x, y; };
+PosicaoSuave jogadorSuave;
+PosicaoSuave monstrosSuaves[MAX_MONSTROS];
+int andarDesenhado = -1;
+double ultimoQuadroDoMapa = 0;
+
+void seguir(PosicaoSuave& s,int x,int y,bool pular,float dt) {
+    if (pular || std::fabs(s.x-x)>2.5f || std::fabs(s.y-y)>2.5f) { s.x=(float)x; s.y=(float)y; return; }
+    s.x=Efeitos::aproximar(s.x,(float)x,22,dt);
+    s.y=Efeitos::aproximar(s.y,(float)y,22,dt);
+}
+void atualizarPosicoesSuaves(const Jogo& jogo) {
+    double agora=GetTime();
+    float dt=(float)std::min(0.1,agora-ultimoQuadroDoMapa);
+    ultimoQuadroDoMapa=agora;
+    bool novoAndar=(andarDesenhado!=jogo.andar);
+    if(novoAndar) {
+        if(andarDesenhado>=0) Efeitos::escurecer();   // desceu ou subiu a escada
+        andarDesenhado=jogo.andar;
+        Efeitos::limparParticulas(Efeitos::CAMADA_MAPA);
+    }
+    seguir(jogadorSuave,jogo.jogador.x,jogo.jogador.y,novoAndar,dt);
+    const Andar& a=andarAtual(jogo);
+    for(int i=0;i<a.numMonstros;i++) seguir(monstrosSuaves[i],a.monstros[i].x,a.monstros[i].y,novoAndar,dt);
+}
 void mapa(const Jogo& jogo) {
     titulo("EXPLORAÇÃO   |   O mapa se revela conforme você caminha");
     painel({33,115,948,516}, {16,22,36,255});
-    int cx,cy;posicaoDaCamera(jogo,cx,cy);
+    atualizarPosicoesSuaves(jogo);
     const Andar& a=andarAtual(jogo);
     definirCorDoHeroi(paraCor(CORES_DO_JOGADOR[jogo.jogador.cor]));
-    for(int iy=0;iy<CH;iy++)for(int ix=0;ix<CW;ix++)
-        tile(jogo,a,cx+ix,cy+iy,MX+ix*TAM,MY+iy*TAM);
-    DrawRectangleLinesEx({(float)MX,(float)MY,(float)CW*TAM,(float)CH*TAM},2,{83,110,133,255});
+    // Câmera com casas "quebradas": desliza junto com o jogador.
+    float camX=std::clamp(jogadorSuave.x-CW/2,0.0f,(float)(MAPA_LARGURA-CW));
+    float camY=std::clamp(jogadorSuave.y-CH/2,0.0f,(float)(MAPA_ALTURA-CH));
+    int cx=(int)std::floor(camX), cy=(int)std::floor(camY);
+    int sobraX=(int)std::round((camX-cx)*TAM), sobraY=(int)std::round((camY-cy)*TAM);
+    Rectangle janela={(float)MX,(float)MY,(float)CW*TAM,(float)CH*TAM};
+    recortar(janela);
+    for(int iy=0;iy<=CH;iy++)for(int ix=0;ix<=CW;ix++)
+        tile(jogo,a,cx+ix,cy+iy,MX+ix*TAM-sobraX,MY+iy*TAM-sobraY);
+    // Monstros visíveis e o jogador, nas posições suaves.
+    auto naTela=[&](float x,float y,float& px,float& py){
+        px=std::round(MX+(x-camX)*TAM); py=std::round(MY+(y-camY)*TAM);
+    };
+    for(int i=0;i<a.numMonstros;i++) {
+        const Monstro& m=a.monstros[i];
+        if(!m.vivo || !jogo.visivel[m.y][m.x]) continue;
+        float px,py; naTela(monstrosSuaves[i].x,monstrosSuaves[i].y,px,py);
+        desenharMonstroNoMapa(jogo,m,px,py);
+    }
+    float hx,hy; naTela(jogadorSuave.x,jogadorSuave.y,hx,hy);
+    DrawCircle((int)hx+12,(int)hy+12,12,{220,205,141,55});
+    desenharSprite(HEROI,hx+2,hy+1,1.25f,1.0f);
+    // Efeitos do mapa (lascas, espinhos, números) acompanham a câmera.
+    Efeitos::desenharParticulas(Efeitos::CAMADA_MAPA,MX-camX*TAM,MY-camY*TAM);
+    Efeitos::desenharTextosFlutuantes(Efeitos::CAMADA_MAPA,MX-camX*TAM,MY-camY*TAM);
+    pararDeRecortar();
+    DrawRectangleLinesEx(janela,2,{83,110,133,255});
     faixaDeDestaque(jogo);
     hud(jogo);
 }
@@ -297,9 +358,19 @@ void overlayBasico(const std::string& tituloModal) {
     separador(255,222,930);
 }
 void faixaBotao(const std::string& txt,Rectangle r,bool sel,int indice=-1,int cursor=0,float tam=23) {
-    Color fundo=sel?OURO:PAINEL2;
-    painel(r,fundo,sel?OURO:Color{70,89,110,255});
-    texto(txt,r.x+20,r.y+(r.height-tam)/2-1,tam,sel?FUNDO:TEXTO);
+    bool sobre=mouseSobre(r);
+    bool chegou=true;   // o destaque já está (quase todo) sobre este botão?
+    if(sel) {
+        // O destaque dourado desliza da opção anterior até esta.
+        painel(r,PAINEL2,Color{70,89,110,255});
+        Rectangle d=Efeitos::destaqueDeslizante(r);
+        painel(d,OURO,OURO);
+        chegou=std::fabs(d.y-r.y)<r.height*0.5f && std::fabs(d.x-r.x)<r.width*0.5f;
+    } else {
+        // Mouse em cima: o botão clareia e ganha borda ciano.
+        painel(r,sobre?Color{43,58,88,255}:PAINEL2,sobre?CIANO:Color{70,89,110,255});
+    }
+    texto(txt,r.x+20+(sobre&&!sel?3:0),r.y+(r.height-tam)/2-1,tam,(sel&&chegou)?FUNDO:TEXTO);
     if(indice>=0) registrarOpcao(r,indice,cursor);
 }
 // Painel de um lutador na batalha: nome, nível, elemento, status e barra.
@@ -323,6 +394,57 @@ void painelDoLutador(const Lutador& l,int vidaMostrada,Rectangle r,Color borda,C
     etiquetaDeStatus(l.status,r.x+r.width-290,r.y+43);
     barra(x,r.y+76,r.width-40,13,vidaMostrada,l.vidaMaxima,l.ehJogador?VIDA:PERIGO);
 }
+// ---------------------------------------------------------------------------
+// ANIMAÇÃO DA BATALHA
+// Cada lutador (0 = jogador, 1 a 3 = inimigos) tem um deslocamento e uma
+// transparência que as animações mudam quadro a quadro.
+// ---------------------------------------------------------------------------
+struct AnimacaoDoLutador { float dx, dy, alfa; };
+AnimacaoDoLutador animacao[1+MAX_INIMIGOS] = {{0,0,1},{0,0,1},{0,0,1},{0,0,1}};
+bool desmaiado[1+MAX_INIMIGOS] = {false,false,false,false};
+
+// Onde o sprite de cada lutador é desenhado (sem a animação).
+void posicaoDoSprite(const Batalha& b,int quem,float& x,float& y,float& pixel) {
+    if(quem==0) { x=200; y=267; pixel=12.2f; return; }
+    if(b.numInimigos==1) { x=892; y=257; pixel=12.3f; return; }
+    x=735.0f+(quem-1)*211; y=280; pixel=8.5f;
+}
+Vector2 centroDoSprite(const Batalha& b,int quem) {
+    float x,y,p; posicaoDoSprite(b,quem,x,y,p);
+    return {x+8*p,y+8*p};
+}
+// Ícone animado do status sobre a cabeça do lutador.
+void iconeDeStatus(int status,float cx,float topo) {
+    float t=(float)GetTime();
+    if(status==ENVENENADO) {
+        for(int k=0;k<3;k++) {
+            float fase=std::fmod(t*0.8f+k/3.0f,1.0f);
+            Color c={190,100,230,(unsigned char)(255*(1-fase))};
+            DrawCircleLines((int)(cx-14+k*14+std::sin(fase*6+k)*5),(int)(topo-fase*34),5+fase*3,c);
+        }
+    } else if(status==ADORMECIDO) {
+        for(int k=0;k<2;k++) {
+            float fase=std::fmod(t*0.6f+k*0.5f,1.0f);
+            Color c={150,175,255,(unsigned char)(255*(1-fase))};
+            textoCentro("Z",cx+10+fase*22,topo-fase*36,16+fase*14,c);
+        }
+    } else if(status==PARALISADO) {
+        if(((int)(t*8))%2==0) {
+            Color c={255,226,90,255};
+            DrawLineEx({cx-24,topo-2},{cx-14,topo-14},3,c); DrawLineEx({cx-14,topo-14},{cx-18,topo-4},3,c);
+            DrawLineEx({cx+16,topo-6},{cx+26,topo-18},3,c); DrawLineEx({cx+26,topo-18},{cx+22,topo-8},3,c);
+        }
+    }
+}
+// Desenha o sprite de um lutador com a animação dele.
+void spriteDoLutador(const Batalha& b,int quem,const Sprite& arte) {
+    if(desmaiado[quem]) return;
+    float x,y,p; posicaoDoSprite(b,quem,x,y,p);
+    const AnimacaoDoLutador& an=animacao[quem];
+    desenharSprite(arte,x+an.dx,y+an.dy,p,1.0f,an.alfa);
+    const Lutador& l=(quem==0)?b.jogador:b.inimigos[quem-1];
+    iconeDeStatus(l.status,x+8*p+an.dx,y+an.dy-6);
+}
 void telaBatalha(const Jogo& jogo,const Batalha& b) {
     titulo("BATALHA   |   Golpes, elementos e turnos");
     painel({39,121,1362,468});
@@ -331,18 +453,24 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
     DrawEllipse(350,493,275,50,{44,63,76,255});
     DrawEllipse(1010,466,280,54,{44,63,76,255});
     definirCorDoHeroi(paraCor(CORES_DO_JOGADOR[jogo.jogador.cor]));
-    desenharSprite(HEROI,200,267,12.2f);
+    spriteDoLutador(b,0,HEROI);
     painelDoLutador(b.jogador,b.vidaMostrada[0],{55,140,430,107},CIANO,CIANO,false);
     if(b.numInimigos==1) {
         const Monstro& m=*b.monstros[0];
-        desenharSprite(imagemMonstro(m.tipo),892,257,12.3f);
+        spriteDoLutador(b,1,imagemMonstro(m.tipo));
         painelDoLutador(b.inimigos[0],b.vidaMostrada[1],{909,140,474,106},OURO,OURO,false);
     } else {
         for (int i=0;i<b.numInimigos;i++) {
             if(!b.naLuta[i])continue;
             int px=735+i*211;
-            desenharSprite(imagemMonstro(b.monstros[i]->tipo),(float)px,280,8.5f);
+            spriteDoLutador(b,i+1,imagemMonstro(b.monstros[i]->tipo));
             bool alvo=(b.menu==MENU_ALVO && b.alvos[b.cursor]==i);
+            if(alvo) {
+                // Seta pulando sobre o alvo escolhido.
+                float pulo=std::fabs(std::sin((float)GetTime()*6))*8;
+                Vector2 c=centroDoSprite(b,i+1);
+                DrawTriangle({c.x-12,c.y-88-pulo},{c.x,c.y-72-pulo},{c.x+12,c.y-88-pulo},OURO);
+            }
             painelDoLutador(b.inimigos[i],b.vidaMostrada[i+1],{(float)px-20,138,204,118},alvo?OURO:CIANO,OURO,true);
         }
     }
@@ -416,7 +544,11 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
         if(!b.travado) texto("ENTER para continuar",1070,770,19,CIANO);
     }
     texto("Setas: escolher     Enter: confirmar     Esc: voltar",62,811,19,APAGADO);
+    // Partículas e números da batalha por cima de tudo.
+    Efeitos::desenharParticulas(Efeitos::CAMADA_TELA);
+    Efeitos::desenharTextosFlutuantes(Efeitos::CAMADA_TELA);
 }
+float suavizar(float t) { t=std::clamp(t,0.0f,1.0f); return 1-(1-t)*(1-t)*(1-t); }   // começa rápido, termina devagar
 }
 
 void posicaoDaCamera(const Jogo& jogo,int& cameraX,int& cameraY) {
@@ -426,14 +558,154 @@ void posicaoDaCamera(const Jogo& jogo,int& cameraX,int& cameraY) {
 void forcarLimpezaDaTela() {}
 void desenharJogo(const Jogo& jogo) {
     ultimoJogo=&jogo;
-    limparOpcoes();Ui::iniciarQuadro();mapa(jogo);Ui::terminarQuadro();
+    Efeitos::trocarDeTela(TELA_MAPA);
+    definirRedesenho([&jogo]{ desenharJogo(jogo); });
+    Ui::iniciarQuadro();mapa(jogo);Ui::terminarQuadro();
 }
 void desenharBatalha(const Jogo& jogo,const Batalha& b) {
-    limparOpcoes();Ui::iniciarQuadro();telaBatalha(jogo,b);Ui::terminarQuadro();
+    Efeitos::trocarDeTela(TELA_BATALHA);
+    definirRedesenho([&jogo,b]{ desenharBatalha(jogo,b); });   // cópia da batalha
+    Ui::iniciarQuadro();telaBatalha(jogo,b);Ui::terminarQuadro();
+}
+
+// ---------------------------------------------------------------------------
+// ANIMAÇÕES DA BATALHA (chamadas pela lógica em batalha.cpp)
+// Cada uma roda por uma fração de segundo, desenhando a batalha quadro a
+// quadro com os lutadores deslocados, e depois devolve o controle.
+// ---------------------------------------------------------------------------
+void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,int elemento,int valor,bool critico) {
+    if(jogo.modoAutomatico) return;
+    double duracao=0.5;
+    switch(tipo) {
+        case ANIM_ENTRADA: duracao=0.65; break;
+        case ANIM_GOLPE:   duracao=0.55; break;
+        case ANIM_DESMAIO: duracao=0.6;  break;
+        case ANIM_NIVEL:   duracao=0.8;  break;
+    }
+    if(tipo==ANIM_ENTRADA) {
+        Efeitos::limparParticulas(Efeitos::CAMADA_TELA);
+        for(int i=0;i<=MAX_INIMIGOS;i++) desmaiado[i]=false;
+        Efeitos::piscar(WHITE,0.35);
+    }
+    Vector2 centroAlvo=centroDoSprite(b,alvo), centroQuem=centroDoSprite(b,quem);
+    float direcao=(quem==0)?1.0f:-1.0f;   // o jogador ataca para a direita
+    bool disparou=false;
+    double inicio=GetTime();
+    while(true) {
+        float t=(float)((GetTime()-inicio)/duracao);
+        if(t>=1) break;
+        for(int i=0;i<=MAX_INIMIGOS;i++) animacao[i]={0,0,1};
+        switch(tipo) {
+        case ANIM_ENTRADA:
+            // O herói entra pela esquerda e os monstros pela direita.
+            animacao[0].dx=-420*(1-suavizar(t));
+            for(int i=1;i<=MAX_INIMIGOS;i++) animacao[i].dx=520*(1-suavizar(t));
+            break;
+        case ANIM_GOLPE: case ANIM_ERRO: {
+            // Bote: quem ataca avança e volta.
+            if(t<0.4f) animacao[quem].dx=direcao*70*std::sin(3.14159f*t/0.4f);
+            if(t>=0.25f && !disparou) {
+                disparou=true;
+                if(tipo==ANIM_ERRO) {
+                    Efeitos::textoFlutuante("ERROU",centroAlvo.x,centroAlvo.y-70,{190,195,205,255},30,Efeitos::CAMADA_TELA);
+                } else {
+                    Efeitos::explosaoDoElemento(elemento,centroAlvo.x,centroAlvo.y,Efeitos::CAMADA_TELA,critico?1.6f:1.0f);
+                    if(valor>0) {
+                        Color cor=critico?OURO:(alvo==0?Color{255,120,120,255}:WHITE);   // dano no jogador fica avermelhado
+                        Efeitos::textoFlutuante("-"+std::to_string(valor)+(critico?"!":""),centroAlvo.x,centroAlvo.y-70,
+                                                cor,critico?50:36,Efeitos::CAMADA_TELA,1.0);
+                    }
+                    if(critico) { Efeitos::tremer(10,0.35); Efeitos::piscar(WHITE,0.12); }
+                    else if(valor>0) Efeitos::tremer(3,0.15);
+                }
+            }
+            if(t>=0.25f) {
+                float u=(t-0.25f)/0.75f;
+                if(tipo==ANIM_ERRO) {
+                    // O alvo dá um pulinho para o lado.
+                    animacao[alvo].dx=-direcao*30*std::sin(3.14159f*std::min(1.0f,u*1.5f));
+                    animacao[alvo].dy=-24*std::sin(3.14159f*std::min(1.0f,u*1.5f));
+                } else if(valor>0) {
+                    // O alvo treme e pisca.
+                    animacao[alvo].dx=std::sin(u*60)*6*(1-u);
+                    animacao[alvo].alfa=(((int)(u*duracao*1000/70))%2==0)?0.3f:1.0f;
+                }
+            }
+            break;
+        }
+        case ANIM_EFEITO_PROPRIO:
+            if(!disparou) {
+                disparou=true;
+                Efeitos::brilhoSubindo(centroQuem.x,centroQuem.y,elemento==0?CIANO:corDoElemento(elemento),18,Efeitos::CAMADA_TELA);
+            }
+            animacao[quem].dy=-12*std::sin(3.14159f*t);
+            break;
+        case ANIM_CURA:
+            if(!disparou) {
+                disparou=true;
+                Efeitos::brilhoSubindo(centroQuem.x,centroQuem.y,{120,230,140,255},20,Efeitos::CAMADA_TELA);
+                if(valor>0) Efeitos::textoFlutuante("+"+std::to_string(valor),centroQuem.x,centroQuem.y-70,
+                                                    {120,230,140,255},36,Efeitos::CAMADA_TELA,1.0);
+            }
+            break;
+        case ANIM_DESMAIO:
+            // Afunda e some aos poucos.
+            animacao[quem].dy=70*suavizar(t);
+            animacao[quem].alfa=1-t;
+            break;
+        case ANIM_NIVEL:
+            if(!disparou) {
+                disparou=true;
+                Efeitos::brilhoSubindo(centroQuem.x,centroQuem.y,OURO,34,Efeitos::CAMADA_TELA);
+                Efeitos::textoFlutuante("NÍVEL "+std::to_string(valor)+"!",centroQuem.x,centroQuem.y-90,OURO,42,
+                                        Efeitos::CAMADA_TELA,1.3);
+            }
+            animacao[quem].dy=-14*std::fabs(std::sin(3.14159f*t*2));   // dois pulinhos de alegria
+            break;
+        }
+        Ui::iniciarQuadro();telaBatalha(jogo,b);Ui::terminarQuadro();
+    }
+    for(int i=0;i<=MAX_INIMIGOS;i++) animacao[i]={0,0,1};
+    if(tipo==ANIM_DESMAIO) desmaiado[quem]=true;
+}
+
+// ---------------------------------------------------------------------------
+// EFEITOS NO MAPA (chamados pela lógica; não travam o jogo)
+// ---------------------------------------------------------------------------
+void efeitoNoMapa(const Jogo& jogo,int efeito,int x,int y,int valor) {
+    if(jogo.modoAutomatico) return;
+    float px=x*TAM+TAM/2.0f, py=y*TAM+TAM/2.0f;   // em pixels do mapa (a câmera é somada ao desenhar)
+    const int MAPA=Efeitos::CAMADA_MAPA;
+    switch(efeito) {
+        case EFEITO_ARMADILHA:
+            Efeitos::espinhos(px,py,MAPA);
+            Efeitos::piscar({230,40,50,255},0.25);
+            Efeitos::tremer(6,0.25);
+            Efeitos::textoFlutuante("-"+std::to_string(valor),px,py-14,PERIGO,24,MAPA);
+            break;
+        case EFEITO_ESPINHOS:
+            Efeitos::espinhos(px,py,MAPA);
+            break;
+        case EFEITO_ITEM:
+            Efeitos::brilhoSubindo(px,py-10,OURO,8,MAPA);
+            if(valor>=0 && valor<NUM_TIPOS_DE_ITEM)
+                Efeitos::textoFlutuante(std::string("+ ")+TIPOS_DE_ITEM[valor].nome,px,py-16,CIANO,17,MAPA,1.1);
+            break;
+        case EFEITO_CAIXA:
+            Efeitos::lascas(px,py,MAPA);
+            break;
+        case EFEITO_ATORDOAR:
+            Efeitos::explosaoDoElemento(0,px,py,MAPA,0.6f);
+            break;
+        case EFEITO_CURA:
+            Efeitos::textoFlutuante("+"+std::to_string(valor),px+6,py-14,{120,230,140,255},17,MAPA,0.8);
+            break;
+    }
 }
 void desenharMenuEmCaixa(const std::string& nome,const std::vector<std::string>& opcoes,
                          const std::string& descricao,int cursor) {
-    limparOpcoes();Ui::iniciarQuadro();if(ultimoJogo)mapa(*ultimoJogo);
+    definirRedesenho([nome,opcoes,descricao,cursor]{ desenharMenuEmCaixa(nome,opcoes,descricao,cursor); });
+    Ui::iniciarQuadro();if(ultimoJogo)mapa(*ultimoJogo);
     overlayBasico(nome);
     int primeira=std::max(0,cursor-6);
     int n=std::min(12,(int)opcoes.size());
@@ -451,6 +723,7 @@ void desenharMenuEmCaixa(const std::string& nome,const std::vector<std::string>&
     Ui::terminarQuadro();
 }
 void desenharAjuda(const Jogo& jogo) {
+    definirRedesenho([&jogo]{ desenharAjuda(jogo); });
     Ui::iniciarQuadro();mapa(jogo);overlayBasico("COMANDOS DO MASMORRA");
     const std::vector<std::string> linhas={
         "Setas / WASD / H J K L: andar     Diagonais: Y U B N",
@@ -467,13 +740,15 @@ void desenharAjuda(const Jogo& jogo) {
     texto("Aperte qualquer tecla para retornar",263,696,20,OURO);Ui::terminarQuadro();
 }
 void desenharHistorico(const Jogo& jogo) {
+    definirRedesenho([&jogo]{ desenharHistorico(jogo); });
     Ui::iniciarQuadro();mapa(jogo);overlayBasico("HISTÓRICO");
     size_t n=jogo.historico.size();size_t ini=n>14?n-14:0;
     for(size_t i=ini;i<n;i++)texto(jogo.historico[i],263,245+31*(i-ini),19,corDaMensagem(jogo.tiposDoHistorico[i]));
     texto("Aperte qualquer tecla para retornar",263,700,20,OURO);Ui::terminarQuadro();
 }
 void desenharMorte(const Jogo& jogo) {
-    limparOpcoes();
+    Efeitos::trocarDeTela(TELA_MORTE);
+    definirRedesenho([&jogo]{ desenharMorte(jogo); });
     Ui::iniciarQuadro();mapa(jogo);
     overlayBasico(jogo.venceu ? "VITÓRIA!" : "FIM DE JOGO");
     if(jogo.venceu) {
@@ -506,6 +781,8 @@ void desenharMorte(const Jogo& jogo) {
     Ui::terminarQuadro();
 }
 void desenharAviso(const std::string& a,const std::string& b) {
+    Efeitos::trocarDeTela(TELA_AVISO);
+    definirRedesenho([a,b]{ desenharAviso(a,b); });
     Ui::iniciarQuadro();titulo("AVISO");texto(a,140,270,25,PERIGO);texto(b,140,330,24,TEXTO);Ui::terminarQuadro();
 }
 
@@ -514,7 +791,10 @@ void desenharAviso(const std::string& a,const std::string& b) {
 // ---------------------------------------------------------------------------
 void desenharPagina(const std::string& tituloDaPagina,const std::vector<std::string>& linhas,
                     const std::string& rodape) {
-    limparOpcoes();
+    // Cada página (pelo título) conta como uma tela diferente.
+    int id=TELA_PAGINA; for(char ch:tituloDaPagina) id=id*31+(unsigned char)ch;
+    Efeitos::trocarDeTela(id&0x7fffffff);
+    definirRedesenho([tituloDaPagina,linhas,rodape]{ desenharPagina(tituloDaPagina,linhas,rodape); });
     Ui::iniciarQuadro();
     fundoEstrelado();
     texto("MASMORRA",145,48,46,OURO);
@@ -539,7 +819,8 @@ void desenharPagina(const std::string& tituloDaPagina,const std::vector<std::str
 // CRIAÇÃO DO PERSONAGEM
 // ---------------------------------------------------------------------------
 void desenharCriacao(const Criacao& c) {
-    limparOpcoes();
+    Efeitos::trocarDeTela(TELA_CRIACAO);
+    definirRedesenho([c]{ desenharCriacao(c); });
     Ui::iniciarQuadro();
     fundoEstrelado();
     texto("MASMORRA",145,40,54,OURO);
@@ -558,12 +839,14 @@ void desenharCriacao(const Criacao& c) {
         // Os dois botões do fim ficam lado a lado.
         if(i==LINHA_ALEATORIO || i==LINHA_COMECAR) {
             r = (i==LINHA_ALEATORIO) ? Rectangle{150,y+8,230,56} : Rectangle{394,y+8,316,56};
-            painel(r,sel?OURO:PAINEL2,sel?OURO:Color{69,89,110,255});
+            bool sobre=mouseSobre(r);
+            painel(r,sel?OURO:(sobre?Color{43,58,88,255}:PAINEL2),sel?OURO:(sobre?CIANO:Color{69,89,110,255}));
             textoCentro(i==LINHA_ALEATORIO?"ALEATÓRIO":"COMEÇAR AVENTURA",r.x+r.width/2,r.y+16,24,sel?FUNDO:TEXTO);
             registrarOpcao(r,i,c.linha);
             continue;
         }
-        painel(r,sel?Color{58,52,38,255}:PAINEL2,sel?OURO:Color{69,89,110,255});
+        bool sobre=mouseSobre(r);
+        painel(r,sel?Color{58,52,38,255}:(sobre?Color{40,54,82,255}:PAINEL2),sel?OURO:(sobre?CIANO:Color{69,89,110,255}));
         texto(rotulos[i],r.x+20,r.y+12,20,sel?OURO:APAGADO);
         float vx=r.x+270;
         std::string valor;

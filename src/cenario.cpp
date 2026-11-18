@@ -3,6 +3,7 @@
 #include "jogo.h"
 #include "aleatorio.h"
 #include "som.h"
+#include "tela.h"
 #include "dificuldade.h"
 
 // -----------------------------------------------------------------------------
@@ -116,6 +117,7 @@ void armadilhaPegaJogador(Jogo& jogo) {
         a.descoberta = true;
         tocarSom(SOM_ARMADILHA);
         int dano = danoDaArmadilha(j.vidaMaxima, dificuldadeAtual().danoDasArmadilhas);
+        efeitoNoMapa(jogo, EFEITO_ARMADILHA, j.x, j.y, dano);
         j.vida -= dano;
         adicionarMensagem(jogo, "Espinhos saltam do chão! Você perde " + std::to_string(dano) + " de vida.", MSG_PERIGO);
         if (j.vida <= 0) {
@@ -145,7 +147,10 @@ void armadilhaPegaMonstro(Jogo& jogo, Monstro& m) {
     if (i < 0) return;
     Armadilha& a = andar.armadilhas[i];
     bool visto = jogo.visivel[m.y][m.x];
-    if (visto) a.descoberta = true;
+    if (visto) {
+        a.descoberta = true;
+        efeitoNoMapa(jogo, EFEITO_ESPINHOS, m.x, m.y, 0);
+    }
     m.vida -= danoDaArmadilha(vidaMaximaDoMonstro(m), 20);
     std::string nome = nomeDoMonstro(jogo, m);
     if (!nome.empty()) nome[0] = (char)(nome[0] - 'a' + 'A');
@@ -174,6 +179,7 @@ void armadilhaPegaMonstro(Jogo& jogo, Monstro& m) {
 // A caixa que estava em (caixaX, caixaY) quebrou: o que havia dentro cai no
 // chão em (x, y).
 static void soltarConteudo(Jogo& jogo, Andar& andar, int caixaX, int caixaY, int x, int y) {
+    if (jogo.visivel[caixaY][caixaX]) efeitoNoMapa(jogo, EFEITO_CAIXA, caixaX, caixaY, 0);
     int item = andar.conteudoDasCaixas[caixaY][caixaX];
     andar.conteudoDasCaixas[caixaY][caixaX] = -1;
     if (item < 0 || andar.numItens >= MAX_ITENS_NO_CHAO || itemEm(andar, x, y) >= 0) return;
@@ -202,6 +208,7 @@ bool empurrarCaixa(Jogo& jogo, int dx, int dy) {
         andar.mapa.celulas[caixaY][caixaX] = CHAO;
         tocarSom(SOM_CAIXA);
         m.atordoadoMs = TEMPO_ATORDOADO_MS;
+        efeitoNoMapa(jogo, EFEITO_ATORDOAR, m.x, m.y, 0);
         bool feminino = tipoDe(m).artigo[0] == 'a';
         adicionarMensagem(jogo, "A caixa acerta " + nomeDoMonstro(jogo, m) +
                                 (feminino ? "! Ela fica atordoada." : "! Ele fica atordoado."), MSG_BOA);
