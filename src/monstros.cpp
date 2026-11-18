@@ -4,6 +4,7 @@
 #include "aleatorio.h"
 #include "cenario.h"
 #include "npcs.h"
+#include "dificuldade.h"
 
 #include <cmath>
 
@@ -207,12 +208,11 @@ const TipoMonstro& tipoDe(const Monstro& m) {
     return TIPOS_DE_MONSTRO[m.tipo];
 }
 
-// Monstros são 30% mais resistentes que a fórmula do jogador: o jogador luta
-// sozinho contra a masmorra inteira, mas não deve vencer com um golpe só.
-const int VIDA_EXTRA_DOS_MONSTROS = 30; // em %
-
+// A vida dos monstros segue a mesma fórmula do jogador, mais o ajuste da
+// dificuldade (ex.: +30% no difícil, -15% no fácil).
 int vidaMaximaDoMonstro(const Monstro& m) {
-    return vidaPeloNivel(tipoDe(m).baseVida, m.nivel) * (100 + VIDA_EXTRA_DOS_MONSTROS) / 100;
+    // A dificuldade aumenta (ou diminui) a vida de todos os monstros.
+    return vidaPeloNivel(tipoDe(m).baseVida, m.nivel) * (100 + dificuldadeAtual().vidaDosMonstros) / 100;
 }
 
 int monstroEm(const Andar& andar, int x, int y) {
@@ -527,7 +527,7 @@ int intervaloDoMonstro(const Monstro& m) {
     if (ms < 220) ms = 220;
     if (t.especial & RAPIDO) ms /= 2;
     if (m.estado == VAGANDO || m.estado == DORMINDO) ms = ms * 3 / 2; // passeando, vai devagar
-    return ms;
+    return ms * dificuldadeAtual().lentidaoDosMonstros / 100;
 }
 
 void agirMonstros(Jogo& jogo, int ms) {

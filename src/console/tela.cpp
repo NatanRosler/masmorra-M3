@@ -518,7 +518,7 @@ void desenharMorte(const Jogo& jogo) {
     linhas.push_back("PONTUAÇÃO: " + std::to_string(jogo.pontuacaoFinal) + "   (andar " +
                      std::to_string(jogo.andarMaisFundo) + ", " + std::to_string(jogo.monstrosMortos) +
                      " monstros, " + std::to_string(jogo.itensColetados) + " itens, " +
-                     std::to_string(jogo.passos) + " passos)");
+                     std::to_string(jogo.passos) + " passos, " + dificuldadeAtual().nome + ")");
     if (jogo.posicaoNoRanking >= 0) {
         linhas.push_back("Você ficou em " + std::to_string(jogo.posicaoNoRanking + 1) + "o lugar no ranking!");
     }
@@ -526,7 +526,7 @@ void desenharMorte(const Jogo& jogo) {
     std::vector<RegistroRanking> ranking = lerRanking();
     for (int i = 0; i < (int)ranking.size() && i < 5; i++) {
         linhas.push_back(std::to_string(i + 1) + ". " + ranking[i].nome + "  " + std::to_string(ranking[i].pontos) +
-                         (ranking[i].venceu ? "  (venceu)" : ""));
+                         "  " + ranking[i].dificuldade + (ranking[i].venceu ? "  (venceu)" : ""));
     }
     linhas.push_back("");
     linhas.push_back("N: nova partida      Q: menu");
@@ -554,6 +554,7 @@ void desenharCriacao(const Criacao& c) {
     rotulos[LINHA_NOME] = "Nome:         " + c.nome + (c.linha == LINHA_NOME ? "_" : "");
     rotulos[LINHA_ELEMENTO] = "Elemento:   < " + std::string(NOMES_DOS_ELEMENTOS[c.elemento]) + " >";
     rotulos[LINHA_COR] = "Cor:        < " + std::string(NOMES_DAS_CORES_DO_JOGADOR[c.cor]) + " >";
+    rotulos[LINHA_DIFICULDADE] = "Dificuldade: < " + std::string(DIFICULDADES[c.dificuldade].nome) + " >";
     for (int a = 0; a < NUM_ATRIBUTOS; a++) {
         std::string nome = NOMES_DOS_ATRIBUTOS[a];
         rotulos[LINHA_FORCA + a] = nome + ":" + std::string(13 - contarLetras(nome), ' ') + "- " +
@@ -562,7 +563,7 @@ void desenharCriacao(const Criacao& c) {
     rotulos[LINHA_COMECAR] = "[ COMEÇAR A AVENTURA ]";
     for (int i = 0; i < NUM_LINHAS_DA_CRIACAO; i++) {
         linhas.push_back((i == c.linha ? "> " : "  ") + rotulos[i]);
-        if (i == LINHA_COR) linhas.push_back("");
+        if (i == LINHA_DIFICULDADE) linhas.push_back("");
         if (i == LINHA_AGILIDADE) {
             linhas.push_back("  Pontos livres: " + std::to_string(c.pontosLivres));
             linhas.push_back("");
@@ -576,6 +577,7 @@ void desenharCriacao(const Criacao& c) {
         dica = "Golpe inicial: " + std::string(GOLPES[golpeInicialDoElemento(e)].nome);
     }
     if (c.linha == LINHA_COR) dica = "A cor do seu @ no mapa.";
+    if (c.linha == LINHA_DIFICULDADE) dica = DIFICULDADES[c.dificuldade].descricao;
     if (c.linha >= LINHA_FORCA && c.linha <= LINHA_AGILIDADE) dica = EFEITOS_DOS_ATRIBUTOS[c.linha - LINHA_FORCA];
     if (c.linha == LINHA_COMECAR) dica = "Enter para começar.";
     linhas.push_back(dica);

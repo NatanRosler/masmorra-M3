@@ -9,6 +9,7 @@
 #include "monstros.h"
 #include "pontuacao.h"
 #include "som.h"
+#include "dificuldade.h"
 #include "sprites.h"
 #include "extra_sprites.h"
 #include <algorithm>
@@ -39,6 +40,11 @@ Color multiplicar(Color c,float f) {
 // Cores do jogo (CorRGB, 0-255) para a raylib.
 Color paraCor(CorRGB c) { return {(unsigned char)c.r,(unsigned char)c.g,(unsigned char)c.b,255}; }
 Color corDoElemento(int e) { return paraCor(CORES_DOS_ELEMENTOS[e]); }
+Color corDaDificuldade(int d) {
+    if (d==FACIL) return {110,210,120,255};
+    if (d==DIFICIL) return PERIGO;
+    return OURO;
+}
 
 // "o chacal A" -> "Chacal A" (nome do lutador sem o artigo, para os painéis).
 std::string semArtigo(std::string nome) {
@@ -196,7 +202,8 @@ void hud(const Jogo& jogo) {
     definirCorDoHeroi(paraCor(CORES_DO_JOGADOR[j.cor]));
     painel({1001,122,400,505});
     texto(j.nome,1025,140,26,OURO);
-    etiquetaDeElemento(j.elemento,1027,178);
+    float w=etiquetaDeElemento(j.elemento,1027,178);
+    texto(dificuldadeAtual().nome,1027+w+12,180,18,corDaDificuldade(nivelDaDificuldade()));
     desenharSprite(HEROI,1238,150,4.6f);
     texto("Andar",1027,226,19,APAGADO);
     texto(std::to_string(jogo.andar)+" / "+std::to_string(NUM_ANDARES),1027,248,30,TEXTO);
@@ -427,7 +434,8 @@ void desenharMorte(const Jogo& jogo) {
     texto("PONTUAÇÃO: "+std::to_string(jogo.pontuacaoFinal),263,330,34,OURO);
     texto("Andar "+std::to_string(jogo.andarMaisFundo)+"   |   "+std::to_string(jogo.monstrosMortos)+" monstros   |   "+
           std::to_string(jogo.itensColetados)+" itens   |   "+std::to_string(jogo.passos)+" passos   |   "+
-          std::to_string(VIDAS_INICIAIS-jogo.jogador.vidas)+" vidas perdidas",263,378,18,APAGADO);
+          std::to_string(dificuldadeAtual().vidas-jogo.jogador.vidas)+" vidas perdidas   |   "+
+          dificuldadeAtual().nome,263,378,18,APAGADO);
     if(jogo.posicaoNoRanking>=0)
         texto("Você ficou em "+std::to_string(jogo.posicaoNoRanking+1)+"º lugar no ranking!",263,410,21,CIANO);
     separador(263,446,880);
@@ -438,7 +446,7 @@ void desenharMorte(const Jogo& jogo) {
         Color c=(i==jogo.posicaoNoRanking)?OURO:TEXTO;
         texto(std::to_string(i+1)+". "+r.nome,280,490+i*30,20,c);
         texto(std::to_string(r.pontos)+" pts",620,490+i*30,20,c);
-        texto("andar "+std::to_string(r.andar)+(r.venceu?"   VENCEU":""),800,490+i*30,20,c);
+        texto("andar "+std::to_string(r.andar)+"   "+r.dificuldade+(r.venceu?"   VENCEU":""),800,490+i*30,20,c);
     }
     texto("N: nova partida       Q: menu principal",263,700,24,OURO);
     Ui::terminarQuadro();
@@ -484,24 +492,24 @@ void desenharCriacao(const Criacao& c) {
     texto("CRIE SEU PERSONAGEM",152,110,23,CIANO);
     separador(150,150,1140);
 
-    const char* rotulos[NUM_LINHAS_DA_CRIACAO]={"NOME","ELEMENTO","COR","FORÇA","CONSTITUIÇÃO","DESTREZA","AGILIDADE",""};
-    float y=172;
+    const char* rotulos[NUM_LINHAS_DA_CRIACAO]={"NOME","ELEMENTO","COR","DIFICULDADE","FORÇA","CONSTITUIÇÃO","DESTREZA","AGILIDADE",""};
+    float y=166;
     for(int i=0;i<NUM_LINHAS_DA_CRIACAO;i++) {
         bool sel=(c.linha==i);
         if(i==LINHA_FORCA) {
-            texto("ATRIBUTOS   (pontos livres: "+std::to_string(c.pontosLivres)+")",160,y+4,20,c.pontosLivres>0?OURO:APAGADO);
-            y+=36;
+            texto("ATRIBUTOS   (pontos livres: "+std::to_string(c.pontosLivres)+")",160,y+2,20,c.pontosLivres>0?OURO:APAGADO);
+            y+=32;
         }
-        Rectangle r={150,y,560,52};
+        Rectangle r={150,y,560,48};
         if(i==LINHA_COMECAR) {
-            r={250,y+14,360,58};
+            r={250,y+8,360,56};
             painel(r,sel?OURO:PAINEL2,sel?OURO:Color{69,89,110,255});
             textoCentro("COMEÇAR AVENTURA",r.x+r.width/2,r.y+16,25,sel?FUNDO:TEXTO);
             registrarOpcao(r,i,c.linha);
             break;
         }
         painel(r,sel?Color{58,52,38,255}:PAINEL2,sel?OURO:Color{69,89,110,255});
-        texto(rotulos[i],r.x+20,r.y+14,20,sel?OURO:APAGADO);
+        texto(rotulos[i],r.x+20,r.y+12,20,sel?OURO:APAGADO);
         float vx=r.x+270;
         std::string valor;
         Color corValor=TEXTO;
@@ -513,22 +521,24 @@ void desenharCriacao(const Criacao& c) {
             valor=NOMES_DOS_ELEMENTOS[c.elemento]; corValor=corDoElemento(c.elemento);
         } else if(i==LINHA_COR) {
             valor=NOMES_DAS_CORES_DO_JOGADOR[c.cor];
-            DrawRectangleRounded({vx+150,r.y+14,40,24},0.4f,6,paraCor(CORES_DO_JOGADOR[c.cor]));
+            DrawRectangleRounded({vx+150,r.y+12,40,24},0.4f,6,paraCor(CORES_DO_JOGADOR[c.cor]));
+        } else if(i==LINHA_DIFICULDADE) {
+            valor=DIFICULDADES[c.dificuldade].nome; corValor=corDaDificuldade(c.dificuldade);
         } else {
             valor=std::to_string(c.atributos[i-LINHA_FORCA]);
         }
-        if(i==LINHA_NOME) texto(valor,vx-30,r.y+13,23,corValor);
+        if(i==LINHA_NOME) texto(valor,vx-30,r.y+11,23,corValor);
         else {
-            texto("<",vx-30,r.y+12,24,sel?OURO:APAGADO);
-            texto(valor,vx,r.y+13,23,corValor);
-            texto(">",vx+205,r.y+12,24,sel?OURO:APAGADO);
+            texto("<",vx-30,r.y+10,24,sel?OURO:APAGADO);
+            texto(valor,vx,r.y+11,23,corValor);
+            texto(">",vx+205,r.y+10,24,sel?OURO:APAGADO);
             if(sel) {
-                registrarAtalho({vx-40,r.y,36,52},TECLA_ESQUERDA);
-                registrarAtalho({vx+195,r.y,40,52},TECLA_DIREITA);
+                registrarAtalho({vx-40,r.y,36,48},TECLA_ESQUERDA);
+                registrarAtalho({vx+195,r.y,40,48},TECLA_DIREITA);
             }
         }
         registrarOpcao(r,i,c.linha);
-        y+=62;
+        y+=56;
     }
 
     // Painel da direita: o herói com a cor escolhida e o que o elemento faz.
@@ -549,6 +559,7 @@ void desenharCriacao(const Criacao& c) {
     if(c.linha==LINHA_NOME) dica="Digite o nome (até 12 letras). Backspace apaga.";
     else if(c.linha==LINHA_ELEMENTO) dica="Golpes do seu elemento causam 50% a mais de dano.";
     else if(c.linha==LINHA_COR) dica="A cor da roupa do seu personagem.";
+    else if(c.linha==LINHA_DIFICULDADE) dica=DIFICULDADES[c.dificuldade].descricao;
     else if(c.linha>=LINHA_FORCA && c.linha<=LINHA_AGILIDADE) dica=EFEITOS_DOS_ATRIBUTOS[c.linha-LINHA_FORCA];
     else dica="Tudo pronto? Enter para descer à masmorra!";
     separador(800,684,460);

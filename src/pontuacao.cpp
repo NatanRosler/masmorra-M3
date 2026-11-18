@@ -3,6 +3,7 @@
 #include "jogo.h"
 #include "tela.h"
 #include "terminal.h"
+#include "dificuldade.h"
 
 #include <fstream>
 #include <sstream>
@@ -13,18 +14,20 @@ const char* ARQUIVO_DO_RANKING = "ranking.txt";
 // PONTUAÇÃO
 // -----------------------------------------------------------------------------
 int calcularPontuacao(const Jogo& jogo) {
-    int vidasPerdidas = VIDAS_INICIAIS - jogo.jogador.vidas;
+    int vidasPerdidas = dificuldadeAtual().vidas - jogo.jogador.vidas;
     int pontos = 250 * jogo.andarMaisFundo
                + 30 * jogo.monstrosMortos
                + 20 * jogo.itensColetados
                - jogo.passos / 5
                - 300 * vidasPerdidas;
     if (jogo.venceu) pontos += 3000;
+    pontos = pontos * dificuldadeAtual().pontuacao / 100;   // difícil vale mais
     return pontos < 0 ? 0 : pontos;
 }
 
 // -----------------------------------------------------------------------------
-// RANKING (arquivo de texto, uma partida por linha: pontos;andar;venceu;nome)
+// RANKING (arquivo de texto, uma partida por linha:
+//          pontos;andar;venceu;nome;dificuldade)
 // -----------------------------------------------------------------------------
 std::vector<RegistroRanking> lerRanking() {
     std::vector<RegistroRanking> ranking;
@@ -37,7 +40,10 @@ std::vector<RegistroRanking> lerRanking() {
             !std::getline(campos, venceu, ';') || !std::getline(campos, nome)) continue;
         if (!nome.empty() && nome.back() == '\r') nome.pop_back();
         RegistroRanking r;
-        r.nome = nome;
+        // A dificuldade vem depois do nome (arquivos antigos não têm).
+        size_t separador = nome.find(';');
+        r.dificuldade = (separador == std::string::npos) ? "Difícil" : nome.substr(separador + 1);
+        r.nome = nome.substr(0, separador);
         r.pontos = std::atoi(pontos.c_str());
         r.andar = std::atoi(andar.c_str());
         r.venceu = (venceu == "1");
@@ -49,7 +55,7 @@ std::vector<RegistroRanking> lerRanking() {
 static void salvarRanking(const std::vector<RegistroRanking>& ranking) {
     std::ofstream arquivo(ARQUIVO_DO_RANKING);
     for (const RegistroRanking& r : ranking) {
-        arquivo << r.pontos << ';' << r.andar << ';' << (r.venceu ? 1 : 0) << ';' << r.nome << '\n';
+        arquivo << r.pontos << ';' << r.andar << ';' << (r.venceu ? 1 : 0) << ';' << r.nome << ';' << r.dificuldade << '\n';
     }
 }
 
@@ -63,6 +69,7 @@ void registrarNoRanking(Jogo& jogo) {
     novo.pontos = jogo.pontuacaoFinal;
     novo.andar = jogo.andarMaisFundo;
     novo.venceu = jogo.venceu;
+    novo.dificuldade = dificuldadeAtual().nome;
 
     // Insere na posição certa (maior pontuação primeiro) e corta no top 10.
     std::vector<RegistroRanking> ranking = lerRanking();
@@ -98,7 +105,8 @@ std::vector<std::string> textoDaHistoria(const std::string& nome) {
 std::vector<std::string> textoComoJogar() {
     return {
         "OBJETIVO: chegar ao 10o andar e derrotar o Senhor das Profundezas.",
-        "Você tem 3 vidas. Ao perder uma, volta para a entrada do andar.",
+        "Vidas: 5 no Fácil, 3 no Médio e no Difícil. Ao perder uma, você volta",
+        "para a entrada do andar.",
         "",
         "Andar: setas, WASD ou HJKL (diagonais: Y U B N). O mapa começa escuro",
         "e se revela conforme você explora. Escadas: ande para dentro delas.",
@@ -144,6 +152,7 @@ std::vector<std::string> textoDaPontuacao() {
         "+250 por andar alcançado    +30 por monstro derrotado",
         "+20 por item coletado       -1 a cada 5 passos",
         "-300 por vida perdida       +3000 por derrotar o chefe final",
+        "Dificuldade: Fácil vale 50% dos pontos, Médio 100% e Difícil 150%.",
         "",
         "MELHORES PARTIDAS",
     };
@@ -153,7 +162,7 @@ std::vector<std::string> textoDaPontuacao() {
         const RegistroRanking& r = ranking[i];
         std::string linha = (i < 9 ? " " : "") + std::to_string(i + 1) + ". " + r.nome;
         while ((int)linha.size() < 20) linha += ' ';
-        linha += std::to_string(r.pontos) + " pontos   andar " + std::to_string(r.andar);
+        linha += std::to_string(r.pontos) + " pontos   andar " + std::to_string(r.andar) + "   " + r.dificuldade;
         if (r.venceu) linha += "   VENCEU";
         linhas.push_back(linha);
     }

@@ -15,6 +15,7 @@
 #include "itens.h"
 #include "cenario.h"
 #include "npcs.h"
+#include "dificuldade.h"
 
 // Quantos andares a masmorra tem. O chefe final ficará no último.
 const int NUM_ANDARES = 10;
@@ -27,8 +28,6 @@ const int BASE_DEFESA_JOGADOR     = 65;
 const int BASE_VELOCIDADE_JOGADOR = 65;
 const int NIVEL_INICIAL = 5;
 const int NIVEL_MAXIMO = 50;
-const int VIDAS_INICIAIS = 3;
-const int POCOES_INICIAIS = 3;
 
 // ---- Atributos que o jogador distribui (Etapa 6) ----------------------------
 enum Atributo {
@@ -160,6 +159,7 @@ struct Criacao {
     std::string nome;
     int elemento;                   // Elemento
     int cor;                        // índice em CORES_DO_JOGADOR
+    int dificuldade;                // NivelDeDificuldade
     int atributos[NUM_ATRIBUTOS];
     int pontosLivres;
     int linha;                      // linha selecionada na tela
@@ -167,7 +167,7 @@ struct Criacao {
 
 // Linhas da tela de criação.
 enum LinhaDaCriacao {
-    LINHA_NOME, LINHA_ELEMENTO, LINHA_COR,
+    LINHA_NOME, LINHA_ELEMENTO, LINHA_COR, LINHA_DIFICULDADE,
     LINHA_FORCA, LINHA_CONSTITUICAO, LINHA_DESTREZA, LINHA_AGILIDADE,
     LINHA_COMECAR,
     NUM_LINHAS_DA_CRIACAO

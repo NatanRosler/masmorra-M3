@@ -40,6 +40,7 @@ void criacaoPadrao(Criacao& c) {
     c.nome = "";
     c.elemento = NORMAL;
     c.cor = 0;
+    c.dificuldade = nivelDaDificuldade();   // lembra a da última partida
     for (int a = 0; a < NUM_ATRIBUTOS; a++) c.atributos[a] = 0;
     c.pontosLivres = PONTOS_INICIAIS;
     c.linha = LINHA_NOME;
@@ -105,6 +106,9 @@ bool criarPersonagem(Criacao& c) {
             case LINHA_COR:
                 if (mudanca != 0) c.cor = (c.cor + mudanca + NUM_CORES_DO_JOGADOR) % NUM_CORES_DO_JOGADOR;
                 break;
+            case LINHA_DIFICULDADE:
+                if (mudanca != 0) c.dificuldade = (c.dificuldade + mudanca + NUM_DIFICULDADES) % NUM_DIFICULDADES;
+                break;
             case LINHA_FORCA: case LINHA_CONSTITUICAO: case LINHA_DESTREZA: case LINHA_AGILIDADE:
                 if (mudanca != 0) mudarAtributo(c, c.linha - LINHA_FORCA, mudanca);
                 break;
@@ -119,6 +123,11 @@ void aplicarCriacao(Jogo& jogo, const Criacao& c) {
     j.cor = c.cor;
     for (int a = 0; a < NUM_ATRIBUTOS; a++) j.atributos[a] = c.atributos[a];
     j.pontosLivres = c.pontosLivres;
+
+    // Vidas e poções iniciais dependem da dificuldade.
+    definirDificuldade(c.dificuldade);
+    j.vidas = dificuldadeAtual().vidas;
+    j.mochila[I_POCAO_DE_VIDA] = dificuldadeAtual().pocoes;
 
     // Golpes iniciais: os dois básicos + o golpe do elemento escolhido.
     j.numGolpes = 3;
@@ -191,6 +200,9 @@ bool novaPartida(Jogo& jogo, uint32_t semente) {
     criacaoPadrao(c);
     tocarMusica(MUSICA_MENU);
     if (!criarPersonagem(c)) return false;
+    // A dificuldade vale antes de gerar a masmorra: a vida dos monstros do
+    // primeiro andar já sai certa.
+    definirDificuldade(c.dificuldade);
     iniciarJogo(jogo, semente);
     aplicarCriacao(jogo, c);
     mostrarPagina("A MASMORRA DE VALDORIA", textoDaHistoria(jogo.jogador.nome));

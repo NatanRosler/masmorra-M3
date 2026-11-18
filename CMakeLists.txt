@@ -29,6 +29,7 @@ set(FONTES_DA_LOGICA
     src/cenario.cpp
     src/npcs.cpp
     src/pontuacao.cpp
+    src/dificuldade.cpp
 )
 
 # Junta tudo que é estático, para o jogo rodar em outro computador sem

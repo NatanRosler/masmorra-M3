@@ -17,6 +17,7 @@ struct Jogo;
 //   -   1 a cada 5 passos (movimentos)
 //   - 300 por vida perdida
 //   +3000 por derrotar o chefe final
+// e o total é multiplicado pela dificuldade (fácil 50%, médio 100%, difícil 150%).
 int calcularPontuacao(const Jogo& jogo);
 
 struct RegistroRanking {
@@ -24,6 +25,7 @@ struct RegistroRanking {
     int pontos;
     int andar;
     bool venceu;
+    std::string dificuldade;   // "Fácil", "Médio" ou "Difícil"
 };
 
 const int TAMANHO_DO_RANKING = 10;

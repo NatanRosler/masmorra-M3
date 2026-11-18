@@ -3,6 +3,7 @@
 #include "jogo.h"
 #include "aleatorio.h"
 #include "som.h"
+#include "dificuldade.h"
 
 // -----------------------------------------------------------------------------
 // COLOCAR CAIXAS E ARMADILHAS
@@ -86,7 +87,7 @@ void armadilhaPegaJogador(Jogo& jogo) {
         Armadilha& a = andar.armadilhas[i];
         a.descoberta = true;
         tocarSom(SOM_ARMADILHA);
-        int dano = danoDaArmadilha(j.vidaMaxima, 15);
+        int dano = danoDaArmadilha(j.vidaMaxima, dificuldadeAtual().danoDasArmadilhas);
         j.vida -= dano;
         adicionarMensagem(jogo, "Espinhos saltam do chão! Você perde " + std::to_string(dano) + " de vida.");
         if (j.vida <= 0) {

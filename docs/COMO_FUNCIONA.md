@@ -275,3 +275,27 @@ como nos videogames de 8 bits.
   Na versão de terminal essas funções não fazem nada (`console/sem_som.cpp`).
 - Tecla `O` (ou a opção na pausa) liga e desliga o som. Sem placa de som, o jogo
   segue mudo.
+
+
+## Dificuldades (v1.2)
+
+Escolhida na criação do personagem (`src/dificuldade.h/.cpp`). Cada nível é uma
+linha de uma tabela; as regras leem `dificuldadeAtual()` em vez de números fixos.
+
+| | Fácil | Médio | Difícil |
+|---|---|---|---|
+| Vida dos monstros | −15% | +10% | +30% |
+| Ataque dos monstros (≈ dano) | 75% | 95% | 125% |
+| Intervalo entre passos dos monstros | 130% (mais lentos) | 110% | 100% |
+| Dano das armadilhas | 6% da vida | 10% | 15% |
+| Experiência ganha | 150% | 125% | 100% |
+| Vidas / poções no início | 5 / 6 | 3 / 4 | 3 / 3 |
+| Pontuação final | 50% | 100% | 150% |
+
+Medido com os robôs (150 partidas cada):
+
+| | Fácil | Médio | Difícil |
+|---|---|---|---|
+| Explorador: vida perdida por batalha | ~1% | 2–4% | 5–7% |
+| Quem só desce: chega ao andar 10 | 87% | 7% | 0% |
+| Chefe vencido (por tentativa, jogador nível 22) | 95% | 74% | 35% |

@@ -7,6 +7,7 @@
 #include "aleatorio.h"
 #include "itens.h"
 #include "som.h"
+#include "dificuldade.h"
 
 // =============================================================================
 // TABELAS
@@ -679,9 +680,8 @@ static Lutador montarLutadorDoMonstro(Monstro& m) {
     l.elemento = m.elemento;     // sorteado a cada partida (Etapa 6)
     l.vida = &m.vida;            // ponteiro para a vida do monstro no mapa
     l.vidaMaxima = vidaMaximaDoMonstro(m);
-    // Monstros batem 25% mais forte que a fórmula (o jogador distribui
-    // pontos de atributo e eles não: assim a briga continua equilibrada).
-    l.ataque = atributoPeloNivel(t.baseAtaque, m.nivel) * 125 / 100;
+    // A força do ataque dos monstros depende da dificuldade escolhida.
+    l.ataque = atributoPeloNivel(t.baseAtaque, m.nivel) * dificuldadeAtual().ataqueDosMonstros / 100;
     l.defesa = atributoPeloNivel(t.baseDefesa, m.nivel);
     l.velocidade = atributoPeloNivel(t.baseVelocidade, m.nivel);
     l.estagioAtaque = 0;
@@ -721,7 +721,7 @@ static bool conferirDesmaios(Jogo& jogo, Batalha& b) {
         m.vivo = false;   // derrotado: some do mapa
         tocarSom(SOM_DESMAIO);
         narrar(jogo, b, comMaiuscula(b.inimigos[i].nome) + " desmaiou!");
-        ganharExperiencia(jogo, b, tipoDe(m).experienciaBase * m.nivel / 6);
+        ganharExperiencia(jogo, b, tipoDe(m).experienciaBase * m.nivel / 6 * dificuldadeAtual().experiencia / 100);
     }
     return inimigosNaLuta(b) == 0;
 }

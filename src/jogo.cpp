@@ -224,13 +224,12 @@ void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros) {
     jogo.andar = 1;
     Andar& primeiro = prepararAndar(jogo, 1);
 
-    // O jogador começa no nível 5 sabendo dois golpes, com uma adaga,
-    // 3 Poções de Vida e 3 vidas.
+    // O jogador começa no nível 5 com uma adaga. As vidas e as poções
+    // dependem da dificuldade (ver aplicarCriacao).
     Jogador& j = jogo.jogador;
     j.x = primeiro.escadas.chegadaSobeX;
     j.y = primeiro.escadas.chegadaSobeY;
     for (int i = 0; i < NUM_TIPOS_DE_ITEM; i++) j.mochila[i] = 0;
-    j.mochila[I_POCAO_DE_VIDA] = POCOES_INICIAIS;
     j.arma = &TIPOS_DE_ITEM[I_ADAGA];
     j.escudo = nullptr;
     j.bonusVida = j.bonusAtaque = j.bonusDefesa = j.bonusVelocidade = 0;
@@ -246,7 +245,6 @@ void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros) {
     padrao.atributos[AGILIDADE] = 1;
     padrao.pontosLivres = 0;
     aplicarCriacao(jogo, padrao);
-    j.vidas = VIDAS_INICIAIS;
     jogo.batalhaPendente = -1;
 
     jogo.passos = 0;

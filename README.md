@@ -71,6 +71,7 @@ src/
 | `src/cenario.h/.cpp` | Armadilhas escondidas e caixas que se empurram (mapa que muda) |
 | `src/npcs.h/.cpp` | Personagens que conversam, ajudam e mudam o mapa |
 | `src/pontuacao.h/.cpp` | Pontuação, ranking em arquivo (`ranking.txt`) e textos do menu |
+| `src/dificuldade.h/.cpp` | Tabela das dificuldades (Fácil, Médio, Difícil) |
 | `src/grafico/main.cpp` | Laço principal da versão gráfica, menu e pausa |
 | `src/grafico/tela_grafica.cpp` | Desenho do mapa, painéis e batalha em 2D |
 | `src/grafico/terminal_raylib.cpp` | Teclado, mouse e janela (raylib) |
@@ -133,6 +134,7 @@ publicar → Run workflow**.
 - [x] **7. Mapa vivo**: armadilhas que ferem jogador e monstros, caixas que se empurram ou quebram, ogros que despedaçam caixas
 - [x] **8. História**: abertura, 3 NPCs (um deles destranca a sala do tesouro), chefe final no andar 10 e tela de vitória
 - [x] **Som (v1.1)**: efeitos e 4 músicas (menu, masmorra, batalha, chefe) gerados no código
+- [x] **Dificuldades (v1.2)**: Fácil, Médio e Difícil, escolhidos na criação do personagem
 - [x] **9. Pontuação**: menu com como jogar, itens e pontuação; pontos na tela e no fim; ranking salvo em `ranking.txt`
 
 ## Requisitos do trabalho (T3) e onde estão
