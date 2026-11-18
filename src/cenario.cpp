@@ -5,13 +5,14 @@
 #include "som.h"
 #include "tela.h"
 #include "dificuldade.h"
+#include "loja.h"
 
 // -----------------------------------------------------------------------------
 // COLOCAR CAIXAS E ARMADILHAS
 // -----------------------------------------------------------------------------
 // A célula está livre de escadas, itens, monstros e NPCs?
 static bool celulaVazia(const Andar& andar, int x, int y) {
-    if (andar.mapa.celulas[y][x] != CHAO) return false;
+    if (andar.mapa.celulas[y][x] != CHAO || andar.zonaSegura[y][x]) return false;
     if (itemEm(andar, x, y) >= 0 || monstroEm(andar, x, y) >= 0) return false;
     if (armadilhaEm(andar, x, y) >= 0) return false;
     return true;
@@ -32,7 +33,11 @@ static bool cercadaDeChao(const Mapa& mapa, int x, int y) {
 // A arma é uma das que aparecem neste andar (Espada Curta no começo, Espada
 // Longa no fundo, armas elementais no meio).
 static int sortearConteudo(GeradorAleatorio& g, int numeroDoAndar) {
-    if (!chance(g, 70)) return -1;
+    if (!chance(g, 70)) {
+        // Das caixas sem item, metade guarda um punhado de moedas.
+        if (chance(g, 50)) return MOEDAS_NA_CAIXA + moedasDaCaixa(numeroDoAndar, sortear(g, 0, 5));
+        return -1;
+    }
     int r = sortear(g, 1, 100);
     if (r <= 35) return I_POCAO_DE_VIDA;
     if (r <= 60) {
@@ -178,10 +183,23 @@ void armadilhaPegaMonstro(Jogo& jogo, Monstro& m) {
 // -----------------------------------------------------------------------------
 // A caixa que estava em (caixaX, caixaY) quebrou: o que havia dentro cai no
 // chão em (x, y).
-static void soltarConteudo(Jogo& jogo, Andar& andar, int caixaX, int caixaY, int x, int y) {
+// "peloJogador" = foi o jogador quem quebrou (só ele recolhe as moedas).
+static void soltarConteudo(Jogo& jogo, Andar& andar, int caixaX, int caixaY, int x, int y, bool peloJogador = true) {
     if (jogo.visivel[caixaY][caixaX]) efeitoNoMapa(jogo, EFEITO_CAIXA, caixaX, caixaY, 0);
     int item = andar.conteudoDasCaixas[caixaY][caixaX];
     andar.conteudoDasCaixas[caixaY][caixaX] = -1;
+    if (item >= MOEDAS_NA_CAIXA && !peloJogador) {
+        if (jogo.visivel[caixaY][caixaX]) adicionarMensagem(jogo, "Moedas rolam da caixa e somem numa fenda do chão!");
+        return;
+    }
+    if (item >= MOEDAS_NA_CAIXA) {
+        // Moedas: o jogador recolhe na hora.
+        int moedas = item - MOEDAS_NA_CAIXA;
+        jogo.jogador.moedas += moedas;
+        efeitoNoMapa(jogo, EFEITO_MOEDAS, caixaX, caixaY, moedas);
+        adicionarMensagem(jogo, "A caixa se quebra e espalha " + std::to_string(moedas) + " moedas! Você recolhe todas.", MSG_BOA);
+        return;
+    }
     if (item < 0 || andar.numItens >= MAX_ITENS_NO_CHAO || itemEm(andar, x, y) >= 0) return;
     ItemNoChao& novo = andar.itens[andar.numItens++];
     novo.ativo = true;
@@ -261,7 +279,7 @@ void quebrarCaixasPerto(Jogo& jogo, Monstro& m) {
             if (!nome.empty()) nome[0] = (char)(nome[0] - 'a' + 'A');
             adicionarMensagem(jogo, nome + " despedaça uma caixa!");
         }
-        soltarConteudo(jogo, andar, x, y, x, y);
+        soltarConteudo(jogo, andar, x, y, x, y, false);
         return;
     }
 }

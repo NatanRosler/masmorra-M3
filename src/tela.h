@@ -47,7 +47,8 @@ enum AnimacaoDaBatalha {
 void animarBatalha(const Jogo& jogo, const Batalha& b, int animacao, int quem, int alvo,
                    int elemento, int valor, bool critico);
 
-enum EfeitoNoMapa { EFEITO_ARMADILHA, EFEITO_ESPINHOS, EFEITO_ITEM, EFEITO_CAIXA, EFEITO_ATORDOAR, EFEITO_CURA };
+enum EfeitoNoMapa { EFEITO_ARMADILHA, EFEITO_ESPINHOS, EFEITO_ITEM, EFEITO_CAIXA, EFEITO_ATORDOAR, EFEITO_CURA,
+                   EFEITO_MOEDAS };
 // Efeito rápido numa célula do mapa (não trava o jogo). "valor" depende do
 // efeito: dano da armadilha, tipo do item, vida recuperada...
 void efeitoNoMapa(const Jogo& jogo, int efeito, int x, int y, int valor);

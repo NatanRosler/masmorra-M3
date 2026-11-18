@@ -8,6 +8,7 @@
 #include "itens.h"
 #include "som.h"
 #include "dificuldade.h"
+#include "loja.h"
 
 // =============================================================================
 // TABELAS
@@ -634,10 +635,12 @@ static void aprenderGolpe(Jogo& jogo, Batalha& b, int golpe) {
     narrar(jogo, b, "1, 2 e... pronto! Você esqueceu " + antigo + " e aprendeu " + nomeGolpe + "!", MSG_BOA);
 }
 
-static void ganharExperiencia(Jogo& jogo, Batalha& b, int pontos) {
+static void ganharExperiencia(Jogo& jogo, Batalha& b, int pontos, int moedas) {
     Jogador& j = jogo.jogador;
     j.experiencia += pontos;
-    narrar(jogo, b, "Você ganhou " + std::to_string(pontos) + " pontos de experiência!");
+    j.moedas += moedas;
+    narrar(jogo, b, "Você ganhou " + std::to_string(pontos) + " pontos de experiência e " +
+                    std::to_string(moedas) + (moedas == 1 ? " moeda!" : " moedas!"));
 
     while (j.nivel < NIVEL_MAXIMO && j.experiencia >= experienciaParaNivel(j.nivel + 1)) {
         int vidaMaximaAntes = j.vidaMaxima;
@@ -652,7 +655,9 @@ static void ganharExperiencia(Jogo& jogo, Batalha& b, int pontos) {
         b.vidaMostrada[0] = j.vida;
         tocarSom(SOM_NIVEL);
         animarBatalha(jogo, b, ANIM_NIVEL, 0, 0, 0, j.nivel, false);
-        narrar(jogo, b, "Você subiu para o nível " + std::to_string(j.nivel) + "!", MSG_BOA);
+        j.moedas += MOEDAS_POR_NIVEL;
+        narrar(jogo, b, "Você subiu para o nível " + std::to_string(j.nivel) + "! (+" +
+                        std::to_string(MOEDAS_POR_NIVEL) + " moedas)", MSG_BOA);
         ganharPontosDeAtributo(jogo, PONTOS_POR_NIVEL);
         if (!jogo.modoAutomatico) {
             narrar(jogo, b, "Você ganhou " + std::to_string(PONTOS_POR_NIVEL) +
@@ -748,7 +753,8 @@ static bool conferirDesmaios(Jogo& jogo, Batalha& b) {
         m.vivo = false;   // derrotado: some do mapa
         tocarSom(SOM_DESMAIO);
         narrar(jogo, b, comMaiuscula(b.inimigos[i].nome) + " desmaiou!");
-        ganharExperiencia(jogo, b, tipoDe(m).experienciaBase * m.nivel / 6 * dificuldadeAtual().experiencia / 100);
+        ganharExperiencia(jogo, b, tipoDe(m).experienciaBase * m.nivel / 6 * dificuldadeAtual().experiencia / 100,
+                          moedasDoMonstro(jogo, m.nivel, b.inimigos[i].ehChefe));
     }
     return inimigosNaLuta(b) == 0;
 }

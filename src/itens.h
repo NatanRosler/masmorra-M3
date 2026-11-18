@@ -92,6 +92,23 @@ void pegarItensDoChao(Jogo& jogo);
 // Coloca a arma ou o escudo na mão (o anterior volta para a mochila).
 void equipar(Jogo& jogo, int tipo);
 
+// Limites da mochila: cada item tem um máximo (6 Poções de Vida, 3 das outras
+// poções, 1 de cada arma/escudo/pergaminho de reserva) e a mochila toda leva
+// no máximo 12 itens. A chave e os cristais não ocupam espaço.
+const int LIMITE_DA_MOCHILA = 12;
+int limiteDoItem(int tipo);
+int itensNaMochila(const Jogador& j);
+bool cabeNaMochila(const Jogador& j, int tipo);
+std::string motivoDeNaoCaber(const Jogador& j, int tipo);   // "A mochila está cheia (12/12)."
+// Guarda o item; se não couber, ele fica no chão perto do jogador.
+void guardarOuLargar(Jogo& jogo, int tipo);
+
+// Pegou a chave: marca a porta do tesouro no mapa e diz para que lado ela fica.
+void revelarPortaDoTesouro(Jogo& jogo);
+
+// Cristal: aplica o bônus permanente (pego no chão ou comprado na loja).
+void absorverCristal(Jogo& jogo, int tipo);
+
 // Usa um item da mochila fora da batalha. Devolve true se gastou o turno.
 bool usarItemForaDaBatalha(Jogo& jogo, int tipo);
 

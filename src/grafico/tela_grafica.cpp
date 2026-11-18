@@ -92,6 +92,7 @@ const Sprite& imagemMonstro(int tipo) {
 const Sprite& imagemNpc(int tipo) {
     if (tipo==NPC_MINEIRO) return MINEIRO;
     if (tipo==NPC_ESPIRITO) return ESPIRITO;
+    if (tipo==NPC_COMERCIANTE) return COMERCIANTE;
     return EXPLORADORA;
 }
 void desenharSprite(const Sprite& sp,float x,float y,float pixel,float iluminacao=1.0f,float alfa=1.0f) {
@@ -117,6 +118,15 @@ void etiquetaDeStatus(int status,float x,float y) {
     textoCentro(nomes[status],x+64,y+3,15,cores[status]);
 }
 
+// Parede encostada na lojinha (para desenhar as prateleiras).
+bool encostaNaLoja(const Andar& a,int x,int y) {
+    if(!a.loja.existe) return false;
+    for(int d=0;d<8;d++) {
+        int nx=x+DIRECOES_DX[d], ny=y+DIRECOES_DY[d];
+        if(dentroDoMapa(nx,ny) && a.zonaSegura[ny][nx] && a.mapa.celulas[ny][nx]==CHAO) return true;
+    }
+    return false;
+}
 void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
     if(!dentroDoMapa(x,y) || !a.descoberto[y][x]) {
         DrawRectangle(px,py,TAM,TAM,{8,12,24,255});
@@ -135,9 +145,27 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
         DrawLine(px,py+TAM/2,px+TAM,py+TAM/2,multiplicar({31,37,48,255},claridade));
         DrawLine(px+TAM/2,py,px+TAM/2,py+TAM/2,multiplicar({31,37,48,255},claridade));
         DrawLine(px+TAM/4,py+TAM/2,px+TAM/4,py+TAM,multiplicar({31,37,48,255},claridade));
+    } else if(a.zonaSegura[y][x] && tipo==CHAO) {
+        // Lojinha do comerciante: tapete vinho com barra dourada.
+        float f = agora ? claridade : 0.45f;
+        DrawRectangle(px,py,TAM,TAM,multiplicar({118,34,46,255},f));
+        DrawRectangleLines(px+2,py+2,TAM-4,TAM-4,multiplicar({214,170,80,255},f));
+        if((x+y)%2==0) DrawPoly({(float)px+12,(float)py+12},4,3,45,multiplicar({214,170,80,255},f));
     } else {
         DrawRectangleLines(px,py,TAM,TAM,multiplicar({39,43,56,255},claridade));
         if((x*31+y*17)%7==0) DrawLine(px+7,py+13,px+11,py+17,multiplicar({108,101,94,255},claridade));
+    }
+    if(tipo==PAREDE && encostaNaLoja(a,x,y)) {
+        // Prateleira de mercadorias na parede da lojinha: frascos coloridos.
+        float f = agora ? claridade : 0.45f;
+        DrawRectangle(px+2,py+8,TAM-4,3,multiplicar({140,95,50,255},f));
+        DrawRectangle(px+2,py+18,TAM-4,3,multiplicar({140,95,50,255},f));
+        Color frascos[]={{230,80,95,255},{90,160,255,255},{120,220,120,255},{255,205,70,255}};
+        for(int k=0;k<3;k++) {
+            Color c=multiplicar(frascos[(x*3+y+k)%4],f);
+            DrawRectangle(px+4+k*6,py+3,4,5,c);
+            DrawRectangle(px+4+k*6,py+13,4,5,multiplicar(frascos[(x+y*5+k)%4],f));
+        }
     }
     if (tipo==PORTA || tipo==PORTA_TRANCADA) {
         DrawRectangle(px+5,py+3,14,18,agora ? Color{122,79,39,255}:Color{60,52,49,255});
@@ -175,7 +203,9 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
         int npc = npcEm(a,x,y);
         if(npc>=0) {
             desenharSprite(imagemNpc(a.npcs[npc].tipo),px+2,py+1,1.25f,1.0f);
-            if(!a.npcs[npc].conversou) textoCentro("!",px+20,py-6+std::sin((float)GetTime()*5)*2,16,OURO);
+            float pulo=std::sin((float)GetTime()*5)*2;
+            if(!a.npcs[npc].conversou) textoCentro("!",px+20,py-6+pulo,16,OURO);
+            else if(a.npcs[npc].tipo==NPC_COMERCIANTE) textoCentro("$",px+20,py-6+pulo,14,OURO);   // a loja continua aberta
         } else {
             int item=itemEm(a,x,y);
             // Itens no chão flutuam de leve.
@@ -242,6 +272,14 @@ void hud(const Jogo& jogo) {
     texto(tempo,1027,414,19,APAGADO);
     if(jogo.descansando) texto("zZz descansando",1180,414,19,CIANO);
     texto("Passos: "+std::to_string(jogo.passos),1027,444,19,TEXTO);
+    // Moedas: uma moedinha dourada desenhada ao lado do valor.
+    DrawCircle(1189,456,9,{196,150,40,255});
+    DrawCircle(1189,456,6.5f,OURO);
+    DrawRectangle(1188,451,2,10,{196,150,40,255});
+    texto("Moedas: "+std::to_string(j.moedas),1205,444,19,OURO);
+    int naMochila=itensNaMochila(j);
+    texto("Mochila: "+std::to_string(naMochila)+"/"+std::to_string(LIMITE_DA_MOCHILA),1180,470,19,
+          naMochila>=LIMITE_DA_MOCHILA?PERIGO:TEXTO);
     texto("Monstros: "+std::to_string(jogo.monstrosMortos),1027,470,19,TEXTO);
     texto("Itens: "+std::to_string(jogo.itensColetados),1027,496,19,TEXTO);
     texto("FOR "+std::to_string(j.atributos[FORCA])+"  CON "+std::to_string(j.atributos[CONSTITUICAO])+
@@ -331,6 +369,14 @@ void mapa(const Jogo& jogo) {
     recortar(janela);
     for(int iy=0;iy<=CH;iy++)for(int ix=0;ix<=CW;ix++)
         tile(jogo,a,cx+ix,cy+iy,MX+ix*TAM-sobraX,MY+iy*TAM-sobraY);
+    // Placa "LOJA" em cima da porta da lojinha.
+    if(a.loja.existe && a.descoberto[a.loja.portaY][a.loja.portaX]) {
+        float px=std::round(MX+(a.loja.portaX-camX)*TAM), py=std::round(MY+(a.loja.portaY-camY)*TAM);
+        Rectangle placa={px-7,py-17,TAM+14.0f,16};
+        DrawRectangleRec(placa,{120,80,40,255});
+        DrawRectangleLinesEx(placa,1,OURO);
+        textoCentro("LOJA",px+TAM/2.0f,py-16,13,OURO);
+    }
     // Monstros visíveis e o jogador, nas posições suaves.
     auto naTela=[&](float x,float y,float& px,float& py){
         px=std::round(MX+(x-camX)*TAM); py=std::round(MY+(y-camY)*TAM);
@@ -700,6 +746,10 @@ void efeitoNoMapa(const Jogo& jogo,int efeito,int x,int y,int valor) {
             break;
         case EFEITO_ATORDOAR:
             Efeitos::explosaoDoElemento(0,px,py,MAPA,0.6f);
+            break;
+        case EFEITO_MOEDAS:
+            Efeitos::brilhoSubindo(px,py-6,OURO,14,MAPA);
+            Efeitos::textoFlutuante("+"+std::to_string(valor)+" moedas",px,py-16,OURO,18,MAPA,1.2);
             break;
         case EFEITO_CURA:
             Efeitos::textoFlutuante("+"+std::to_string(valor),px+6,py-14,{120,230,140,255},17,MAPA,0.8);

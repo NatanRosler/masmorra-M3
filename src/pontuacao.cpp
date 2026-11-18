@@ -19,7 +19,8 @@ int calcularPontuacao(const Jogo& jogo) {
                + 30 * jogo.monstrosMortos
                + 20 * jogo.itensColetados
                - jogo.passos / 5
-               - 300 * vidasPerdidas;
+               - 300 * vidasPerdidas
+               + jogo.jogador.moedas;   // moedas guardadas: 1 ponto cada
     if (jogo.venceu) pontos += 3000;
     pontos = pontos * dificuldadeAtual().pontuacao / 100;   // difícil vale mais
     return pontos < 0 ? 0 : pontos;
@@ -123,7 +124,14 @@ std::vector<std::string> textoComoJogar() {
         "Destreza = precisão e crítico   Agilidade = esquiva e velocidade",
         "",
         "Caixas: empurre contra um monstro para atordoá-lo (ele perde a 1a rodada).",
-        "Quebradas, elas podem soltar poções, armas e cristais.",
+        "Quebradas, elas podem soltar poções, armas, cristais e moedas.",
+        "",
+        "Moedas: ganhe derrotando monstros, subindo de nível e quebrando caixas.",
+        "Gaste com Garro, o comerciante ($), nos andares 3, 6 e 9. Na lojinha",
+        "dele nenhum monstro entra.",
+        "",
+        "Mochila: até 12 itens (6 Poções de Vida, 3 de cada outra poção e 1 de",
+        "cada arma, escudo ou pergaminho de reserva). Cheia? Troque no chão.",
     };
 }
 
@@ -144,7 +152,13 @@ std::vector<std::string> textoDosItens() {
         "  Vida, Força, Ferro (defesa) e Pena do Vento (velocidade)",
         "",
         "PERGAMINHOS: ensinam um golpe de um elemento",
-        "CHAVE: abre a porta trancada da sala do tesouro",
+        "CHAVE: abre a porta trancada da sala do tesouro DO MESMO ANDAR",
+        "  (ao pegar, a porta aparece no mapa; o andar 4 não tem chave: o Borin abre)",
+        "",
+        "MOCHILA: no máximo 12 itens; cada poção e cada equipamento tem o seu limite",
+        "",
+        "LOJA DO GARRO (andares 3, 6 e 9): poções sempre à venda e 2 itens especiais.",
+        "  Ele também compra o que você não usa mais, pela metade do preço.",
     };
 }
 
@@ -153,6 +167,7 @@ std::vector<std::string> textoDaPontuacao() {
         "+250 por andar alcançado    +30 por monstro derrotado",
         "+20 por item coletado       -1 a cada 5 passos",
         "-300 por vida perdida       +3000 por derrotar o chefe final",
+        "+1 por moeda guardada no fim da partida",
         "Dificuldade: Fácil vale 50% dos pontos, Médio 100% e Difícil 150%.",
         "",
         "MELHORES PARTIDAS",

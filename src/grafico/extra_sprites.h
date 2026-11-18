@@ -91,3 +91,23 @@ inline const Sprite SAPO = {{
     "................",
     "................"
 }};
+
+// Garro, o comerciante: chapéu de aba larga, bigode e a mochila cheia de mercadoria.
+inline const Sprite COMERCIANTE = {{
+    "................",
+    "......KKKK......",
+    ".....KPVVPK.....",
+    "...KKPPPPPPKK...",
+    "...KPPPPPPPPK...",
+    "....KSSSSSSK....",
+    "....KSKSSKSK....",
+    "....KSHHHHSK.KK.",
+    ".....KSSSSK.KCCK",
+    "....KGGGGGGKKCCK",
+    "...KSGGMMGGGKCCK",
+    "...KSKGGGGDKKCCK",
+    "....KKGGGGGK.KK.",
+    "....KBBBBBBK....",
+    "....KBBKKBBK....",
+    "....KKK..KKK...."
+}};

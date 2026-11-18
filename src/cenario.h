@@ -28,6 +28,8 @@ struct Armadilha {
 
 const int MAX_ARMADILHAS = 12;
 const int TEMPO_ATORDOADO_MS = 5000;   // monstro atingido por uma caixa
+// Conteúdo de uma caixa: -1 = vazia; um IdItem; ou MOEDAS_NA_CAIXA + quantidade.
+const int MOEDAS_NA_CAIXA = 1000;
 
 // Espalha caixas e armadilhas num andar recém-gerado (depois dos monstros e
 // dos itens, para não cair em cima deles).

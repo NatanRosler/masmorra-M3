@@ -87,6 +87,7 @@ struct Jogador {
     int bonusVida, bonusAtaque, bonusDefesa, bonusVelocidade;
 
     int vidas;                 // chances que ainda restam (começa com 3)
+    int moedas;                // dinheiro para a loja do comerciante (loja.h)
 };
 
 // Cada andar é gerado na primeira visita e guardado, para que o jogador
@@ -104,6 +105,9 @@ struct Andar {
     ItemNoChao itens[MAX_ITENS_NO_CHAO];
     int numItens;
     SalaDoTesouro tesouro;     // sala trancada (se este andar tiver uma)
+    int chavesGuardadas;       // a chave é de um andar só: fica aqui quando o jogador sai
+    SalaDaLoja loja;           // andares 3, 6 e 9 (ver npcs.h)
+    bool zonaSegura[MAPA_ALTURA][MAPA_LARGURA];   // lojinha: monstro não entra
 
     Armadilha armadilhas[MAX_ARMADILHAS];   // Etapa 7
     // Item escondido em cada caixa (-1 = vazia). Acompanha a caixa quando
@@ -239,9 +243,10 @@ void recalcularAtributos(Jogador& jogador);
 // Mostra uma caixa com opções e deixa o jogador escolher uma (setas + Enter).
 // "descricoes" (pode ficar vazio) aparece embaixo da opção selecionada.
 // Devolve o índice escolhido ou -1 se ele apertar Esc.
+// "cursorInicial" deixa a seleção já numa opção (a loja volta para o item comprado).
 int escolherEmCaixa(const Jogo& jogo, const std::string& titulo,
                     const std::vector<std::string>& opcoes,
-                    const std::vector<std::string>& descricoes);
+                    const std::vector<std::string>& descricoes, int cursorInicial = 0);
 
 // Recebe a tecla apertada e executa a ação correspondente.
 void processarTecla(Jogo& jogo, int tecla);

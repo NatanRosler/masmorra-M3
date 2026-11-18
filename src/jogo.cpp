@@ -39,6 +39,8 @@ static Andar& prepararAndar(Jogo& jogo, int numero) {
         a.numMonstros = 0;
         a.numArmadilhas = 0;
         a.numNpcs = 0;
+        a.chavesGuardadas = 0;
+        prepararSalaDaLoja(a, numero);   // antes dos monstros: lá dentro ninguém nasce
         int chegadaX = a.escadas.chegadaSobeX, chegadaY = a.escadas.chegadaSobeY;
         if (jogo.comMonstros) {
             // Semente separada: os monstros não mudam o desenho do mapa.
@@ -203,7 +205,13 @@ static void deixarCheiro(Jogo& jogo) {
 static void irParaAndar(Jogo& jogo, int novoAndar) {
     bool descendo = novoAndar > jogo.andar;
     tocarSom(SOM_ESCADA);
+    // A chave só abre a porta do próprio andar: ela fica guardada aqui e
+    // volta para a mochila se o jogador voltar.
+    Jogador& j = jogo.jogador;
+    int andarAnterior = jogo.andar;
+    andarAtual(jogo).chavesGuardadas = j.mochila[I_CHAVE];
     Andar& destino = prepararAndar(jogo, novoAndar);
+    j.mochila[I_CHAVE] = destino.chavesGuardadas;
     jogo.andar = novoAndar;
     if (novoAndar > jogo.andarMaisFundo) jogo.andarMaisFundo = novoAndar;
 
@@ -211,6 +219,10 @@ static void irParaAndar(Jogo& jogo, int novoAndar) {
         jogo.jogador.x = destino.escadas.chegadaSobeX;
         jogo.jogador.y = destino.escadas.chegadaSobeY;
         adicionarMensagem(jogo, "Você desce para o andar " + std::to_string(novoAndar) + ".");
+        if (jogo.andares[andarAnterior - 1].chavesGuardadas > 0) {
+            adicionarMensagem(jogo, "A chave do andar " + std::to_string(andarAnterior) +
+                                    " ficou para trás: ela só abre a porta daquele andar.");
+        }
         if (novoAndar == NUM_ANDARES) {
             adicionarMensagem(jogo, "Você chegou ao fundo da masmorra. O Senhor das Profundezas está aqui.", MSG_PERIGO);
         }
@@ -242,6 +254,7 @@ void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros) {
     j.arma = &TIPOS_DE_ITEM[I_ADAGA];
     j.escudo = nullptr;
     j.bonusVida = j.bonusAtaque = j.bonusDefesa = j.bonusVelocidade = 0;
+    j.moedas = 0;
     j.nivel = NIVEL_INICIAL;
     j.experiencia = experienciaParaNivel(NIVEL_INICIAL);
     // Personagem padrão (os testes usam este; o jogo de verdade troca pelo
@@ -412,6 +425,7 @@ static void resolverBatalha(Jogo& jogo) {
                 jogo.jogador.mochila[I_CHAVE]++;
                 jogo.itensColetados++;
                 adicionarMensagem(jogo, comMaiusculaInicial(nome) + " carregava uma chave! Agora ela é sua.", MSG_BOA);
+                revelarPortaDoTesouro(jogo);
             }
         } else if (m.estado == FUGINDO) {
             adicionarMensagem(jogo, comMaiusculaInicial(nome) + " fugiu de você.");
@@ -628,9 +642,9 @@ static int esperarTecla(const Jogo& jogo, void (*desenharPorCima)(const Jogo&)) 
 
 int escolherEmCaixa(const Jogo& jogo, const std::string& titulo,
                     const std::vector<std::string>& opcoes,
-                    const std::vector<std::string>& descricoes) {
-    int cursor = 0;
+                    const std::vector<std::string>& descricoes, int cursorInicial) {
     int total = (int)opcoes.size();
+    int cursor = (cursorInicial >= 0 && cursorInicial < total) ? cursorInicial : 0;
     while (true) {
         desenharJogo(jogo);
         std::string descricao = (cursor < (int)descricoes.size()) ? descricoes[cursor] : "";
@@ -654,14 +668,22 @@ static bool abrirMochila(Jogo& jogo) {
     for (int i = 0; i < NUM_TIPOS_DE_ITEM; i++) {
         if (j.mochila[i] <= 0) continue;
         tipos.push_back(i);
-        opcoes.push_back(std::string(TIPOS_DE_ITEM[i].nome) + "  x" + std::to_string(j.mochila[i]));
+        if (i == I_CHAVE) {
+            // A chave é deste andar e não ocupa espaço.
+            opcoes.push_back("Chave do andar " + std::to_string(jogo.andar));
+            descricoes.push_back("Abre a porta trancada da sala do tesouro DESTE andar.  |  Não ocupa espaço na mochila.");
+            continue;
+        }
+        opcoes.push_back(std::string(TIPOS_DE_ITEM[i].nome) + "   " + std::to_string(j.mochila[i]) + "/" +
+                         std::to_string(limiteDoItem(i)));
         descricoes.push_back(TIPOS_DE_ITEM[i].descricao);
     }
     std::string arma = (j.arma != nullptr) ? j.arma->nome : "nenhuma";
     std::string escudo = (j.escudo != nullptr) ? j.escudo->nome : "nenhum";
-    std::string titulo = "MOCHILA   (arma: " + arma + ", escudo: " + escudo + ")";
+    std::string titulo = "MOCHILA " + std::to_string(itensNaMochila(j)) + "/" + std::to_string(LIMITE_DA_MOCHILA) +
+                         "   (arma: " + arma + ", escudo: " + escudo + ")";
     if (tipos.empty()) {
-        adicionarMensagem(jogo, "A mochila está vazia. " + titulo.substr(10));
+        adicionarMensagem(jogo, "A mochila está vazia. (arma: " + arma + ", escudo: " + escudo + ")");
         return false;
     }
     int escolha = escolherEmCaixa(jogo, titulo, opcoes, descricoes);

@@ -301,7 +301,7 @@ void povoarAndar(Andar& andar, int numeroDoAndar, uint32_t semente,
         for (int tentativa = 0; tentativa < 300; tentativa++) {
             int x = sortear(g, 1, MAPA_LARGURA - 2);
             int y = sortear(g, 1, MAPA_ALTURA - 2);
-            if (andar.mapa.celulas[y][x] != CHAO) continue;
+            if (andar.mapa.celulas[y][x] != CHAO || andar.zonaSegura[y][x]) continue;
             if (distancia[y][x] == INALCANCAVEL || distancia[y][x] < 12) continue;
             if (monstroEm(andar, x, y) >= 0) continue;
 
@@ -312,7 +312,7 @@ void povoarAndar(Andar& andar, int numeroDoAndar, uint32_t semente,
                 int extras = chance(g, 25) ? 2 : 1;
                 for (int d = 0; d < 8 && extras > 0 && andar.numMonstros < MAX_MONSTROS; d++) {
                     int nx = x + DIRECOES_DX[d], ny = y + DIRECOES_DY[d];
-                    if (andar.mapa.celulas[ny][nx] != CHAO) continue;
+                    if (andar.mapa.celulas[ny][nx] != CHAO || andar.zonaSegura[ny][nx]) continue;
                     if (distancia[ny][nx] == INALCANCAVEL || distancia[ny][nx] < 12) continue;
                     if (monstroEm(andar, nx, ny) >= 0) continue;
                     criarMonstro(andar, tipo, nx, ny, nivel, estado);
@@ -351,6 +351,7 @@ static bool celulaLivre(const Jogo& jogo, int x, int y) {
     if (!ehPassavel(andar.mapa, x, y) || ehEscada(andar.mapa, x, y)) return false;
     if (x == jogo.jogador.x && y == jogo.jogador.y) return false;
     if (npcEm(andar, x, y) >= 0) return false;
+    if (andar.zonaSegura[y][x]) return false;   // a lojinha do comerciante
     return monstroEm(andar, x, y) < 0;
 }
 
@@ -358,6 +359,8 @@ static bool podeAtacarJogador(const Jogo& jogo, const Monstro& m) {
     int dx = jogo.jogador.x - m.x;
     int dy = jogo.jogador.y - m.y;
     if (dx < -1 || dx > 1 || dy < -1 || dy > 1 || (dx == 0 && dy == 0)) return false;
+    // Dentro da lojinha o jogador está protegido.
+    if (andarAtual(jogo).zonaSegura[jogo.jogador.y][jogo.jogador.x]) return false;
     // Mesma regra do jogador: não ataca "cortando a quina" de uma parede.
     return podeMover(mapaAtual(jogo), m.x, m.y, dx, dy);
 }
@@ -416,7 +419,7 @@ static void escolherDestino(Jogo& jogo, Monstro& m) {
     for (int tentativa = 0; tentativa < 100; tentativa++) {
         int x = sortear(jogo.sorte, 1, MAPA_LARGURA - 2);
         int y = sortear(jogo.sorte, 1, MAPA_ALTURA - 2);
-        if (mapa.celulas[y][x] == CHAO) {
+        if (mapa.celulas[y][x] == CHAO && !andarAtual(jogo).zonaSegura[y][x]) {
             m.destinoX = x;
             m.destinoY = y;
             return;

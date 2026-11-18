@@ -293,12 +293,13 @@ linha de uma tabela; as regras leem `dificuldadeAtual()` em vez de números fixo
 | | Fácil | Médio | Difícil |
 |---|---|---|---|
 | Vida dos monstros | −15% | +10% | +30% |
-| Ataque dos monstros (≈ dano) | 75% | 95% | 125% |
+| Ataque dos monstros (≈ dano) | 75% | 100% (era 95% até a v1.7) | 125% |
 | Intervalo entre passos dos monstros | 130% (mais lentos) | 110% | 100% |
 | Dano das armadilhas | 6% da vida | 10% | 15% |
 | Experiência ganha | 150% | 125% | 100% |
-| Vidas / poções no início | 5 / 6 | 3 / 4 | 3 / 3 |
+| Vidas / poções no início | 5 / 6 | 3 / 3 (eram 4 até a v1.7) | 3 / 3 |
 | Pontuação final | 50% | 100% | 150% |
+| Preços na loja (v1.8) | 75% | 100% | 125% |
 
 Medido com os robôs (150 partidas cada):
 
@@ -362,3 +363,61 @@ nada sair da caixa, `visual.cpp` ganhou `quebrarLinhas` (quebra a frase nos
 espaços conforme a largura real das letras), `textoQuebrado` (desenha já
 quebrado) e `textoQueCabe` (numa linha só, diminui a letra se não couber). As
 páginas de texto usam a maior letra (até 28) em que todas as linhas cabem.
+
+## Moedas e o comerciante (v1.7)
+
+- **Ganhar moedas** (`loja.cpp`): cada monstro derrotado dá `2 + nível/3` moedas
+  (mais 0 a 2 de sorte); cada nível novo dá 5 moedas; e metade das caixas que não
+  têm item guarda `5 + 2 × andar` moedas (mais 0 a 5). Dentro da caixa isso é
+  guardado como `MOEDAS_NA_CAIXA + quantidade` (`cenario.h`), e só o jogador
+  recolhe: se um ogro quebrar a caixa, as moedas se perdem.
+- **Garro, o comerciante** (`npcs.cpp`): aparece nos andares 3, 6 e 9
+  (`repeteACada = 3` na ficha). Na primeira conversa ele se apresenta; depois,
+  andar até ele abre direto a loja.
+- **A loja** (`abrirLoja`): poções sempre à venda e 2 itens especiais, só 1 de
+  cada (`prepararEstoque`): no andar 3, a arma do elemento do jogador e um escudo
+  de madeira; no 6, escudo de ferro e cristal de vida; no 9, espada longa e
+  cristal de força. Ele também compra itens da mochila pela metade do preço.
+- **Pontos:** cada moeda guardada no fim vale 1 ponto, então existe a escolha
+  entre gastar para sobreviver ou guardar para o ranking.
+- **Balanceamento (bots, 150 partidas):** quem explora tudo chega ao comerciante
+  com ~65, ~170 e ~235 moedas novas (andares 3, 6 e 9); quem só corre para a
+  escada junta bem menos (~20 no andar 3). Na v1.7, com poções à vontade na
+  loja, o bot que só corre chegava ao andar 10 em ~20% das partidas no Médio:
+  fácil demais. A v1.8 corrigiu isso (ver abaixo).
+
+## Lojinha, limite da mochila e chave por andar (v1.8)
+
+- **Lojinha do Garro** (`prepararSalaDaLoja` em `npcs.cpp`): logo depois de
+  gerar o mapa, testa cada porta como se fosse parede (a mesma ideia da sala do
+  tesouro). A salinha isolada mais perto da chegada (9 a 80 casas, sem escada e
+  sem outra porta) vira a loja: `Andar::zonaSegura` marca as casas dela, a parede
+  mais longe da porta vira um lampião (tocha) e o comerciante fica no meio. Em
+  ~92% dos andares 3, 6 e 9 existe uma salinha assim; nos outros, um tapete 5×5
+  em volta dele vira a área protegida.
+- **Monstros e a zona segura** (`monstros.cpp`): não nascem nela
+  (`povoarAndar`), não pisam nela (`celulaLivre`), não a escolhem como destino e
+  não atacam o jogador que está dentro dela (`podeAtacarJogador`).
+- **Limite da mochila** (`itens.cpp`): `limiteDoItem` (6 Poções de Vida, 3 de
+  cada outra poção, 1 de cada arma/escudo/pergaminho de reserva) e
+  `LIMITE_DA_MOCHILA = 12` no total. A chave e os cristais não ocupam espaço.
+  Com a mochila cheia, pisar num item abre a troca: o item escolhido fica no
+  chão, no mesmo lugar. Presentes de NPC e o item que sai da mão ao equipar
+  usam `guardarOuLargar` (se não couber, fica no chão).
+- **Chave por andar** (`irParaAndar` em `jogo.cpp`): ao trocar de andar, as
+  chaves ficam guardadas em `Andar::chavesGuardadas` e voltam se o jogador
+  voltar. Ao pegar a chave, `revelarPortaDoTesouro` marca a porta no mapa e diz
+  a direção. O andar 4 não tem chave (o Borin abre a porta).
+- **Estoque limitado e novo equilíbrio do Médio:** o Garro traz poucas poções
+  por andar (`prepararEstoque` em `loja.cpp`): andares 3 e 6, 1 Poção de Vida,
+  1 Antídoto e 1 Éter; andar 9, mais 1 Poção Grande. Os testes mostraram que a
+  Poção Grande era o que mais facilitava. Os preços seguem a dificuldade
+  (`precosDaLoja`: 75%, 100%, 125%). No Médio, o ataque dos monstros foi de 95%
+  para 100% e as poções iniciais de 4 para 3. Resultado (bots, 400 partidas de
+  quem só desce e 100 de quem explora, comprando tudo o que pode na loja):
+
+  | | Fácil | Médio | Difícil |
+  |---|---|---|---|
+  | Quem só desce: chega ao andar 10 | 83% | 9% | 0% |
+  | Quem explora: chega ao andar 10 | 86% | 85% | 73% |
+  | Chefe vencido (Médio, jogador nível 22) | | 69% | |

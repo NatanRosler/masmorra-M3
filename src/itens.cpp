@@ -4,6 +4,8 @@
 #include "tela.h"
 #include "jogo.h"
 #include "aleatorio.h"
+#include "npcs.h"
+#include <cstdlib>
 
 // =============================================================================
 // FICHAS DOS ITENS
@@ -167,7 +169,7 @@ static bool sortearLugar(const Andar& andar, GeradorAleatorio& g,
     for (int tentativa = 0; tentativa < 500; tentativa++) {
         x = sortear(g, 1, MAPA_LARGURA - 2);
         y = sortear(g, 1, MAPA_ALTURA - 2);
-        if (andar.mapa.celulas[y][x] != CHAO) continue;
+        if (andar.mapa.celulas[y][x] != CHAO || andar.zonaSegura[y][x]) continue;
         if (distancia[y][x] == INALCANCAVEL || distancia[y][x] < minima) continue;
         if (itemEm(andar, x, y) >= 0 || monstroEm(andar, x, y) >= 0) continue;
         return true;
@@ -209,7 +211,9 @@ void espalharItens(Andar& andar, int numeroDoAndar, uint32_t semente) {
     }
 
     // 3. A chave: metade das vezes fica com um monstro (que a deixa ao ser
-    //    derrotado); senão, fica no chão, longe da chegada.
+    //    derrotado); senão, fica no chão, longe da chegada. No andar do
+    //    Borin não há chave: ele mesmo destranca a porta.
+    if (numeroDoAndar == FICHAS_DOS_NPCS[NPC_MINEIRO].andar) return;
     if (andar.numMonstros > 0 && chance(g, 50)) {
         andar.monstros[sortear(g, 0, andar.numMonstros - 1)].carregaChave = true;
         return;
@@ -232,6 +236,83 @@ static std::string textoDosBonus(const TipoItem& t) {
     return s;
 }
 
+// =============================================================================
+// LIMITES DA MOCHILA
+// =============================================================================
+// "uma poção" -> "Uma poção" (os artigos começam com letra sem acento).
+static std::string comMaiusculaInicial(std::string texto) {
+    if (!texto.empty() && texto[0] >= 'a' && texto[0] <= 'z') texto[0] = (char)(texto[0] - 'a' + 'A');
+    return texto;
+}
+
+int limiteDoItem(int tipo) {
+    switch (tipo) {
+        case I_POCAO_DE_VIDA: return 6;
+        case I_POCAO_GRANDE:
+        case I_ANTIDOTO:
+        case I_ETER:          return 3;
+        case I_CHAVE:         return 99;   // a chave não ocupa espaço
+    }
+    if (TIPOS_DE_ITEM[tipo].categoria == CRISTAL) return 99;   // nunca fica na mochila
+    return 1;   // armas, escudos e pergaminhos de reserva: um de cada
+}
+
+int itensNaMochila(const Jogador& j) {
+    int total = 0;
+    for (int i = 0; i < NUM_TIPOS_DE_ITEM; i++) {
+        if (i != I_CHAVE) total += j.mochila[i];
+    }
+    return total;
+}
+
+bool cabeNaMochila(const Jogador& j, int tipo) {
+    if (tipo == I_CHAVE || TIPOS_DE_ITEM[tipo].categoria == CRISTAL) return true;
+    return j.mochila[tipo] < limiteDoItem(tipo) && itensNaMochila(j) < LIMITE_DA_MOCHILA;
+}
+
+std::string motivoDeNaoCaber(const Jogador& j, int tipo) {
+    if (j.mochila[tipo] >= limiteDoItem(tipo)) {
+        return "Você já carrega o máximo de " + std::string(TIPOS_DE_ITEM[tipo].nome) + " (" +
+               std::to_string(j.mochila[tipo]) + "/" + std::to_string(limiteDoItem(tipo)) + ").";
+    }
+    return "A mochila está cheia (" + std::to_string(itensNaMochila(j)) + "/" +
+           std::to_string(LIMITE_DA_MOCHILA) + ").";
+}
+
+// Deixa um item no chão em (x, y) ou, se já houver outro ali, numa célula vizinha.
+static void largarNoChao(Jogo& jogo, int tipo, int x, int y) {
+    Andar& andar = andarAtual(jogo);
+    for (int d = -1; d < 8; d++) {
+        int nx = (d < 0) ? x : x + DIRECOES_DX[d], ny = (d < 0) ? y : y + DIRECOES_DY[d];
+        if (!dentroDoMapa(nx, ny) || andar.mapa.celulas[ny][nx] != CHAO || itemEm(andar, nx, ny) >= 0) continue;
+        // Reaproveita uma vaga de item já pego; senão, usa uma nova.
+        int vaga = -1;
+        for (int i = 0; i < andar.numItens && vaga < 0; i++) if (!andar.itens[i].ativo) vaga = i;
+        if (vaga < 0) {
+            if (andar.numItens >= MAX_ITENS_NO_CHAO) return;
+            vaga = andar.numItens++;
+        }
+        ItemNoChao& item = andar.itens[vaga];
+        item.ativo = true;
+        item.tipo = tipo;
+        item.x = nx;
+        item.y = ny;
+        item.visto = true;
+        return;
+    }
+}
+
+void guardarOuLargar(Jogo& jogo, int tipo) {
+    Jogador& j = jogo.jogador;
+    if (cabeNaMochila(j, tipo)) {
+        j.mochila[tipo]++;
+        return;
+    }
+    largarNoChao(jogo, tipo, j.x, j.y);
+    adicionarMensagem(jogo, motivoDeNaoCaber(j, tipo) + " " + comMaiusculaInicial(nomeComArtigo(tipo)) +
+                            " ficou no chão.");
+}
+
 void equipar(Jogo& jogo, int tipo) {
     Jogador& j = jogo.jogador;
     const TipoItem* novo = &TIPOS_DE_ITEM[tipo];
@@ -243,16 +324,29 @@ void equipar(Jogo& jogo, int tipo) {
         adicionarMensagem(jogo, "Você já está usando " + nomeComArtigo(tipo) + ".");
         return;
     }
-    // O item que estava na mão volta para a mochila. A subtração de ponteiros
-    // dá a posição dele na tabela (o seu IdItem).
-    if (*lugar != nullptr) j.mochila[*lugar - TIPOS_DE_ITEM]++;
+    // O item que estava na mão volta para a mochila (ou para o chão, se não
+    // couber). A subtração de ponteiros dá a posição dele na tabela (o seu IdItem).
     j.mochila[tipo]--;
+    if (*lugar != nullptr) guardarOuLargar(jogo, (int)(*lugar - TIPOS_DE_ITEM));
     *lugar = novo;
 
     int vidaMaximaAntes = j.vidaMaxima;
     recalcularAtributos(j);
     j.vida += j.vidaMaxima - vidaMaximaAntes;
     adicionarMensagem(jogo, "Você equipou " + nomeComArtigo(tipo) + ".");
+}
+
+void absorverCristal(Jogo& jogo, int tipo) {
+    Jogador& j = jogo.jogador;
+    const TipoItem& t = TIPOS_DE_ITEM[tipo];
+    j.bonusVida += t.bonusVida;
+    j.bonusAtaque += t.bonusAtaque;
+    j.bonusDefesa += t.bonusDefesa;
+    j.bonusVelocidade += t.bonusVelocidade;
+    int vidaMaximaAntes = j.vidaMaxima;
+    recalcularAtributos(j);
+    j.vida += j.vidaMaxima - vidaMaximaAntes;
+    adicionarMensagem(jogo, "Você absorve " + nomeComArtigo(tipo) + "!" + textoDosBonus(t), MSG_BOA);
 }
 
 void pegarItensDoChao(Jogo& jogo) {
@@ -263,6 +357,50 @@ void pegarItensDoChao(Jogo& jogo) {
 
     ItemNoChao& item = andar.itens[indice];
     const TipoItem& t = TIPOS_DE_ITEM[item.tipo];
+
+    // Mochila: cada item tem um máximo, e a mochila toda também.
+    if (!cabeNaMochila(j, item.tipo)) {
+        bool cheiaDeTudo = j.mochila[item.tipo] < limiteDoItem(item.tipo);
+        if (!cheiaDeTudo || jogo.modoAutomatico) {
+            adicionarMensagem(jogo, motivoDeNaoCaber(j, item.tipo) + " " +
+                                    comMaiusculaInicial(nomeComArtigo(item.tipo)) + " fica no chão.");
+            return;
+        }
+        // Mochila cheia: o jogador pode largar outra coisa aqui para pegar este item.
+        std::vector<int> tipos;
+        std::vector<std::string> opcoes, descricoes;
+        for (int i = 0; i < NUM_TIPOS_DE_ITEM; i++) {
+            if (i == I_CHAVE || j.mochila[i] <= 0) continue;
+            tipos.push_back(i);
+            opcoes.push_back("Largar " + std::string(TIPOS_DE_ITEM[i].nome) + "  (tenho " + std::to_string(j.mochila[i]) + ")");
+            descricoes.push_back(std::string(TIPOS_DE_ITEM[i].descricao) + "  |  Fica no chão no lugar de " +
+                                 nomeComArtigo(item.tipo) + ".");
+        }
+        opcoes.push_back("Deixar " + std::string(t.nome) + " no chão");
+        descricoes.push_back(std::string(t.descricao) + "  |  Você pode voltar e pegar depois.");
+        int escolha = escolherEmCaixa(jogo, "MOCHILA CHEIA (" + std::to_string(itensNaMochila(j)) + "/" +
+                                      std::to_string(LIMITE_DA_MOCHILA) + "): pegar " + t.nome + "?",
+                                      opcoes, descricoes, (int)opcoes.size() - 1);
+        if (escolha < 0 || escolha >= (int)tipos.size()) {
+            adicionarMensagem(jogo, comMaiusculaInicial(nomeComArtigo(item.tipo)) + " fica no chão.");
+            return;
+        }
+        // Troca: o item escolhido vai para o chão, no mesmo lugar.
+        int largado = tipos[escolha];
+        int pegou = item.tipo;
+        j.mochila[largado]--;
+        j.mochila[pegou]++;
+        item.tipo = largado;
+        item.visto = true;
+        jogo.itensColetados++;
+        tocarSom(SOM_ITEM);
+        efeitoNoMapa(jogo, EFEITO_ITEM, item.x, item.y, pegou);
+        adicionarMensagem(jogo, "Você largou " + nomeComArtigo(largado) + " e pegou " + nomeComArtigo(pegou) + ".");
+        const TipoItem& novo = TIPOS_DE_ITEM[pegou];
+        if (novo.categoria == ARMA && (j.arma == nullptr || novo.bonusAtaque > j.arma->bonusAtaque)) equipar(jogo, pegou);
+        if (novo.categoria == ESCUDO && j.escudo == nullptr) equipar(jogo, pegou);
+        return;
+    }
     item.ativo = false;
     jogo.itensColetados++;
     tocarSom(SOM_ITEM);
@@ -270,14 +408,7 @@ void pegarItensDoChao(Jogo& jogo) {
 
     // Cristais fazem efeito na hora e para sempre.
     if (t.categoria == CRISTAL) {
-        j.bonusVida += t.bonusVida;
-        j.bonusAtaque += t.bonusAtaque;
-        j.bonusDefesa += t.bonusDefesa;
-        j.bonusVelocidade += t.bonusVelocidade;
-        int vidaMaximaAntes = j.vidaMaxima;
-        recalcularAtributos(j);
-        j.vida += j.vidaMaxima - vidaMaximaAntes;
-        adicionarMensagem(jogo, "Você absorve " + nomeComArtigo(item.tipo) + "!" + textoDosBonus(t), MSG_BOA);
+        absorverCristal(jogo, item.tipo);
         return;
     }
 
@@ -291,9 +422,38 @@ void pegarItensDoChao(Jogo& jogo) {
     if (t.categoria == ESCUDO && j.escudo == nullptr) {
         equipar(jogo, item.tipo);
     }
-    if (t.categoria == CHAVE) {
-        adicionarMensagem(jogo, "A chave abre uma porta trancada deste andar!", MSG_BOA);
+    if (t.categoria == CHAVE) revelarPortaDoTesouro(jogo);
+}
+
+// Direção aproximada de (dx, dy) em palavras ("ao norte", "a sudeste"...).
+static std::string direcaoEmPalavras(int dx, int dy) {
+    // No mapa, y cresce para baixo (sul). Um eixo só conta se for relevante.
+    bool norte = dy < 0 && -dy * 2 >= std::abs(dx), sul = dy > 0 && dy * 2 >= std::abs(dx);
+    bool leste = dx > 0 && dx * 2 >= std::abs(dy), oeste = dx < 0 && -dx * 2 >= std::abs(dy);
+    if (norte && leste) return "a nordeste";
+    if (norte && oeste) return "a noroeste";
+    if (sul && leste) return "a sudeste";
+    if (sul && oeste) return "a sudoeste";
+    if (norte) return "ao norte";
+    if (sul) return "ao sul";
+    if (leste) return "a leste";
+    return "a oeste";
+}
+
+void revelarPortaDoTesouro(Jogo& jogo) {
+    Andar& andar = andarAtual(jogo);
+    const SalaDoTesouro& t = andar.tesouro;
+    if (!t.existe || andar.mapa.celulas[t.portaY][t.portaX] != PORTA_TRANCADA) {
+        adicionarMensagem(jogo, "A chave abre a porta trancada deste andar!", MSG_BOA);
+        return;
     }
+    // A porta (e as paredes em volta) passam a aparecer no mapa.
+    for (int dy = -1; dy <= 1; dy++)
+        for (int dx = -1; dx <= 1; dx++)
+            if (dentroDoMapa(t.portaX + dx, t.portaY + dy)) andar.descoberto[t.portaY + dy][t.portaX + dx] = true;
+    adicionarMensagem(jogo, "A chave brilha... a porta do tesouro fica " +
+                            direcaoEmPalavras(t.portaX - jogo.jogador.x, t.portaY - jogo.jogador.y) +
+                            "! (marcada no mapa)", MSG_BOA);
 }
 
 // Pergaminho: ensina um golpe (se já souber 4, pergunta qual esquecer).

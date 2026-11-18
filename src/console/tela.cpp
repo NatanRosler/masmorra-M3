@@ -339,6 +339,12 @@ void desenharJogo(const Jogo& jogo) {
 
             if (dentroDoMapa(x, y)) {
                 Aparencia a = aparenciaDaCelula(mapa, x, y);
+                // Lojinha do comerciante: tapete vinho no chão.
+                if (andar.zonaSegura[y][x] && mapa.celulas[y][x] == CHAO) {
+                    a.simbolo = ':';
+                    a.frente = { 200, 150, 70 };
+                    a.fundo = { 90, 25, 35 };
+                }
                 if (jogo.visivel[y][x]) {
                     // Visível agora: cor do objeto multiplicada pela luz.
                     CorRGB frente = a.frente, fundo = a.fundo;
@@ -401,7 +407,8 @@ void desenharJogo(const Jogo& jogo) {
     std::string inicio = " Andar " + std::to_string(jogo.andar) + "  Nv " + std::to_string(j.nivel) + "  ";
     p.texto(inicio, COR_TEXTO);
     desenharBarra(p, "Vida", j.vida, j.vidaMaxima, 16, 124, 52);
-    std::string resto = "  Vidas " + std::to_string(j.vidas) + "  Pts " + std::to_string(calcularPontuacao(jogo))
+    std::string resto = "  Vidas " + std::to_string(j.vidas) + "  $" + std::to_string(j.moedas)
+                      + "  Pts " + std::to_string(calcularPontuacao(jogo))
                       + "  " + textoDoTempo(jogo.tempoMs) + (jogo.descansando ? " zZz " : " ")
                       + (j.pontosLivres > 0 ? "[C] " : "");
     p.texto(resto, COR_TEXTO);
@@ -990,7 +997,7 @@ void desenharMenuEmCaixa(const std::string& titulo, const std::vector<std::strin
     p.irPara(linha++, esquerda); p.texto("  " + ajustarLargura(descricao, LARGURA - 4) + "  ", CAIXA);
     p.irPara(linha++, esquerda); p.texto(std::string(LARGURA, ' '), CAIXA);
     p.irPara(linha++, esquerda);
-    p.texto("  " + ajustarLargura("Setas: escolher   Enter: usar/equipar   Esc: voltar", LARGURA - 4) + "  ", DICA);
+    p.texto("  " + ajustarLargura("Setas: escolher   Enter: confirmar   Esc: voltar", LARGURA - 4) + "  ", DICA);
     p.saida += ansiResetar();
     escreverNaTela(p.saida);
 }

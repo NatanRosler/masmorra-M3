@@ -28,6 +28,7 @@ set(FONTES_DA_LOGICA
     src/personagem.cpp
     src/cenario.cpp
     src/npcs.cpp
+    src/loja.cpp
     src/pontuacao.cpp
     src/dificuldade.cpp
 )

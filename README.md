@@ -70,6 +70,7 @@ src/
 | `src/personagem.cpp` | Criação do personagem (nome, elemento, cor, atributos) e ficha (tecla C) |
 | `src/cenario.h/.cpp` | Armadilhas escondidas e caixas que se empurram (mapa que muda) |
 | `src/npcs.h/.cpp` | Personagens que conversam, ajudam e mudam o mapa |
+| `src/loja.h/.cpp` | Moedas e a loja do Garro, o comerciante (comprar e vender) |
 | `src/pontuacao.h/.cpp` | Pontuação, ranking em arquivo (`ranking.txt`) e textos do menu |
 | `src/dificuldade.h/.cpp` | Tabela das dificuldades (Fácil, Médio, Difícil) |
 | `src/grafico/main.cpp` | Laço principal da versão gráfica, menu e pausa |

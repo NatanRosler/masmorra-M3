@@ -19,6 +19,7 @@ struct Dificuldade {
     int vidas;                  // vidas no começo
     int pocoes;                 // poções de vida no começo
     int pontuacao;              // % da pontuação final (mais difícil vale mais)
+    int precosDaLoja;           // % do preço normal na loja do comerciante
 };
 
 extern const Dificuldade DIFICULDADES[NUM_DIFICULDADES];
