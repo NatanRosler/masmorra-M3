@@ -89,7 +89,7 @@ void armadilhaPegaJogador(Jogo& jogo) {
         tocarSom(SOM_ARMADILHA);
         int dano = danoDaArmadilha(j.vidaMaxima, dificuldadeAtual().danoDasArmadilhas);
         j.vida -= dano;
-        adicionarMensagem(jogo, "Espinhos saltam do chão! Você perde " + std::to_string(dano) + " de vida.");
+        adicionarMensagem(jogo, "Espinhos saltam do chão! Você perde " + std::to_string(dano) + " de vida.", MSG_PERIGO);
         if (j.vida <= 0) {
             j.vida = 0;
             desmaiar(jogo, "ferido por uma armadilha de espinhos");
@@ -106,7 +106,7 @@ void armadilhaPegaJogador(Jogo& jogo) {
         if (dx < -1 || dx > 1 || dy < -1 || dy > 1) continue;
         if (chance(jogo.sorte, chanceDePerceber)) {
             a.descoberta = true;
-            adicionarMensagem(jogo, "Você percebe uma armadilha escondida no chão!");
+            adicionarMensagem(jogo, "Você percebe uma armadilha escondida no chão!", MSG_PERIGO);
         }
     }
 }
@@ -166,7 +166,7 @@ bool empurrarCaixa(Jogo& jogo, int dx, int dy) {
     int armadilha = armadilhaEm(andar, destinoX, destinoY);
     if (armadilha >= 0) {
         andar.armadilhas[armadilha].ativa = false;
-        adicionarMensagem(jogo, "A caixa cai sobre uma armadilha e a desarma! Os espinhos a despedaçam.");
+        adicionarMensagem(jogo, "A caixa cai sobre uma armadilha e a desarma! Os espinhos a despedaçam.", MSG_BOA);
     } else {
         andar.mapa.celulas[destinoY][destinoX] = CAIXA;
     }

@@ -298,7 +298,11 @@ void desenharJogo(const Jogo& jogo) {
 
     // Linha 1: mensagens deste turno
     p.irPara(1, 1);
-    p.texto(ajustarLargura(mensagensQueCabem(jogo, TELA_COLUNAS - 1), TELA_COLUNAS - 1), COR_TEXTO);
+    // Mensagens importantes do turno: dourado (boa) ou vermelho (perigo).
+    Cor corDasMensagens = COR_TEXTO;
+    if (jogo.tipoDoTurno == MSG_BOA) corDasMensagens = { 220, FUNDO_PRETO };
+    if (jogo.tipoDoTurno == MSG_PERIGO) corDasMensagens = { 203, FUNDO_PRETO };
+    p.texto(ajustarLargura(mensagensQueCabem(jogo, TELA_COLUNAS - 1), TELA_COLUNAS - 1), corDasMensagens);
 
     // Linhas 2..22: o pedaço do mapa que a câmera mostra.
     const Mapa& mapa = mapaAtual(jogo);
@@ -560,6 +564,7 @@ void desenharCriacao(const Criacao& c) {
         rotulos[LINHA_FORCA + a] = nome + ":" + std::string(13 - contarLetras(nome), ' ') + "- " +
                                    std::to_string(c.atributos[a]) + " +";
     }
+    rotulos[LINHA_ALEATORIO] = "[ ALEATÓRIO ]";
     rotulos[LINHA_COMECAR] = "[ COMEÇAR A AVENTURA ]";
     for (int i = 0; i < NUM_LINHAS_DA_CRIACAO; i++) {
         linhas.push_back((i == c.linha ? "> " : "  ") + rotulos[i]);
@@ -579,6 +584,7 @@ void desenharCriacao(const Criacao& c) {
     if (c.linha == LINHA_COR) dica = "A cor do seu @ no mapa.";
     if (c.linha == LINHA_DIFICULDADE) dica = DIFICULDADES[c.dificuldade].descricao;
     if (c.linha >= LINHA_FORCA && c.linha <= LINHA_AGILIDADE) dica = EFEITOS_DOS_ATRIBUTOS[c.linha - LINHA_FORCA];
+    if (c.linha == LINHA_ALEATORIO) dica = "Enter sorteia nome, elemento, cor e atributos.";
     if (c.linha == LINHA_COMECAR) dica = "Enter para começar.";
     linhas.push_back(dica);
     linhas.push_back("Setas: escolher e mudar   Enter: próximo   Esc: voltar");
@@ -805,14 +811,20 @@ void desenharBatalha(const Jogo& jogo, const Batalha& b) {
     std::string dica = " Setas: escolher    Enter (ou z): confirmar    Esc (ou x): voltar";
 
     if (b.menu == MENU_NENHUM) {
-        std::vector<std::string> linhas = quebrarTexto(b.texto, 72);
+        // Mensagem importante: colorida, com um sinal na frente, e sem o
+        // [ok] enquanto as teclas estão travadas.
+        Cor corDoTexto = TEXTO;
+        std::string sinal;
+        if (b.tipoDoTexto == MSG_BOA)    { corDoTexto = { 220, FUNDO_PRETO }; sinal = "* "; }
+        if (b.tipoDoTexto == MSG_PERIGO) { corDoTexto = { 203, FUNDO_PRETO }; sinal = "! "; }
+        std::vector<std::string> linhas = quebrarTexto(sinal + b.texto, 72);
         for (size_t i = 0; i < linhas.size() && i < 4; i++) {
             p.irPara(19 + (int)i, 5);
-            p.texto(linhas[i], TEXTO);
+            p.texto(linhas[i], corDoTexto);
         }
         p.irPara(22, 72);
-        p.texto("[ok]", APAGADO);
-        dica = " Aperte qualquer tecla para continuar";
+        p.texto(b.travado ? "    " : "[ok]", APAGADO);
+        dica = b.travado ? " Leia com atenção..." : " Aperte qualquer tecla para continuar";
     }
     else if (b.menu == MENU_PRINCIPAL) {
         std::vector<std::string> linhas = quebrarTexto(b.texto, 34);

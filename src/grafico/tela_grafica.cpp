@@ -40,6 +40,11 @@ Color multiplicar(Color c,float f) {
 // Cores do jogo (CorRGB, 0-255) para a raylib.
 Color paraCor(CorRGB c) { return {(unsigned char)c.r,(unsigned char)c.g,(unsigned char)c.b,255}; }
 Color corDoElemento(int e) { return paraCor(CORES_DOS_ELEMENTOS[e]); }
+Color corDaMensagem(int tipo) {
+    if (tipo==MSG_BOA) return OURO;
+    if (tipo==MSG_PERIGO) return PERIGO;
+    return TEXTO;
+}
 Color corDaDificuldade(int d) {
     if (d==FACIL) return {110,210,120,255};
     if (d==DIFICIL) return PERIGO;
@@ -210,6 +215,12 @@ void hud(const Jogo& jogo) {
     texto("Nível "+std::to_string(j.nivel),1210,252,24,CIANO);
     texto("Vida "+std::to_string(j.vida)+" / "+std::to_string(j.vidaMaxima),1027,300,21,TEXTO);
     barra(1027,330,341,19,j.vida,j.vidaMaxima);
+    if(j.vida>0 && j.vida*4<=j.vidaMaxima) {
+        // Vida baixa: a barra pisca em vermelho.
+        float pulso=0.5f+0.5f*std::sin((float)relogioMs()/150.0f);
+        DrawRectangleRoundedLinesEx({1025,328,345,23},0.35f,8,3.0f,multiplicar(PERIGO,0.4f+0.6f*pulso));
+        texto("VIDA BAIXA",1270,300,18,multiplicar(PERIGO,0.6f+0.4f*pulso));
+    }
     texto("Vidas: "+std::to_string(j.vidas),1027,364,21,TEXTO);
     texto("Pontos: "+std::to_string(calcularPontuacao(jogo)),1180,364,21,OURO);
     separador(1027,402,341);
@@ -230,7 +241,7 @@ void hud(const Jogo& jogo) {
     texto("MENSAGENS",61,662,19,OURO);
     int n=(int)jogo.historico.size();
     int primeira=std::max(0,n-2);
-    for(int i=primeira;i<n;i++) texto(jogo.historico[i],61,695+26*(i-primeira),20,TEXTO);
+    for(int i=primeira;i<n;i++) texto(jogo.historico[i],61,695+26*(i-primeira),20,corDaMensagem(jogo.tiposDoHistorico[i]));
     painel({39,782,1362,76},PAINEL2);
     texto("SETAS / WASD / HJKL: andar",61,796,19,APAGADO);
     const char* rotulos[]={"[I] MOCHILA","[C] FICHA","[Z] DESCANSAR","[?] AJUDA","[M] HISTÓRICO"};
@@ -243,6 +254,22 @@ void hud(const Jogo& jogo) {
     }
     texto(std::string("ESC: pausa   O: som ")+(somLigado()?"(ligado)":"(desligado)"),62,830,17,APAGADO);
 }
+// Mensagem importante em destaque no topo do mapa por alguns segundos.
+void faixaDeDestaque(const Jogo& jogo) {
+    long long agora=relogioMs();
+    if(jogo.faixa.empty() || agora>=jogo.faixaAte) return;
+    float resta=(float)(jogo.faixaAte-agora);
+    float alfa=std::min(1.0f,resta/500.0f);              // some devagar no fim
+    Color cor=corDaMensagem(jogo.tipoDaFaixa);
+    float largura=std::min(900.0f,(float)jogo.faixa.size()*11.5f+90);
+    Rectangle r={MX+(CW*TAM-largura)/2,(float)MY+14,largura,48};
+    Color fundo=multiplicar(cor,0.25f); fundo.a=(unsigned char)(235*alfa);
+    Color borda=cor; borda.a=(unsigned char)(255*alfa);
+    DrawRectangleRounded(r,0.4f,8,fundo);
+    DrawRectangleRoundedLinesEx(r,0.4f,8,2.5f,borda);
+    Color letra=jogo.tipoDaFaixa==MSG_BOA?OURO:Color{255,170,160,255}; letra.a=(unsigned char)(255*alfa);
+    textoCentro(jogo.faixa,r.x+r.width/2,r.y+13,21,letra);
+}
 void mapa(const Jogo& jogo) {
     titulo("EXPLORAÇÃO   |   O mapa se revela conforme você caminha");
     painel({33,115,948,516}, {16,22,36,255});
@@ -252,6 +279,7 @@ void mapa(const Jogo& jogo) {
     for(int iy=0;iy<CH;iy++)for(int ix=0;ix<CW;ix++)
         tile(jogo,a,cx+ix,cy+iy,MX+ix*TAM,MY+iy*TAM);
     DrawRectangleLinesEx({(float)MX,(float)MY,(float)CW*TAM,(float)CH*TAM},2,{83,110,133,255});
+    faixaDeDestaque(jogo);
     hud(jogo);
 }
 void overlayBasico(const std::string& tituloModal) {
@@ -312,7 +340,25 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
     }
     painel({39,608,1362,243},{26,36,57,255});
     texto("COMANDOS",62,625,19,OURO);
-    texto(b.texto,62,664,22,TEXTO);
+    if(b.tipoDoTexto!=MSG_NORMAL && b.menu==MENU_NENHUM) {
+        // Mensagem importante: faixa colorida com ícone; a borda pisca no começo.
+        Color cor = b.tipoDoTexto==MSG_BOA ? OURO : PERIGO;
+        float t = (float)(relogioMs()-b.textoDesde)/1000.0f;
+        float brilho = t<0.6f ? 0.5f+0.5f*std::fabs(std::sin(t*16.0f)) : 1.0f;
+        Rectangle caixa={52,650,1336,58};
+        DrawRectangleRounded(caixa,0.3f,8,multiplicar(cor,0.22f));
+        DrawRectangleRoundedLinesEx(caixa,0.3f,8,3.0f,multiplicar(cor,brilho));
+        if(b.tipoDoTexto==MSG_BOA) DrawPoly({86,679},4,13,45,cor);
+        else { DrawCircle(86,679,14,cor); textoCentro("!",86,665,24,FUNDO); }
+        texto(b.texto,112,664,26,cor);
+        if(b.travado) {
+            // Barrinha que esvazia enquanto as teclas estão travadas.
+            float resta = 1.0f - (float)(relogioMs()-b.textoDesde)/TEMPO_DE_LEITURA_MS;
+            DrawRectangle(1070,782,(int)(240*std::max(0.0f,resta)),6,cor);
+        }
+    } else {
+        texto(b.texto,62,664,22,TEXTO);
+    }
     if(b.menu==MENU_PRINCIPAL) {
         const char* nomes[]={"LUTAR", "ITENS", "STATUS", "FUGIR"};
         for(int i=0;i<4;i++) {
@@ -359,7 +405,7 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
         }
         texto("Aperte uma tecla para voltar",560,778,18,APAGADO);
     } else if(b.menu==MENU_NENHUM) {
-        texto("ENTER para continuar",1070,770,19,CIANO);
+        if(!b.travado) texto("ENTER para continuar",1070,770,19,CIANO);
     }
     texto("Setas: escolher     Enter: confirmar     Esc: voltar",62,811,19,APAGADO);
 }
@@ -415,7 +461,7 @@ void desenharAjuda(const Jogo& jogo) {
 void desenharHistorico(const Jogo& jogo) {
     Ui::iniciarQuadro();mapa(jogo);overlayBasico("HISTÓRICO");
     size_t n=jogo.historico.size();size_t ini=n>14?n-14:0;
-    for(size_t i=ini;i<n;i++)texto(jogo.historico[i],263,245+31*(i-ini),19,TEXTO);
+    for(size_t i=ini;i<n;i++)texto(jogo.historico[i],263,245+31*(i-ini),19,corDaMensagem(jogo.tiposDoHistorico[i]));
     texto("Aperte qualquer tecla para retornar",263,700,20,OURO);Ui::terminarQuadro();
 }
 void desenharMorte(const Jogo& jogo) {
@@ -492,7 +538,7 @@ void desenharCriacao(const Criacao& c) {
     texto("CRIE SEU PERSONAGEM",152,110,23,CIANO);
     separador(150,150,1140);
 
-    const char* rotulos[NUM_LINHAS_DA_CRIACAO]={"NOME","ELEMENTO","COR","DIFICULDADE","FORÇA","CONSTITUIÇÃO","DESTREZA","AGILIDADE",""};
+    const char* rotulos[NUM_LINHAS_DA_CRIACAO]={"NOME","ELEMENTO","COR","DIFICULDADE","FORÇA","CONSTITUIÇÃO","DESTREZA","AGILIDADE","",""};
     float y=166;
     for(int i=0;i<NUM_LINHAS_DA_CRIACAO;i++) {
         bool sel=(c.linha==i);
@@ -501,12 +547,13 @@ void desenharCriacao(const Criacao& c) {
             y+=32;
         }
         Rectangle r={150,y,560,48};
-        if(i==LINHA_COMECAR) {
-            r={250,y+8,360,56};
+        // Os dois botões do fim ficam lado a lado.
+        if(i==LINHA_ALEATORIO || i==LINHA_COMECAR) {
+            r = (i==LINHA_ALEATORIO) ? Rectangle{150,y+8,230,56} : Rectangle{394,y+8,316,56};
             painel(r,sel?OURO:PAINEL2,sel?OURO:Color{69,89,110,255});
-            textoCentro("COMEÇAR AVENTURA",r.x+r.width/2,r.y+16,25,sel?FUNDO:TEXTO);
+            textoCentro(i==LINHA_ALEATORIO?"ALEATÓRIO":"COMEÇAR AVENTURA",r.x+r.width/2,r.y+16,24,sel?FUNDO:TEXTO);
             registrarOpcao(r,i,c.linha);
-            break;
+            continue;
         }
         painel(r,sel?Color{58,52,38,255}:PAINEL2,sel?OURO:Color{69,89,110,255});
         texto(rotulos[i],r.x+20,r.y+12,20,sel?OURO:APAGADO);
@@ -561,6 +608,7 @@ void desenharCriacao(const Criacao& c) {
     else if(c.linha==LINHA_COR) dica="A cor da roupa do seu personagem.";
     else if(c.linha==LINHA_DIFICULDADE) dica=DIFICULDADES[c.dificuldade].descricao;
     else if(c.linha>=LINHA_FORCA && c.linha<=LINHA_AGILIDADE) dica=EFEITOS_DOS_ATRIBUTOS[c.linha-LINHA_FORCA];
+    else if(c.linha==LINHA_ALEATORIO) dica="Sorteia nome, elemento, cor e atributos. Aperte de novo para outro.";
     else dica="Tudo pronto? Enter para descer à masmorra!";
     separador(800,684,460);
     // Quebra a dica em até duas linhas de ~46 letras.

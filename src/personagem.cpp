@@ -8,6 +8,7 @@
 #include "terminal.h"
 #include "pontuacao.h"
 #include "som.h"
+#include "aleatorio.h"
 
 const char* NOMES_DOS_ATRIBUTOS[NUM_ATRIBUTOS] = {
     "Força", "Constituição", "Destreza", "Agilidade"
@@ -38,6 +39,7 @@ const CorRGB CORES_DO_JOGADOR[NUM_CORES_DO_JOGADOR] = {
 // -----------------------------------------------------------------------------
 void criacaoPadrao(Criacao& c) {
     c.nome = "";
+    c.nomeSorteado = false;
     c.elemento = NORMAL;
     c.cor = 0;
     c.dificuldade = nivelDaDificuldade();   // lembra a da última partida
@@ -57,6 +59,35 @@ static void mudarAtributo(Criacao& c, int atributo, int mudanca) {
     }
 }
 
+// Nomes do botão Aleatório (inventados para o jogo).
+static const char* NOMES_ALEATORIOS[] = {
+    "Arin", "Tessa", "Brom", "Lira", "Kael", "Mira", "Doran", "Sela", "Tobias", "Yara",
+    "Iko", "Nara", "Vale", "Ravi", "Odete", "Bento", "Cora", "Elias", "Fen", "Gaia",
+    "Hugo", "Ivo", "Juno", "Lia", "Nilo", "Otto", "Pia", "Rui", "Saga", "Teo",
+};
+static const int NUM_NOMES_ALEATORIOS = sizeof(NOMES_ALEATORIOS) / sizeof(NOMES_ALEATORIOS[0]);
+
+// Botão Aleatório: sorteia nome, elemento, cor e os 5 pontos de atributo.
+// A dificuldade não muda (é uma escolha de quanto desafio o jogador quer), e
+// um nome digitado pelo jogador também fica.
+static void sortearPersonagem(Criacao& c) {
+    static GeradorAleatorio sorte;
+    static bool iniciado = false;
+    if (!iniciado) {
+        iniciarGerador(sorte, sementeDoRelogio());
+        iniciado = true;
+    }
+    if (c.nome.empty() || c.nomeSorteado) {
+        c.nome = NOMES_ALEATORIOS[sortear(sorte, 0, NUM_NOMES_ALEATORIOS - 1)];
+        c.nomeSorteado = true;
+    }
+    c.elemento = sortear(sorte, 0, NUM_ELEMENTOS - 1);
+    c.cor = sortear(sorte, 0, NUM_CORES_DO_JOGADOR - 1);
+    for (int a = 0; a < NUM_ATRIBUTOS; a++) c.atributos[a] = 0;
+    for (int p = 0; p < PONTOS_INICIAIS; p++) c.atributos[sortear(sorte, 0, NUM_ATRIBUTOS - 1)]++;
+    c.pontosLivres = 0;
+}
+
 bool criarPersonagem(Criacao& c) {
     while (true) {
         // Na linha do nome, as letras viram texto (W A S D não andam).
@@ -70,13 +101,22 @@ bool criarPersonagem(Criacao& c) {
         }
         if (t >= TECLA_CLIQUE_MENU && t < TECLA_CLIQUE_MENU + NUM_LINHAS_DA_CRIACAO) {
             c.linha = t - TECLA_CLIQUE_MENU;
-            if (c.linha != LINHA_COMECAR) continue;
-            t = TECLA_ENTER;   // clicou em "Começar"
+            if (c.linha != LINHA_COMECAR && c.linha != LINHA_ALEATORIO) continue;
+            t = TECLA_ENTER;   // clicou num dos botões
         }
         if (t == TECLA_CIMA) {
             c.linha = (c.linha + NUM_LINHAS_DA_CRIACAO - 1) % NUM_LINHAS_DA_CRIACAO;
             continue;
         }
+        // Aleatório: Enter (ou clique) sorteia de novo; o cursor fica no botão.
+        if (t == TECLA_ENTER && c.linha == LINHA_ALEATORIO) {
+            sortearPersonagem(c);
+            tocarSom(SOM_ITEM);
+            continue;
+        }
+        // Os dois botões ficam lado a lado: esquerda/direita troca entre eles.
+        if (c.linha == LINHA_ALEATORIO && t == TECLA_DIREITA) { c.linha = LINHA_COMECAR; continue; }
+        if (c.linha == LINHA_COMECAR && t == TECLA_ESQUERDA) { c.linha = LINHA_ALEATORIO; continue; }
         if (t == TECLA_BAIXO || (t == TECLA_ENTER && c.linha != LINHA_COMECAR)) {
             c.linha = (c.linha + 1) % NUM_LINHAS_DA_CRIACAO;
             continue;
@@ -95,9 +135,11 @@ bool criarPersonagem(Criacao& c) {
             case LINHA_NOME:
                 if ((t == 8 || t == 127) && !c.nome.empty()) {
                     c.nome.pop_back();
+                    c.nomeSorteado = false;
                 } else if (t >= 32 && t <= 126 && t != ';' &&
                            (int)c.nome.size() < TAMANHO_MAXIMO_DO_NOME) {
                     c.nome += (char)t;
+                    c.nomeSorteado = false;
                 }
                 break;
             case LINHA_ELEMENTO:
@@ -207,6 +249,7 @@ bool novaPartida(Jogo& jogo, uint32_t semente) {
     aplicarCriacao(jogo, c);
     mostrarPagina("A MASMORRA DE VALDORIA", textoDaHistoria(jogo.jogador.nome));
     jogo.mensagensDoTurno.clear();
+    jogo.tipoDoTurno = MSG_NORMAL;
     adicionarMensagem(jogo, "Boa sorte, " + jogo.jogador.nome + ". O único caminho é para baixo.");
     tocarMusica(MUSICA_MASMORRA);
     return true;

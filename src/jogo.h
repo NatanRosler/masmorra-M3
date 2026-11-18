@@ -29,6 +29,14 @@ const int BASE_VELOCIDADE_JOGADOR = 65;
 const int NIVEL_INICIAL = 5;
 const int NIVEL_MAXIMO = 50;
 
+// ---- Mensagens importantes ----------------------------------------------------
+// Mensagens BOAS (dourado) e de PERIGO (vermelho) ganham destaque: no mapa
+// aparecem numa faixa no topo; na batalha, as teclas ficam travadas por
+// TEMPO_DE_LEITURA_MS, para o jogador não pular a mensagem sem ler.
+enum TipoMensagem { MSG_NORMAL, MSG_BOA, MSG_PERIGO };
+const int TEMPO_DE_LEITURA_MS = 900;
+const int TEMPO_DA_FAIXA_MS = 3000;
+
 // ---- Atributos que o jogador distribui (Etapa 6) ----------------------------
 enum Atributo {
     FORCA,          // +1 de ataque por ponto: mais dano
@@ -142,6 +150,11 @@ struct Jogo {
 
     std::vector<std::string> mensagensDoTurno; // aparecem no topo da tela
     std::vector<std::string> historico;        // últimas mensagens (tecla M)
+    std::vector<int> tiposDoHistorico;         // TipoMensagem de cada uma
+    int tipoDoTurno;                // a mensagem mais importante do turno
+    std::string faixa;              // destaque no topo do mapa
+    int tipoDaFaixa;
+    long long faixaAte;             // relógio (ms) em que a faixa some
 
     bool morto;                     // as vidas acabaram: fim de jogo
     std::string causaDaMorte;       // "derrotado por um ogro"
@@ -160,6 +173,7 @@ struct Criacao {
     int elemento;                   // Elemento
     int cor;                        // índice em CORES_DO_JOGADOR
     int dificuldade;                // NivelDeDificuldade
+    bool nomeSorteado;              // o nome veio do botão Aleatório
     int atributos[NUM_ATRIBUTOS];
     int pontosLivres;
     int linha;                      // linha selecionada na tela
@@ -169,7 +183,7 @@ struct Criacao {
 enum LinhaDaCriacao {
     LINHA_NOME, LINHA_ELEMENTO, LINHA_COR, LINHA_DIFICULDADE,
     LINHA_FORCA, LINHA_CONSTITUICAO, LINHA_DESTREZA, LINHA_AGILIDADE,
-    LINHA_COMECAR,
+    LINHA_ALEATORIO, LINHA_COMECAR,
     NUM_LINHAS_DA_CRIACAO
 };
 
@@ -213,7 +227,7 @@ void atualizarVisao(Jogo& jogo);
 int raioDaLuzDoJogador(int andar);
 
 // Mostra uma mensagem no topo da tela (e guarda no histórico).
-void adicionarMensagem(Jogo& jogo, const std::string& texto);
+void adicionarMensagem(Jogo& jogo, const std::string& texto, TipoMensagem tipo = MSG_NORMAL);
 
 // Recalcula ataque, defesa, velocidade e vida máxima a partir do nível,
 // somando os bônus da arma, do escudo e dos cristais.

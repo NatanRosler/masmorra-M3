@@ -299,3 +299,25 @@ Medido com os robôs (150 partidas cada):
 | Explorador: vida perdida por batalha | ~1% | 2–4% | 5–7% |
 | Quem só desce: chega ao andar 10 | 87% | 7% | 0% |
 | Chefe vencido (por tentativa, jogador nível 22) | 95% | 74% | 35% |
+
+
+## Mensagens importantes (v1.3)
+
+Cada mensagem tem um tipo (`TipoMensagem` em `jogo.h`): **normal**, **boa**
+(dourado: subir de nível, ponto de atributo, golpe novo, crítico/super eficaz
+seu, chave, porta aberta) ou **perigo** (vermelho: status em você, crítico/super
+eficaz do inimigo, armadilha, vida baixa, grupo de monstros, chefe, desmaio).
+
+- **Batalha:** `narrar(jogo, b, texto, tipo)`. Nas mensagens boas e de perigo as
+  teclas ficam travadas por `TEMPO_DE_LEITURA_MS` (0,9 s): o laço desenha a tela
+  e lê as teclas só para jogá-las fora. Assim quem aperta Enter sem parar não
+  pula o aviso. A caixa ganha cor, ícone e uma borda que pisca no começo.
+- **Mapa:** `adicionarMensagem(jogo, texto, tipo)` guarda o tipo junto no
+  histórico; as importantes aparecem também numa faixa no topo do mapa por
+  `TEMPO_DA_FAIXA_MS` (3 s). Com menos de 25% de vida, a barra pisca.
+
+## Botão Aleatório (v1.3)
+
+Na criação do personagem, `sortearPersonagem` sorteia nome (de uma lista de 30
+nomes), elemento, cor e os 5 pontos de atributo. A dificuldade não é sorteada, e
+um nome digitado pelo jogador é mantido.

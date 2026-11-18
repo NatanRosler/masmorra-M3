@@ -67,11 +67,20 @@ static Andar& prepararAndar(Jogo& jogo, int numero) {
 // -----------------------------------------------------------------------------
 const size_t TAMANHO_DO_HISTORICO = 100;
 
-void adicionarMensagem(Jogo& jogo, const std::string& texto) {
+void adicionarMensagem(Jogo& jogo, const std::string& texto, TipoMensagem tipo) {
     jogo.mensagensDoTurno.push_back(texto);
+    if (tipo > jogo.tipoDoTurno) jogo.tipoDoTurno = tipo;
     jogo.historico.push_back(texto);
+    jogo.tiposDoHistorico.push_back(tipo);
     if (jogo.historico.size() > TAMANHO_DO_HISTORICO) {
         jogo.historico.erase(jogo.historico.begin());
+        jogo.tiposDoHistorico.erase(jogo.tiposDoHistorico.begin());
+    }
+    // Mensagem importante: também aparece em destaque no topo do mapa.
+    if (tipo != MSG_NORMAL) {
+        jogo.faixa = texto;
+        jogo.tipoDaFaixa = tipo;
+        jogo.faixaAte = relogioMs() + TEMPO_DA_FAIXA_MS;
     }
 }
 
@@ -203,7 +212,7 @@ static void irParaAndar(Jogo& jogo, int novoAndar) {
         jogo.jogador.y = destino.escadas.chegadaSobeY;
         adicionarMensagem(jogo, "Você desce para o andar " + std::to_string(novoAndar) + ".");
         if (novoAndar == NUM_ANDARES) {
-            adicionarMensagem(jogo, "Você chegou ao fundo da masmorra. O Senhor das Profundezas está aqui.");
+            adicionarMensagem(jogo, "Você chegou ao fundo da masmorra. O Senhor das Profundezas está aqui.", MSG_PERIGO);
         }
     } else {
         jogo.jogador.x = destino.escadas.chegadaDesceX;
@@ -265,7 +274,11 @@ void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros) {
     jogo.causaDaMorte = "";
     jogo.rodando = true;
     jogo.mensagensDoTurno.clear();
+    jogo.tipoDoTurno = MSG_NORMAL;
     jogo.historico.clear();
+    jogo.tiposDoHistorico.clear();
+    jogo.faixa = "";
+    jogo.faixaAte = 0;
     adicionarMensagem(jogo, "Você desce a escadaria iluminada por tochas. As portas se fecham atrás de você.");
     atualizarVisao(jogo);
 }
@@ -321,7 +334,7 @@ void desmaiar(Jogo& jogo, const std::string& causa) {
     restaurarPP(j);
 
     std::string restam = (j.vidas == 1) ? "Resta 1 vida." : "Restam " + std::to_string(j.vidas) + " vidas.";
-    adicionarMensagem(jogo, "Você desmaiou e acordou na entrada do andar. " + restam);
+    adicionarMensagem(jogo, "Você desmaiou e acordou na entrada do andar. " + restam, MSG_PERIGO);
     atualizarVisao(jogo);
 }
 
@@ -372,9 +385,15 @@ static void resolverBatalha(Jogo& jogo) {
     batalhasTravadas++;
     pararDeDescansar(jogo, "");
 
+    int nivelAntes = jogo.jogador.nivel;
     ResultadoBatalha resultado = batalhar(jogo, participantes, quantos);
     forcarLimpezaDaTela();
     tocarMusica(MUSICA_MASMORRA);
+    if (jogo.jogador.nivel > nivelAntes && jogo.jogador.pontosLivres > 0) {
+        int p = jogo.jogador.pontosLivres;
+        adicionarMensagem(jogo, "Nível " + std::to_string(jogo.jogador.nivel) + "! Você tem " + std::to_string(p) +
+                                (p == 1 ? " ponto" : " pontos") + " para distribuir: aperte C.", MSG_BOA);
+    }
 
     // O que aconteceu com cada monstro.
     for (int i = 0; i < quantos; i++) {
@@ -387,12 +406,12 @@ static void resolverBatalha(Jogo& jogo) {
                 jogo.venceu = true;   // fim de jogo: vitória!
                 tocarMusica(SEM_MUSICA);
                 tocarSom(SOM_VITORIA);
-                adicionarMensagem(jogo, "O Senhor das Profundezas caiu! Valdoria está livre!");
+                adicionarMensagem(jogo, "O Senhor das Profundezas caiu! Valdoria está livre!", MSG_BOA);
             }
             if (m.carregaChave) {
                 jogo.jogador.mochila[I_CHAVE]++;
                 jogo.itensColetados++;
-                adicionarMensagem(jogo, comMaiusculaInicial(nome) + " carregava uma chave! Agora ela é sua.");
+                adicionarMensagem(jogo, comMaiusculaInicial(nome) + " carregava uma chave! Agora ela é sua.", MSG_BOA);
             }
         } else if (m.estado == FUGINDO) {
             adicionarMensagem(jogo, comMaiusculaInicial(nome) + " fugiu de você.");
@@ -545,7 +564,7 @@ static bool moverJogador(Jogo& jogo, int dx, int dy) {
         j.mochila[I_CHAVE]--;
         mapaAtual(jogo).celulas[novoY][novoX] = PORTA;
         tocarSom(SOM_PORTA);
-        adicionarMensagem(jogo, "Você usa a chave e destranca a porta!");
+        adicionarMensagem(jogo, "Você usa a chave e destranca a porta!", MSG_BOA);
         return true;
     }
 
@@ -649,9 +668,11 @@ static bool abrirMochila(Jogo& jogo) {
 
 static void confirmarSaida(Jogo& jogo) {
     jogo.mensagensDoTurno.clear();
+    jogo.tipoDoTurno = MSG_NORMAL;
     jogo.mensagensDoTurno.push_back("Deseja mesmo sair? Uma partida abandonada está perdida. (s/n)");
     int resposta = esperarTecla(jogo, nullptr);
     jogo.mensagensDoTurno.clear();
+    jogo.tipoDoTurno = MSG_NORMAL;
     if (resposta == 's' || resposta == 'S') {
         jogo.rodando = false;
     }
@@ -666,7 +687,7 @@ void processarTecla(Jogo& jogo, int tecla) {
     if (tecla == 'c' || tecla == 'C') { jogo.descansando = false; abrirFicha(jogo); return; }
 
     // Teclas que não fazem nada são ignoradas (e não apagam as mensagens).
-    int dx, dy;
+    int dx = 0, dy = 0;
     bool ehMovimento = teclaParaDirecao(tecla, dx, dy);
     bool ehDescanso = (tecla == 'z' || tecla == 'Z' || tecla == '5' || tecla == '.');
     bool ehComando = ehDescanso || tecla == 'Q' || tecla == 'i';
@@ -676,6 +697,7 @@ void processarTecla(Jogo& jogo, int tecla) {
     if (ehMovimento && jogo.esperaDoJogadorMs > 0 && !jogo.descansando) return;
 
     jogo.mensagensDoTurno.clear();
+    jogo.tipoDoTurno = MSG_NORMAL;
 
     // Qualquer tecla interrompe o descanso (e a tecla de descanso só interrompe).
     if (jogo.descansando) {

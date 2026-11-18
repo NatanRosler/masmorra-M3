@@ -175,6 +175,10 @@ struct Batalha {
 
     // O que a caixa de texto está mostrando.
     std::string texto;
+    int tipoDoTexto;             // TipoMensagem: normal, boa ou perigo
+    long long textoDesde;        // quando o texto apareceu (para piscar a borda)
+    bool travado;                // mensagem importante: as teclas ainda não valem
+    bool avisouVidaBaixa;        // o aviso de vida baixa só aparece uma vez
     int menu;                    // qual menu está aberto (MenuBatalha)
     int cursor;                  // opção selecionada
     int golpeNovo;               // golpe sendo aprendido (MENU_ESQUECER)

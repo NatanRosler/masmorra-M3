@@ -275,7 +275,7 @@ void pegarItensDoChao(Jogo& jogo) {
         int vidaMaximaAntes = j.vidaMaxima;
         recalcularAtributos(j);
         j.vida += j.vidaMaxima - vidaMaximaAntes;
-        adicionarMensagem(jogo, "Você absorve " + nomeComArtigo(item.tipo) + "!" + textoDosBonus(t));
+        adicionarMensagem(jogo, "Você absorve " + nomeComArtigo(item.tipo) + "!" + textoDosBonus(t), MSG_BOA);
         return;
     }
 
@@ -290,7 +290,7 @@ void pegarItensDoChao(Jogo& jogo) {
         equipar(jogo, item.tipo);
     }
     if (t.categoria == CHAVE) {
-        adicionarMensagem(jogo, "Ela abre uma porta trancada deste andar.");
+        adicionarMensagem(jogo, "A chave abre uma porta trancada deste andar!", MSG_BOA);
     }
 }
 
@@ -321,7 +321,7 @@ static bool ensinarGolpe(Jogo& jogo, int golpe) {
     }
     j.golpes[lugar] = golpe;
     j.pp[lugar] = GOLPES[golpe].ppMaximo;
-    adicionarMensagem(jogo, "Você aprendeu " + nomeGolpe + "!");
+    adicionarMensagem(jogo, "Você aprendeu " + nomeGolpe + "!", MSG_BOA);
     return true;
 }
 

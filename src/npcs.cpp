@@ -100,7 +100,7 @@ void conversarComNpc(Jogo& jogo, int indice) {
                 falas.push_back("deste andar para você. Faça bom uso do que estiver lá!\"");
                 falas.push_back("");
                 falas.push_back("(Você ouve uma fechadura se abrir em algum lugar do andar.)");
-                adicionarMensagem(jogo, "Borin destrancou a sala do tesouro deste andar!");
+                adicionarMensagem(jogo, "Borin destrancou a sala do tesouro deste andar!", MSG_BOA);
                 tocarSom(SOM_PORTA);
             } else if (!npc.conversou) {
                 j.mochila[I_ETER]++;
