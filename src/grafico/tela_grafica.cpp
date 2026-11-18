@@ -254,7 +254,7 @@ void hud(const Jogo& jogo) {
     texto("MENSAGENS",61,662,19,OURO);
     int n=(int)jogo.historico.size();
     int primeira=std::max(0,n-2);
-    for(int i=primeira;i<n;i++) texto(jogo.historico[i],61,695+26*(i-primeira),20,corDaMensagem(jogo.tiposDoHistorico[i]));
+    for(int i=primeira;i<n;i++) textoQueCabe(jogo.historico[i],61,690+32*(i-primeira),25,1320,corDaMensagem(jogo.tiposDoHistorico[i]));
     painel({39,782,1362,76},PAINEL2);
     texto("SETAS / WASD / HJKL: andar",61,796,19,APAGADO);
     const char* rotulos[]={"[I] MOCHILA","[C] FICHA","[Z] DESCANSAR","[?] AJUDA","[M] HISTÓRICO"};
@@ -275,14 +275,15 @@ void faixaDeDestaque(const Jogo& jogo) {
     float resta=(float)(jogo.faixaAte-agora);
     float alfa=std::min(1.0f,resta/500.0f);              // some devagar no fim
     Color cor=corDaMensagem(jogo.tipoDaFaixa);
-    float largura=std::min(900.0f,(float)jogo.faixa.size()*11.5f+90);
-    Rectangle r={MX+(CW*TAM-largura)/2,(float)MY+14,largura,48};
+    float largura=std::min((float)CW*TAM-20,larguraDoTexto(jogo.faixa,24)+70);
+    Rectangle r={MX+(CW*TAM-largura)/2,(float)MY+14,largura,50};
     Color fundo=multiplicar(cor,0.25f); fundo.a=(unsigned char)(235*alfa);
     Color borda=cor; borda.a=(unsigned char)(255*alfa);
     DrawRectangleRounded(r,0.4f,8,fundo);
     DrawRectangleRoundedLinesEx(r,0.4f,8,2.5f,borda);
     Color letra=jogo.tipoDaFaixa==MSG_BOA?OURO:Color{255,170,160,255}; letra.a=(unsigned char)(255*alfa);
-    textoCentro(jogo.faixa,r.x+r.width/2,r.y+13,21,letra);
+    float tam=24; while(tam>16 && larguraDoTexto(jogo.faixa,tam)>largura-40) tam-=1;
+    textoCentro(jogo.faixa,r.x+r.width/2,r.y+(50-tam)/2,tam,letra);
 }
 // ---------------------------------------------------------------------------
 // MOVIMENTO SUAVE NO MAPA
@@ -481,19 +482,22 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
         Color cor = b.tipoDoTexto==MSG_BOA ? OURO : PERIGO;
         float t = (float)(relogioMs()-b.textoDesde)/1000.0f;
         float brilho = t<0.6f ? 0.5f+0.5f*std::fabs(std::sin(t*16.0f)) : 1.0f;
-        Rectangle caixa={52,650,1336,58};
+        std::vector<std::string> linhas=quebrarLinhas(b.texto,30,1250);
+        Rectangle caixa={52,646,1336,62.0f+38*(linhas.size()-1)};
         DrawRectangleRounded(caixa,0.3f,8,multiplicar(cor,0.22f));
         DrawRectangleRoundedLinesEx(caixa,0.3f,8,3.0f,multiplicar(cor,brilho));
-        if(b.tipoDoTexto==MSG_BOA) DrawPoly({86,679},4,13,45,cor);
-        else { DrawCircle(86,679,14,cor); textoCentro("!",86,665,24,FUNDO); }
-        texto(b.texto,112,664,26,cor);
+        if(b.tipoDoTexto==MSG_BOA) DrawPoly({86,677},4,13,45,cor);
+        else { DrawCircle(86,677,14,cor); textoCentro("!",86,663,24,FUNDO); }
+        for(size_t i=0;i<linhas.size();i++) texto(linhas[i],112,661+38*i,30,cor);
         if(b.travado) {
             // Barrinha que esvazia enquanto as teclas estão travadas.
             float resta = 1.0f - (float)(relogioMs()-b.textoDesde)/TEMPO_DE_LEITURA_MS;
             DrawRectangle(1070,782,(int)(240*std::max(0.0f,resta)),6,cor);
         }
     } else {
-        texto(b.texto,62,664,22,TEXTO);
+        // Com menu aberto, o texto divide a caixa com os botões da direita.
+        float largura = b.menu==MENU_NENHUM ? 1300 : (b.menu==MENU_STATUS ? 480 : 660);
+        textoQuebrado(b.texto,62,660,28,largura,36,TEXTO);
     }
     if(b.menu==MENU_PRINCIPAL) {
         const char* nomes[]={"LUTAR", "ITENS", "STATUS", "FUGIR"};
@@ -502,7 +506,7 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
             faixaBotao(nomes[i],{757.0f+col*302,646.0f+row*76,275,61},b.cursor==i,i,b.cursor);
         }
         int total=0;for(int i=0;i<NUM_TIPOS_DE_ITEM;i++)if(TIPOS_DE_ITEM[i].categoria==POCAO)total+=jogo.jogador.mochila[i];
-        texto("Poções: "+std::to_string(total),63,750,21,APAGADO);
+        texto("Poções: "+std::to_string(total),63,752,22,APAGADO);
     } else if(b.menu==MENU_GOLPES || b.menu==MENU_ESQUECER) {
         int n=(b.menu==MENU_ESQUECER)?MAX_GOLPES+1:b.jogador.numGolpes;
         for(int i=0;i<n;i++) {
@@ -515,7 +519,7 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
             } else s="Não aprender";
             faixaBotao(s,{740.0f,625.0f+i*41,631,37},b.cursor==i,i,b.cursor,20);
         }
-        if(b.menu==MENU_ESQUECER) texto("Novo golpe: "+std::string(GOLPES[b.golpeNovo].nome),63,722,20,CIANO);
+        if(b.menu==MENU_ESQUECER) texto("Novo golpe: "+std::string(GOLPES[b.golpeNovo].nome),63,752,22,CIANO);
     } else if(b.menu==MENU_ITENS) {
         for(int i=0;i<b.numItensUsaveis;i++) {
             int id=b.itensUsaveis[i];
@@ -714,10 +718,10 @@ void desenharMenuEmCaixa(const std::string& nome,const std::vector<std::string>&
         faixaBotao(opcoes[i],{274.0f,239.0f+(i-primeira)*36,890,32},cursor==i,i,cursor,21);
     // Descrição: quebra em duas linhas se for comprida (separadas por " | ").
     size_t corte=descricao.find("  |  ");
-    if(corte==std::string::npos) texto(descricao,275,660,19,APAGADO);
+    if(corte==std::string::npos) textoQueCabe(descricao,275,656,22,890,APAGADO);
     else {
-        texto(descricao.substr(0,corte),275,648,19,APAGADO);
-        texto(descricao.substr(corte+5),275,674,17,CIANO);
+        textoQueCabe(descricao.substr(0,corte),275,644,22,890,APAGADO);
+        textoQueCabe(descricao.substr(corte+5),275,673,20,890,CIANO);
     }
     texto("Setas e Enter: selecionar   |   Esc: voltar",275,712,19,CIANO);
     Ui::terminarQuadro();
@@ -742,8 +746,8 @@ void desenharAjuda(const Jogo& jogo) {
 void desenharHistorico(const Jogo& jogo) {
     definirRedesenho([&jogo]{ desenharHistorico(jogo); });
     Ui::iniciarQuadro();mapa(jogo);overlayBasico("HISTÓRICO");
-    size_t n=jogo.historico.size();size_t ini=n>14?n-14:0;
-    for(size_t i=ini;i<n;i++)texto(jogo.historico[i],263,245+31*(i-ini),19,corDaMensagem(jogo.tiposDoHistorico[i]));
+    size_t n=jogo.historico.size();size_t ini=n>12?n-12:0;
+    for(size_t i=ini;i<n;i++)textoQueCabe(jogo.historico[i],263,240+36*(i-ini),23,920,corDaMensagem(jogo.tiposDoHistorico[i]));
     texto("Aperte qualquer tecla para retornar",263,700,20,OURO);Ui::terminarQuadro();
 }
 void desenharMorte(const Jogo& jogo) {
@@ -802,14 +806,30 @@ void desenharPagina(const std::string& tituloDaPagina,const std::vector<std::str
     painel({140,135,1160,690},{22,32,51,255});
     textoCentro(tituloDaPagina,720,158,32,OURO);
     separador(190,206,1060);
-    int n=(int)linhas.size();
-    float passo=std::min(30.0f,520.0f/std::max(1,n));
-    float tam=passo>=28?21.0f:18.0f;
-    for(int i=0;i<n;i++) {
-        // Linhas em MAIÚSCULAS são subtítulos.
-        bool subtitulo = !linhas[i].empty() && linhas[i]==emMaiusculas(linhas[i]) &&
-                         linhas[i].find_first_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ")!=std::string::npos;
-        texto(linhas[i],200,226+i*passo,tam,subtitulo?CIANO:TEXTO);
+    // Escolhe a maior letra (até 28) em que todas as linhas cabem na página,
+    // quebrando as linhas compridas. Linhas vazias ocupam meia altura.
+    const float LARGURA_UTIL=1060, ALTURA_UTIL=530;
+    struct Linha { std::string texto; bool subtitulo; bool vazia; };
+    std::vector<Linha> prontas;
+    float tam=28, altura=0;
+    for(;;tam-=1) {
+        prontas.clear(); altura=0;
+        float passo=tam*1.38f;
+        for(const std::string& l:linhas) {
+            // Linhas em MAIÚSCULAS são subtítulos.
+            bool subtitulo = !l.empty() && l==emMaiusculas(l) &&
+                             l.find_first_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ")!=std::string::npos;
+            if(l.empty()) { prontas.push_back({"",false,true}); altura+=passo*0.5f; continue; }
+            for(const std::string& parte:quebrarLinhas(l,tam,LARGURA_UTIL)) { prontas.push_back({parte,subtitulo,false}); altura+=passo; }
+        }
+        if(altura<=ALTURA_UTIL || tam<=16) break;
+    }
+    float passo=tam*1.38f;
+    float y=226+std::max(0.0f,(ALTURA_UTIL-altura)/2.5f);   // texto curto fica mais perto do meio
+    for(const Linha& l:prontas) {
+        if(l.vazia) { y+=passo*0.5f; continue; }
+        texto(l.texto,190,y,tam,l.subtitulo?CIANO:TEXTO);
+        y+=passo;
     }
     textoCentro(rodape,720,782,20,OURO);
     Ui::terminarQuadro();
@@ -888,11 +908,11 @@ void desenharCriacao(const Criacao& c) {
     textoCentro(nome,1030,500,30,OURO);
     Elemento e=(Elemento)c.elemento;
     const Golpe& g=GOLPES[golpeInicialDoElemento(e)];
-    texto("Elemento: ",800,550,20,APAGADO);
-    texto(NOMES_DOS_ELEMENTOS[e],900,550,20,corDoElemento(e));
-    texto("Golpe inicial: "+std::string(g.nome)+" (poder "+std::to_string(g.poder)+")",800,580,20,TEXTO);
-    texto("Fraco contra: "+elementosCom(e,4),800,610,20,TEXTO);
-    texto("Resiste a: "+elementosCom(e,1),800,640,20,TEXTO);
+    texto("Elemento: ",800,550,22,APAGADO);
+    texto(NOMES_DOS_ELEMENTOS[e],800+larguraDoTexto("Elemento: ",22),550,22,corDoElemento(e));
+    texto("Golpe inicial: "+std::string(g.nome)+" (poder "+std::to_string(g.poder)+")",800,580,22,TEXTO);
+    texto("Fraco contra: "+elementosCom(e,4),800,610,22,TEXTO);
+    texto("Resiste a: "+elementosCom(e,1),800,640,22,TEXTO);
     std::string dica;
     if(c.linha==LINHA_NOME) dica="Digite o nome (até 12 letras). Backspace apaga.";
     else if(c.linha==LINHA_ELEMENTO) dica="Golpes do seu elemento causam 50% a mais de dano.";
@@ -902,12 +922,7 @@ void desenharCriacao(const Criacao& c) {
     else if(c.linha==LINHA_ALEATORIO) dica="Sorteia nome, elemento, cor e atributos. Aperte de novo para outro.";
     else dica="Tudo pronto? Enter para descer à masmorra!";
     separador(800,684,460);
-    // Quebra a dica em até duas linhas de ~46 letras.
-    if(dica.size()>46) {
-        size_t corte=dica.rfind(' ',46);
-        texto(dica.substr(0,corte),800,698,19,CIANO);
-        texto(dica.substr(corte+1),800,724,19,CIANO);
-    } else texto(dica,800,698,19,CIANO);
+    textoQuebrado(dica,800,696,22,480,28,CIANO);
 
     texto("Setas: escolher e mudar valores   |   Enter: próximo   |   Esc: voltar ao menu",150,830,19,APAGADO);
     Ui::terminarQuadro();

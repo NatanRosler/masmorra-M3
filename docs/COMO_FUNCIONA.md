@@ -354,3 +354,11 @@ decide como mostrar.
 - **Telas paradas continuam animando:** cada função `desenhar...` registra com
   `definirRedesenho` como se redesenhar; enquanto o jogo espera uma tecla, essa
   função é chamada a cada quadro.
+
+## Textos maiores (v1.6)
+
+As falas, a história, a narração da batalha e as mensagens ficaram maiores. Para
+nada sair da caixa, `visual.cpp` ganhou `quebrarLinhas` (quebra a frase nos
+espaços conforme a largura real das letras), `textoQuebrado` (desenha já
+quebrado) e `textoQueCabe` (numa linha só, diminui a letra se não couber). As
+páginas de texto usam a maior letra (até 28) em que todas as linhas cabem.

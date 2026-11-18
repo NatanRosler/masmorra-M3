@@ -1,6 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include <string>
+#include <vector>
 
 namespace Ui {
 constexpr int LARGURA = 1440;
@@ -33,6 +34,14 @@ void recortar(Rectangle r);
 void pararDeRecortar();
 // O mouse está em cima do retângulo?
 bool mouseSobre(Rectangle r);
+// Largura do texto em pixels (no tamanho pedido).
+float larguraDoTexto(const std::string& s, float tam);
+// Quebra o texto em linhas que caibam na largura (corta nos espaços).
+std::vector<std::string> quebrarLinhas(const std::string& s, float tam, float largura);
+// Desenha já quebrando as linhas; devolve quantas linhas usou.
+int textoQuebrado(const std::string& s, float x, float y, float tam, float largura, float entrelinha, Color cor);
+// Desenha numa linha só; se não couber, diminui a letra até caber.
+void textoQueCabe(const std::string& s, float x, float y, float tam, float largura, Color cor);
 }
 
 // Tela que deve ser redesenhada enquanto o jogo espera uma tecla (assim as

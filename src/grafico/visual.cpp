@@ -81,6 +81,35 @@ bool mouseSobre(Rectangle r) { return CheckCollisionPointRec(mouseVirtual(),r); 
 void texto(const std::string& s, float x, float y, float tam, Color cor) {
     DrawTextEx(fonte,s.c_str(),{x,y},tam,1.0f,cor);
 }
+float larguraDoTexto(const std::string& s, float tam) {
+    return MeasureTextEx(fonte,s.c_str(),tam,1.0f).x;
+}
+std::vector<std::string> quebrarLinhas(const std::string& s, float tam, float largura) {
+    std::vector<std::string> linhas;
+    std::string atual;
+    size_t i=0;
+    while(i<=s.size()) {
+        size_t fim=s.find(' ',i);
+        if(fim==std::string::npos) fim=s.size();
+        std::string palavra=s.substr(i,fim-i);
+        std::string tentativa=atual.empty()?palavra:atual+" "+palavra;
+        if(!atual.empty() && larguraDoTexto(tentativa,tam)>largura) { linhas.push_back(atual); atual=palavra; }
+        else atual=tentativa;
+        i=fim+1;
+    }
+    linhas.push_back(atual);
+    return linhas;
+}
+int textoQuebrado(const std::string& s, float x, float y, float tam, float largura, float entrelinha, Color cor) {
+    std::vector<std::string> linhas=quebrarLinhas(s,tam,largura);
+    for(size_t i=0;i<linhas.size();i++) texto(linhas[i],x,y+i*entrelinha,tam,cor);
+    return (int)linhas.size();
+}
+void textoQueCabe(const std::string& s, float x, float y, float tam, float largura, Color cor) {
+    float t=tam;
+    while(t>14 && larguraDoTexto(s,t)>largura) t-=1;
+    texto(s,x,y+(tam-t)/2,t,cor);   // mantém o texto centrado na mesma altura
+}
 void textoCentro(const std::string& s, float x, float y, float tam, Color cor) {
     Vector2 m=MeasureTextEx(fonte,s.c_str(),tam,1.0f);
     texto(s,x-m.x/2.0f,y,tam,cor);
