@@ -15,6 +15,7 @@
 #include "menu_principal.h"
 #include "pontuacao.h"
 #include "som.h"
+#include "salvar.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -56,10 +57,24 @@ int main(int argc, char* argv[]) {
     static Jogo jogo;
     bool primeiraPartida = true;
     bool sair = false;
-    while (!sair && mostrarMenuPrincipal()) {
-        // Criação do personagem + história. Esc na criação volta ao menu.
-        if (!novaPartida(jogo, primeiraPartida ? sementeInicial : sementeDoRelogio())) continue;
-        primeiraPartida = false;
+    int escolha;
+    while (!sair && (escolha = mostrarMenuPrincipal()) != MENU_SAIR) {
+        if (escolha == MENU_CONTINUAR) {
+            // Partida salva: volta exatamente de onde parou.
+            if (!continuarPartida(jogo)) {
+                desenharAviso("Não foi possível carregar a partida salva (arquivo de outra versão?).",
+                              "Aperte qualquer tecla para voltar ao menu.");
+                lerTecla();
+                continue;
+            }
+        } else {
+            // Criação do personagem + história. Esc na criação volta ao menu.
+            if (!novaPartida(jogo, primeiraPartida ? sementeInicial : sementeDoRelogio())) continue;
+            primeiraPartida = false;
+            apagarPartidaSalva();   // a partida nova substitui a salva
+            salvarPartida(jogo);
+        }
+        definirPartidaEmAndamento(&jogo);   // se a janela fechar, ela é salva
         long long ultimoInstante = relogioMs();
 
         while (jogo.rodando) {
@@ -99,6 +114,10 @@ int main(int argc, char* argv[]) {
             avancarTempo(jogo, (int)(agora - ultimoInstante));
             ultimoInstante = relogioMs();
         }
+        // Saiu da partida (pausa, Q ou janela): salva para continuar depois.
+        // Se ela acabou (vitória ou derrota), não há o que salvar.
+        salvarPartida(jogo);
+        definirPartidaEmAndamento(nullptr);
     }
     finalizarTerminal();
     return 0;

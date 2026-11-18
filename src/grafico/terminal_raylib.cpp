@@ -4,6 +4,7 @@
 #include "visual.h"
 #include "audio.h"
 #include "efeitos.h"
+#include "salvar.h"
 #include "raylib.h"
 #include <functional>
 #include <chrono>
@@ -69,6 +70,8 @@ static int teclaDoFrame() {
     if (WindowShouldClose()) {
         // A batalha e os menus antigos esperam por teclas em loops internos.
         // Encerrar aqui evita ficar preso caso a janela seja fechada neles.
+        // Antes, a partida é salva para o "Continuar" do menu.
+        salvarPartidaEmAndamento();
         finalizarTerminal();
         std::exit(0);
     }

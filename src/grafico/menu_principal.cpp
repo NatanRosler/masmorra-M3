@@ -7,6 +7,7 @@
 #include "pontuacao.h"
 #include "som.h"
 #include "efeitos.h"
+#include "salvar.h"
 #include <array>
 #include <cmath>
 #include <string>
@@ -14,12 +15,18 @@
 namespace {
 using namespace Ui;
 enum Pagina { INICIO, PERSONAGENS };
-constexpr int NUM_BOTOES = 6;
-constexpr Rectangle BOTAO[NUM_BOTOES] = {
-    {155,352,390,56}, {155,418,390,56}, {155,484,390,56},
-    {155,550,390,56}, {155,616,390,56}, {155,682,390,56}
-};
-enum Opcao { JOGAR, COMO_JOGAR, ITENS, PONTUACAO, PERSONAGENS_OPCAO, SAIR };
+// Com partida salva aparece mais um botão ("CONTINUAR") no topo.
+enum Opcao { CONTINUAR, JOGAR, COMO_JOGAR, ITENS, PONTUACAO, PERSONAGENS_OPCAO, SAIR, NUM_OPCOES };
+const char* NOMES_DAS_OPCOES[NUM_OPCOES] = {"CONTINUAR","NOVO JOGO","COMO JOGAR","ITENS","PONTUAÇÃO","PERSONAGENS","SAIR"};
+bool temSave = false;          // atualizado ao abrir o menu
+std::string resumoDoSave;
+int numBotoes() { return temSave ? NUM_OPCOES : NUM_OPCOES - 1; }
+// A opção do botão i (sem save, o primeiro botão já é "NOVO JOGO").
+int opcaoDoBotao(int i) { return temSave ? i : i + 1; }
+Rectangle botaoDoMenu(int i) {
+    // 6 botões com espaço de 66; 7 botões ficam um pouco mais juntos.
+    return temSave ? Rectangle{155,350.0f+i*58,390,50} : Rectangle{155,352.0f+i*66,390,56};
+}
 
 bool clicou(Rectangle r) {
     return IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouseVirtual(),r);
@@ -85,25 +92,65 @@ void inicio(int cursor) {
     titulo();
     texto("Explore dez andares, descubra itens e",151,279,25,TEXTO);
     texto("enfrente criaturas em combates por turnos.",151,315,25,TEXTO);
-    const char* opcoes[NUM_BOTOES]={"JOGAR","COMO JOGAR","ITENS","PONTUAÇÃO","PERSONAGENS","SAIR"};
-    for(int i=0;i<NUM_BOTOES;i++) {
-        bool hover=CheckCollisionPointRec(mouseVirtual(),BOTAO[i]);
-        botao(BOTAO[i],opcoes[i],i==cursor||hover);
+    for(int i=0;i<numBotoes();i++) {
+        Rectangle r=botaoDoMenu(i);
+        bool hover=CheckCollisionPointRec(mouseVirtual(),r);
+        botao(r,NOMES_DAS_OPCOES[opcaoDoBotao(i)],i==cursor||hover);
     }
     painel({690,291,550,452},{22,32,51,255});
     DrawEllipse(964,684,204,30,{12,15,28,255});
     sprite(HEROI.data(),794,375,15.6f);
     sprite(GOBLIN.data(),1099,521,8.0f);
-    texto("SEU JOGO, SUAS REGRAS",749,705,22,CIANO);
+    if(temSave) {
+        // Resumo da partida salva, embaixo do herói.
+        textoCentro("PARTIDA SALVA",965,700,18,OURO);
+        textoCentro(resumoDoSave,965,722,19,TEXTO);
+    } else texto("SEU JOGO, SUAS REGRAS",749,705,22,CIANO);
     texto("Setas / mouse para escolher  |  Enter para confirmar  |  O: som "+
           std::string(somLigado()?"ligado":"desligado"),151,770,20,APAGADO);
 }
 }
 
-// Executa a opção escolhida. Devolve 1 = jogar, 0 = sair, -1 = continua no menu.
+// Pergunta antes de começar outra partida por cima da salva.
+static bool confirmarNovoJogo() {
+    int cursor=1;   // começa em "VOLTAR", para ninguém apagar sem querer
+    Rectangle botoes[2]={{430,520,280,62},{730,520,280,62}};
+    auto desenhar=[&](int c){
+        titulo();
+        painel({380,330,680,300});
+        textoCentro("COMEÇAR UM NOVO JOGO?",720,360,32,OURO);
+        textoCentro("A partida salva será apagada:",720,420,22,TEXTO);
+        textoCentro(resumoDoSave,720,452,22,CIANO);
+        botao(botoes[0],"SIM, NOVO JOGO",c==0);
+        botao(botoes[1],"VOLTAR",c==1);
+    };
+    while(!WindowShouldClose()) {
+        Efeitos::trocarDeTela(53);
+        iniciarQuadro(); desenhar(cursor); terminarQuadro();
+        if(IsKeyPressed(KEY_LEFT)||IsKeyPressed(KEY_RIGHT)||IsKeyPressed(KEY_A)||IsKeyPressed(KEY_D)) { cursor=1-cursor; tocarSom(SOM_MENU); }
+        if(IsKeyPressed(KEY_ESCAPE)) return false;
+        int escolhida=-1;
+        if(confirmar()) escolhida=cursor;
+        for(int i=0;i<2;i++) if(clicou(botoes[i])) escolhida=i;
+        if(escolhida>=0) {
+            tocarSom(SOM_MENU);
+            Efeitos::marcarClique(botoes[escolhida]);
+            double t0=GetTime();
+            while(GetTime()-t0<0.12 && !WindowShouldClose()) { iniciarQuadro(); desenhar(escolhida); terminarQuadro(); }
+            return escolhida==0;
+        }
+    }
+    return false;
+}
+
+// Executa a opção escolhida. Devolve a escolha do menu, ou -1 = continua no menu.
 static int executar(int opcao, Pagina& pagina) {
-    if(opcao==JOGAR) return 1;
-    if(opcao==SAIR) return 0;
+    if(opcao==CONTINUAR) return MENU_CONTINUAR;
+    if(opcao==JOGAR) {
+        if(temSave && !confirmarNovoJogo()) return -1;
+        return MENU_NOVO_JOGO;
+    }
+    if(opcao==SAIR) return MENU_SAIR;
     if(opcao==COMO_JOGAR) mostrarPagina("COMO JOGAR", textoComoJogar());
     if(opcao==ITENS) mostrarPagina("ITENS", textoDosItens());
     if(opcao==PONTUACAO) mostrarPagina("PONTUAÇÃO E RANKING", textoDaPontuacao());
@@ -111,9 +158,10 @@ static int executar(int opcao, Pagina& pagina) {
     return -1;
 }
 
-bool mostrarMenuPrincipal() {
+int mostrarMenuPrincipal() {
     Pagina pagina=INICIO;
     int cursor=0;
+    temSave=existePartidaSalva(&resumoDoSave);
     tocarMusica(MUSICA_MENU);
     while(!WindowShouldClose()) {
         // Desenha ANTES de ler o teclado: terminarQuadro() atualiza as teclas.
@@ -125,29 +173,30 @@ bool mostrarMenuPrincipal() {
         terminarQuadro();
 
         if(pagina==INICIO) {
-            if(teclaSubir()) { cursor=(cursor+NUM_BOTOES-1)%NUM_BOTOES; tocarSom(SOM_MENU); }
-            if(teclaDescer()) { cursor=(cursor+1)%NUM_BOTOES; tocarSom(SOM_MENU); }
+            int n=numBotoes();
+            if(teclaSubir()) { cursor=(cursor+n-1)%n; tocarSom(SOM_MENU); }
+            if(teclaDescer()) { cursor=(cursor+1)%n; tocarSom(SOM_MENU); }
             if(IsKeyPressed(KEY_O)) alternarSom();
             int escolhida=-1;
-            for(int i=0;i<NUM_BOTOES;i++) if(clicou(BOTAO[i])) escolhida=i;
+            for(int i=0;i<n;i++) if(clicou(botaoDoMenu(i))) escolhida=i;
             if(confirmar()) escolhida=cursor;
             if(escolhida>=0) {
                 tocarSom(SOM_MENU);
                 cursor=escolhida;
-                apertar(BOTAO[escolhida],inicio,cursor);
-                int r=executar(escolhida,pagina);
-                if(r>=0) return r==1;
+                apertar(botaoDoMenu(escolhida),inicio,cursor);
+                int r=executar(opcaoDoBotao(escolhida),pagina);
+                if(r>=0) return r;
             }
-            if(IsKeyPressed(KEY_ESCAPE))return false;
+            if(IsKeyPressed(KEY_ESCAPE))return MENU_SAIR;
         } else if(IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_BACKSPACE) || confirmar() || clicou({960,812,330,46})) {
             pagina=INICIO;
         }
     }
-    return false;
+    return MENU_SAIR;
 }
 
 static void desenharPausa(int cursor) {
-    const char* nomes[]={"CONTINUAR","MENU PRINCIPAL","SAIR",somLigado()?"SOM: LIGADO":"SOM: DESLIGADO"};
+    const char* nomes[]={"CONTINUAR","SALVAR E IR AO MENU","SALVAR E SAIR",somLigado()?"SOM: LIGADO":"SOM: DESLIGADO"};
     titulo();
     painel({397,265,646,520});
     textoCentro("JOGO PAUSADO",720,291,39,OURO);

@@ -1,5 +1,6 @@
 // pontuacao.cpp
 #include "pontuacao.h"
+#include "salvar.h"
 #include "jogo.h"
 #include "tela.h"
 #include "terminal.h"
@@ -63,6 +64,8 @@ static void salvarRanking(const std::vector<RegistroRanking>& ranking) {
 void registrarNoRanking(Jogo& jogo) {
     if (jogo.rankingRegistrado) return;
     jogo.rankingRegistrado = true;
+    // Roguelike: a partida acabou (vitória ou derrota), então o save some.
+    if (!jogo.modoAutomatico) apagarPartidaSalva();
     jogo.pontuacaoFinal = calcularPontuacao(jogo);
 
     RegistroRanking novo;
@@ -115,6 +118,8 @@ std::vector<std::string> textoComoJogar() {
         "Batalha: encoste num monstro. Escolha LUTAR (golpe e alvo), ITENS,",
         "STATUS ou FUGIR. Golpes têm PP e elemento: Fogo > Planta > Água > Fogo.",
         "Até 3 monstros podem entrar na mesma batalha.",
+        "",
+        "Sair salva a partida: use CONTINUAR no menu. Ao perder ou vencer, o save some.",
         "",
         "Z: descansar (+1 de vida por segundo)    I: mochila    C: ficha",
         "?: ajuda    M: mensagens    Esc: pausa",

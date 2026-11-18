@@ -442,3 +442,29 @@ páginas de texto usam a maior letra (até 28) em que todas as linhas cabem.
   com o valor e o "+" verde pulsando enquanto houver pontos livres. Os mesmos
   desenhos aparecem na criação do personagem e na ficha (tecla C). `Ui::icone` desenha um
   sprite sem a sombra no chão.
+
+## Salvar e continuar (v1.10)
+
+- **Quando salva** (`src/salvar.cpp`): ao sair pela pausa ("Salvar e ir ao
+  menu" / "Salvar e sair"), com Q, ao fechar a janela (até no meio de uma
+  batalha: `teclaDoFrame` chama `salvarPartidaEmAndamento` antes de encerrar) e
+  sozinho a cada troca de andar (`irParaAndar`).
+- **Continuar:** com um save, o menu principal mostra o botão CONTINUAR e o
+  resumo (nome, andar, nível e dificuldade, lidos só do cabeçalho do arquivo).
+  "Novo jogo" pede confirmação, porque a partida nova substitui a salva.
+- **Roguelike:** quando a partida acaba (vitória ou derrota),
+  `registrarNoRanking` apaga o save. Não dá para voltar no tempo depois de
+  morrer.
+- **O arquivo `save.dat`:** binário, gravado campo por campo. Cabeçalho com a
+  assinatura "MASMORRA", a versão do formato e o tamanho das estruturas (um save
+  de outra versão é recusado com aviso, em vez de ser lido errado); depois a
+  semente e o sorteador, os elementos das espécies, só os andares já visitados
+  (os outros são gerados de novo pela semente), o jogador (a arma e o escudo
+  viram o número do item, pois ponteiros não podem ir para um arquivo), o tempo,
+  as estatísticas e o histórico de mensagens; no fim, a assinatura de novo, para
+  saber que o arquivo está completo. A gravação vai primeiro para `save.tmp` e
+  só depois troca de nome: se o PC desligar no meio, o save anterior continua
+  inteiro.
+- **Teste:** 40 partidas foram salvas, carregadas e salvas de novo (o arquivo
+  sai idêntico, byte a byte); depois as duas cópias jogaram 800 passos com as
+  mesmas teclas e terminaram iguais. Arquivo corrompido ou cortado é recusado.

@@ -1,5 +1,6 @@
 // jogo.cpp
 #include "jogo.h"
+#include "salvar.h"
 #include "aleatorio.h"
 #include "terminal.h"
 #include "tela.h"
@@ -231,6 +232,8 @@ static void irParaAndar(Jogo& jogo, int novoAndar) {
         jogo.jogador.y = destino.escadas.chegadaDesceY;
         adicionarMensagem(jogo, "Você sobe para o andar " + std::to_string(novoAndar) + ".");
     }
+    // Salva sozinho a cada andar novo (se o jogo fechar de repente, perde pouco).
+    salvarPartida(jogo);
 }
 
 void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros) {
@@ -694,7 +697,7 @@ static bool abrirMochila(Jogo& jogo) {
 static void confirmarSaida(Jogo& jogo) {
     jogo.mensagensDoTurno.clear();
     jogo.tipoDoTurno = MSG_NORMAL;
-    jogo.mensagensDoTurno.push_back("Deseja mesmo sair? Uma partida abandonada está perdida. (s/n)");
+    jogo.mensagensDoTurno.push_back("Deseja sair? A partida fica salva para continuar depois. (s/n)");
     int resposta = esperarTecla(jogo, nullptr);
     jogo.mensagensDoTurno.clear();
     jogo.tipoDoTurno = MSG_NORMAL;

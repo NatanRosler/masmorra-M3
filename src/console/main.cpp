@@ -13,6 +13,7 @@
 #include "jogo.h"
 #include "aleatorio.h"
 #include "pontuacao.h"
+#include "salvar.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -46,33 +47,60 @@ static uint32_t lerSemente(int argc, char* argv[]) {
     return sementeDoRelogio();
 }
 
-enum OpcaoDoMenu { JOGAR, COMO_JOGAR, ITENS, PONTUACAO, SAIR };
+enum OpcaoDoMenu { CONTINUAR, JOGAR, COMO_JOGAR, ITENS, PONTUACAO, SAIR };
 
 static int menuPrincipal() {
-    const std::vector<std::string> opcoes = { "Jogar", "Como jogar", "Itens", "Pontuação e ranking", "Sair" };
-    const std::vector<std::string> descricoes = {
+    std::vector<std::string> opcoes = { "Novo jogo", "Como jogar", "Itens", "Pontuação e ranking", "Sair" };
+    std::vector<std::string> descricoes = {
         "Crie seu personagem e desça a masmorra.",
         "Objetivo, comandos, batalha e atributos.",
         "Poções, armas, escudos, cristais, pergaminhos e chave.",
         "Como os pontos são contados e as melhores partidas.",
         "Fechar o jogo.",
     };
+    // Com partida salva, "Continuar" aparece em primeiro.
+    std::string resumo;
+    bool temSave = existePartidaSalva(&resumo);
+    if (temSave) {
+        opcoes.insert(opcoes.begin(), "Continuar");
+        descricoes.insert(descricoes.begin(), "Partida salva: " + resumo);
+        descricoes[1] += " (apaga a partida salva)";
+    }
+    int total = (int)opcoes.size();
     int cursor = 0;
     while (true) {
         desenharAviso("  MASMORRA  -  um roguelike nas profundezas de Valdoria", "");
         desenharMenuEmCaixa("MENU PRINCIPAL", opcoes, descricoes[cursor], cursor);
         int t = lerTecla();
-        if (t == TECLA_CIMA || t == 'k') cursor = (cursor + 4) % 5;
-        if (t == TECLA_BAIXO || t == 'j') cursor = (cursor + 1) % 5;
-        if (t == TECLA_ENTER || t == ' ') return cursor;
+        if (t == TECLA_CIMA || t == 'k') cursor = (cursor + total - 1) % total;
+        if (t == TECLA_BAIXO || t == 'j') cursor = (cursor + 1) % total;
+        if (t == TECLA_ENTER || t == ' ') return temSave ? cursor : cursor + 1;
         if (t == TECLA_ESC || t == 'Q') return SAIR;
     }
 }
 
 // Uma partida inteira. Devolve false se o jogador quiser fechar o jogo.
-static bool jogarPartida(Jogo& jogo, uint32_t semente) {
-    if (!novaPartida(jogo, semente)) return true;   // desistiu na criação: volta ao menu
+static bool jogarAteSair(Jogo& jogo);
 
+static bool jogarPartida(Jogo& jogo, uint32_t semente, bool continuar) {
+    if (continuar) {
+        if (!continuarPartida(jogo)) {
+            desenharAviso("Não foi possível carregar a partida salva (arquivo de outra versão?).",
+                          "Aperte qualquer tecla para voltar ao menu.");
+            lerTecla();
+            return true;
+        }
+    } else {
+        if (!novaPartida(jogo, semente)) return true;   // desistiu na criação: volta ao menu
+        apagarPartidaSalva();   // a partida nova substitui a salva
+        salvarPartida(jogo);
+    }
+    bool continua = jogarAteSair(jogo);
+    salvarPartida(jogo);   // saiu (Q): fica salva; se acabou, não salva nada
+    return continua;
+}
+
+static bool jogarAteSair(Jogo& jogo) {
     long long ultimoInstante = relogioMs();
     while (jogo.rodando) {
         if (!garantirTamanhoDaJanela()) return false;
@@ -117,8 +145,8 @@ int main(int argc, char* argv[]) {
     bool continuar = true;
     while (continuar) {
         int opcao = menuPrincipal();
-        if (opcao == JOGAR) {
-            continuar = jogarPartida(jogo, primeira ? sementeInicial : sementeDoRelogio());
+        if (opcao == JOGAR || opcao == CONTINUAR) {
+            continuar = jogarPartida(jogo, primeira ? sementeInicial : sementeDoRelogio(), opcao == CONTINUAR);
             primeira = false;
         }
         if (opcao == COMO_JOGAR) mostrarPagina("COMO JOGAR", textoComoJogar());

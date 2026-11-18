@@ -27,3 +27,7 @@ Thumbs.db
 
 # Ranking gerado ao jogar
 ranking.txt
+
+# Partida salva (cada um tem a sua)
+save.dat
+save.tmp
