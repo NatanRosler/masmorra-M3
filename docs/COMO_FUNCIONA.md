@@ -421,3 +421,24 @@ páginas de texto usam a maior letra (até 28) em que todas as linhas cabem.
   | Quem só desce: chega ao andar 10 | 83% | 9% | 0% |
   | Quem explora: chega ao andar 10 | 86% | 85% | 73% |
   | Chefe vencido (Médio, jogador nível 22) | | 69% | |
+
+## Desenhos dos itens e ícones do painel (v1.9)
+
+- **`src/grafico/itens_sprites.h`:** um desenho 16×16 para cada um dos 26
+  itens (frascos de poção, espadas, machado, tridente, chicote, martelo,
+  escudos, cristais, pena, pergaminhos com o selo do elemento e a chave), na
+  mesma ordem do `enum IdItem`, mais os ícones de moeda, troféu (pontos) e
+  estrela (experiência), e os dos atributos: braço flexionado (Força), escudo
+  com coração (Constituição), alvo (Destreza), bota com asa (Agilidade) e o "+"
+  verde dos pontos livres (`ARTE_DOS_ATRIBUTOS`). Cada letra é uma cor da legenda de `visual.cpp`
+  (`pixelCor`); foram criadas letras novas para os itens (`r`, `Q`, `U`, `X`,
+  `L`, `N`, `I`, `Z`, `l`, `v`).
+- **No mapa** (`tile`): o item aparece com o seu desenho, flutuando; cristais e
+  a chave têm um brilho embaixo. Item já visto, fora da visão, fica apagado.
+- **Nos menus** (mochila, loja, troca e itens da batalha): `itemNoTexto`
+  descobre o item pelo nome da opção e `faixaBotao` desenha o ícone à esquerda.
+- **Painel:** estrela com a barra de experiência até o próximo nível (embaixo
+  do nível), troféu nos pontos, moeda nas moedas, o desenho de cada atributo
+  com o valor e o "+" verde pulsando enquanto houver pontos livres. Os mesmos
+  desenhos aparecem na criação do personagem e na ficha (tecla C). `Ui::icone` desenha um
+  sprite sem a sombra no chão.

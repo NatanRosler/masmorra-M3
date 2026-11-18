@@ -30,6 +30,17 @@ Color pixelCor(char p) {
         case 'V': return {132,101,180,255};
         case 'P': return {100,82,146,255};
         case 'C': return {210,136,78,255};
+        // Cores dos itens (itens_sprites.h).
+        case 'r': return {232,64,84,255};     // vermelho da poção
+        case 'Q': return {255,125,175,255};   // rosa
+        case 'U': return {110,175,255,255};   // azul-claro
+        case 'X': return {255,135,45,255};    // laranja do fogo
+        case 'L': return {214,220,232,255};   // aço claro
+        case 'N': return {128,138,160,255};   // aço escuro
+        case 'I': return {150,100,52,255};    // madeira
+        case 'Z': return {96,62,30,255};      // madeira escura
+        case 'l': return {160,235,110,255};   // verde-limão
+        case 'v': return {190,140,240,255};   // lilás
         default: return {0,0,0,0};
     }
 }
@@ -139,6 +150,10 @@ void fundoEstrelado() {
 void sprite(const char* const linhas[16], float x, float y, float pixel, float brilho, float alfa) {
     if (alfa <= 0.01f) return;
     DrawEllipse((int)(x+pixel*8),(int)(y+pixel*16),pixel*7.2f,pixel*1.4f,{0,0,0,(unsigned char)(65*alfa)});
+    icone(linhas,x,y,pixel,brilho,alfa);
+}
+void icone(const char* const linhas[16], float x, float y, float pixel, float brilho, float alfa) {
+    if (alfa <= 0.01f) return;
     for (int l=0;l<16;l++) {
         if(!linhas[l]) continue;
         for (int c=0;c<16 && linhas[l][c];c++) {

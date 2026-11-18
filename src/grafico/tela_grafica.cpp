@@ -12,6 +12,7 @@
 #include "dificuldade.h"
 #include "sprites.h"
 #include "extra_sprites.h"
+#include "itens_sprites.h"
 #include "efeitos.h"
 #include <algorithm>
 #include <cmath>
@@ -211,24 +212,17 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
             // Itens no chão flutuam de leve.
             py += (int)std::round(std::sin((float)GetTime()*3.0f+x*0.9f+y*1.3f)*1.5f);
             if(item>=0) {
-                auto cat=TIPOS_DE_ITEM[a.itens[item].tipo].categoria;
-                Color c=(cat==POCAO)?PERIGO:(cat==CRISTAL)?CIANO:(cat==CHAVE)?OURO:Color{190,182,146,255};
-                DrawCircle(px+12,py+12,7,{17,25,40,200});
-                if(cat==POCAO) {
-                    DrawRectangle(px+9,py+5,6,4,{225,217,185,255});
-                    DrawRectangleRounded({(float)px+6,(float)py+9,12,12},0.26f,4,c);
-                } else if(cat==CHAVE) {
-                    DrawCircleLines(px+8,py+9,4,c);DrawLineEx({(float)px+10,(float)py+12},{(float)px+19,(float)py+20},3,c);
-                } else {
-                    DrawPoly({(float)px+12,(float)py+12},4,9,45,c);
-                }
+                // Desenho próprio de cada item (itens_sprites.h), com um brilho embaixo.
+                int tipoDoItem=a.itens[item].tipo;
+                bool raro=TIPOS_DE_ITEM[tipoDoItem].categoria==CRISTAL || tipoDoItem==I_CHAVE;
+                if(raro) DrawCircleGradient(px+12,py+12,12,{255,230,140,(unsigned char)(70+40*std::sin((float)GetTime()*4))},{255,230,140,0});
+                desenharSprite(*ARTE_DOS_ITENS[tipoDoItem],px+2,py+1,1.25f,claridade);
             }
         }
     } else {
+        // Item já visto, fora da visão: aparece apagado (memória do mapa).
         int item=itemEm(a,x,y);
-        if(item>=0 && a.itens[item].visto) {
-            DrawCircle(px+12,py+12,4,{87,103,130,255});
-        }
+        if(item>=0 && a.itens[item].visto) icone(ARTE_DOS_ITENS[a.itens[item].tipo]->data(),px+2,py+2,1.25f,0.35f,0.8f);
     }
 }
 // Monstro no mapa (desenhado fora do tile para poder deslizar entre células).
@@ -255,7 +249,18 @@ void hud(const Jogo& jogo) {
     desenharSprite(HEROI,1238,150,4.6f);
     texto("Andar",1027,226,19,APAGADO);
     texto(std::to_string(jogo.andar)+" / "+std::to_string(NUM_ANDARES),1027,248,30,TEXTO);
-    texto("Nível "+std::to_string(j.nivel),1210,252,24,CIANO);
+    texto("Nível "+std::to_string(j.nivel),1210,248,24,CIANO);
+    // Experiência: estrela + barrinha até o próximo nível.
+    icone(ARTE_ICONE_XP.data(),1208,276,1.0f);
+    {
+        int xpNivel=experienciaParaNivel(j.nivel), xpProximo=experienciaParaNivel(j.nivel+1);
+        float fracao=(j.nivel>=NIVEL_MAXIMO || xpProximo<=xpNivel) ? 1.0f
+                     : std::clamp((float)(j.experiencia-xpNivel)/(xpProximo-xpNivel),0.0f,1.0f);
+        Rectangle fundo={1229,280,139,9};
+        DrawRectangleRounded(fundo,0.5f,4,{28,38,60,255});
+        if(fracao>0) DrawRectangleRounded({fundo.x,fundo.y,std::max(9.0f,fundo.width*fracao),fundo.height},0.5f,4,{110,175,255,255});
+        DrawRectangleRoundedLinesEx(fundo,0.5f,4,1.0f,{70,100,150,255});
+    }
     texto("Vida "+std::to_string(j.vida)+" / "+std::to_string(j.vidaMaxima),1027,300,21,TEXTO);
     barra(1027,330,341,19,j.vida,j.vidaMaxima);
     if(j.vida>0 && j.vida*4<=j.vidaMaxima) {
@@ -265,7 +270,8 @@ void hud(const Jogo& jogo) {
         texto("VIDA BAIXA",1270,300,18,multiplicar(PERIGO,0.6f+0.4f*pulso));
     }
     texto("Vidas: "+std::to_string(j.vidas),1027,364,21,TEXTO);
-    texto("Pontos: "+std::to_string(calcularPontuacao(jogo)),1180,364,21,OURO);
+    icone(ARTE_ICONE_PONTOS.data(),1180,366,1.1f);
+    texto("Pontos: "+std::to_string(calcularPontuacao(jogo)),1202,364,21,OURO);
     separador(1027,402,341);
     int segundos=(int)(jogo.tempoMs/1000);
     std::string tempo="Tempo "+std::to_string(segundos/60)+":"+(segundos%60<10?"0":"")+std::to_string(segundos%60);
@@ -273,20 +279,27 @@ void hud(const Jogo& jogo) {
     if(jogo.descansando) texto("zZz descansando",1180,414,19,CIANO);
     texto("Passos: "+std::to_string(jogo.passos),1027,444,19,TEXTO);
     // Moedas: uma moedinha dourada desenhada ao lado do valor.
-    DrawCircle(1189,456,9,{196,150,40,255});
-    DrawCircle(1189,456,6.5f,OURO);
-    DrawRectangle(1188,451,2,10,{196,150,40,255});
-    texto("Moedas: "+std::to_string(j.moedas),1205,444,19,OURO);
+    icone(ARTE_ICONE_MOEDA.data(),1180,446,1.05f);
+    texto("Moedas: "+std::to_string(j.moedas),1202,444,19,OURO);
     int naMochila=itensNaMochila(j);
-    texto("Mochila: "+std::to_string(naMochila)+"/"+std::to_string(LIMITE_DA_MOCHILA),1180,470,19,
+    texto("Mochila: "+std::to_string(naMochila)+"/"+std::to_string(LIMITE_DA_MOCHILA),1202,470,19,
           naMochila>=LIMITE_DA_MOCHILA?PERIGO:TEXTO);
     texto("Monstros: "+std::to_string(jogo.monstrosMortos),1027,470,19,TEXTO);
     texto("Itens: "+std::to_string(jogo.itensColetados),1027,496,19,TEXTO);
-    texto("FOR "+std::to_string(j.atributos[FORCA])+"  CON "+std::to_string(j.atributos[CONSTITUICAO])+
-          "  DES "+std::to_string(j.atributos[DESTREZA])+"  AGI "+std::to_string(j.atributos[AGILIDADE]),1027,530,18,APAGADO);
+    // Atributos: desenho de cada um (força, constituição, destreza, agilidade) e o valor.
+    const char* siglas[NUM_ATRIBUTOS]={"FOR","CON","DES","AGI"};
+    for(int a=0;a<NUM_ATRIBUTOS;a++) {
+        float ax=1027.0f+a*86;
+        icone(ARTE_DOS_ATRIBUTOS[a]->data(),ax,524,1.4f);
+        texto(std::to_string(j.atributos[a]),ax+27,526,21,TEXTO);
+        texto(siglas[a],ax+27+larguraDoTexto(std::to_string(j.atributos[a]),21)+4,531,13,APAGADO);
+    }
     if(j.pontosLivres>0) {
+        // Ponto livre: o "+" verde pulsa até o jogador distribuir.
+        float pulso=0.75f+0.25f*std::sin((float)GetTime()*5);
+        icone(ARTE_ICONE_PONTO_LIVRE.data(),1027,563,1.3f,pulso);
         std::string p=std::to_string(j.pontosLivres)+(j.pontosLivres==1?" ponto livre":" pontos livres")+": aperte C";
-        texto(p,1027,568,19,OURO);
+        texto(p,1054,566,19,OURO);
     }
     painel({39,648,1362,120});
     texto("MENSAGENS",61,662,19,OURO);
@@ -404,7 +417,20 @@ void overlayBasico(const std::string& tituloModal) {
     textoCentro(tituloModal,720,174,31,OURO);
     separador(255,222,930);
 }
-void faixaBotao(const std::string& txt,Rectangle r,bool sel,int indice=-1,int cursor=0,float tam=23) {
+// Se o texto de uma opção fala de um item ("Poção de Vida  4/6", "Largar Éter"...)
+// ou de um atributo (ficha), devolve o desenho dele (o nome mais comprido que
+// aparecer no começo do texto), ou nullptr.
+const Sprite* iconeNoTexto(const std::string& s) {
+    const Sprite* melhor=nullptr; size_t maior=0;
+    auto testar=[&](const std::string& nome,const Sprite* arte){
+        size_t pos=s.find(nome);
+        if(pos!=std::string::npos && pos<=8 && nome.size()>maior) { maior=nome.size(); melhor=arte; }
+    };
+    for(int i=0;i<NUM_TIPOS_DE_ITEM;i++) testar(TIPOS_DE_ITEM[i].nome,ARTE_DOS_ITENS[i]);
+    for(int a=0;a<NUM_ATRIBUTOS;a++) testar(NOMES_DOS_ATRIBUTOS[a],ARTE_DOS_ATRIBUTOS[a]);
+    return melhor;
+}
+void faixaBotao(const std::string& txt,Rectangle r,bool sel,int indice=-1,int cursor=0,float tam=23,const Sprite* arte=nullptr) {
     bool sobre=mouseSobre(r);
     bool chegou=true;   // o destaque já está (quase todo) sobre este botão?
     if(sel) {
@@ -417,7 +443,14 @@ void faixaBotao(const std::string& txt,Rectangle r,bool sel,int indice=-1,int cu
         // Mouse em cima: o botão clareia e ganha borda ciano.
         painel(r,sobre?Color{43,58,88,255}:PAINEL2,sobre?CIANO:Color{70,89,110,255});
     }
-    texto(txt,r.x+20+(sobre&&!sel?3:0),r.y+(r.height-tam)/2-1,tam,(sel&&chegou)?FUNDO:TEXTO);
+    float recuo=0;
+    if(arte) {
+        // Desenho do item (ou atributo) à esquerda do nome.
+        float pixel=(r.height-6)/16.0f;
+        icone(arte->data(),r.x+12,r.y+3,pixel);
+        recuo=pixel*16+4;
+    }
+    texto(txt,r.x+20+recuo+(sobre&&!sel?3:0),r.y+(r.height-tam)/2-1,tam,(sel&&chegou)?FUNDO:TEXTO);
     if(indice>=0) registrarOpcao(r,indice,cursor);
 }
 // Painel de um lutador na batalha: nome, nível, elemento, status e barra.
@@ -570,7 +603,7 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
         for(int i=0;i<b.numItensUsaveis;i++) {
             int id=b.itensUsaveis[i];
             faixaBotao(std::string(TIPOS_DE_ITEM[id].nome)+"  x"+std::to_string(jogo.jogador.mochila[id]),
-                {740.0f,630.0f+i*40,631,36},b.cursor==i,i,b.cursor,20);
+                {740.0f,630.0f+i*40,631,36},b.cursor==i,i,b.cursor,20,ARTE_DOS_ITENS[id]);
         }
     } else if(b.menu==MENU_ALVO) {
         for(int i=0;i<b.numAlvos;i++) {
@@ -765,7 +798,7 @@ void desenharMenuEmCaixa(const std::string& nome,const std::vector<std::string>&
     int n=std::min(12,(int)opcoes.size());
     if(primeira+n>(int)opcoes.size()) primeira=std::max(0,(int)opcoes.size()-n);
     for(int i=primeira;i<primeira+n;i++)
-        faixaBotao(opcoes[i],{274.0f,239.0f+(i-primeira)*36,890,32},cursor==i,i,cursor,21);
+        faixaBotao(opcoes[i],{274.0f,239.0f+(i-primeira)*36,890,32},cursor==i,i,cursor,21,iconeNoTexto(opcoes[i]));
     // Descrição: quebra em duas linhas se for comprida (separadas por " | ").
     size_t corte=descricao.find("  |  ");
     if(corte==std::string::npos) textoQueCabe(descricao,275,656,22,890,APAGADO);
@@ -902,7 +935,8 @@ void desenharCriacao(const Criacao& c) {
     for(int i=0;i<NUM_LINHAS_DA_CRIACAO;i++) {
         bool sel=(c.linha==i);
         if(i==LINHA_FORCA) {
-            texto("ATRIBUTOS   (pontos livres: "+std::to_string(c.pontosLivres)+")",160,y+2,20,c.pontosLivres>0?OURO:APAGADO);
+            icone(ARTE_ICONE_PONTO_LIVRE.data(),156,y+1,1.3f,c.pontosLivres>0?1.0f:0.45f);
+            texto("ATRIBUTOS   (pontos livres: "+std::to_string(c.pontosLivres)+")",186,y+2,20,c.pontosLivres>0?OURO:APAGADO);
             y+=32;
         }
         Rectangle r={150,y,560,48};
@@ -917,7 +951,11 @@ void desenharCriacao(const Criacao& c) {
         }
         bool sobre=mouseSobre(r);
         painel(r,sel?Color{58,52,38,255}:(sobre?Color{40,54,82,255}:PAINEL2),sel?OURO:(sobre?CIANO:Color{69,89,110,255}));
-        texto(rotulos[i],r.x+20,r.y+12,20,sel?OURO:APAGADO);
+        if(i>=LINHA_FORCA && i<=LINHA_AGILIDADE) {
+            // Desenho do atributo antes do nome.
+            icone(ARTE_DOS_ATRIBUTOS[i-LINHA_FORCA]->data(),r.x+14,r.y+10,1.75f);
+            texto(rotulos[i],r.x+50,r.y+12,20,sel?OURO:APAGADO);
+        } else texto(rotulos[i],r.x+20,r.y+12,20,sel?OURO:APAGADO);
         float vx=r.x+270;
         std::string valor;
         Color corValor=TEXTO;

@@ -27,6 +27,8 @@ void barra(float x, float y, float w, float h, int atual, int maximo, Color cor 
 Vector2 mouseVirtual();
 void fundoEstrelado();
 void sprite(const char* const linhas[16], float x, float y, float pixel, float brilho = 1.0f, float alfa = 1.0f);
+// Igual ao sprite, mas sem a sombra no chão (ícones do painel e dos menus).
+void icone(const char* const linhas[16], float x, float y, float pixel, float brilho = 1.0f, float alfa = 1.0f);
 // Cor da roupa do herói (letra 'J' nos sprites), escolhida na criação.
 void definirCorDoHeroi(Color cor);
 // Só desenha dentro do retângulo (ex.: o mapa, quando a câmera desliza).
