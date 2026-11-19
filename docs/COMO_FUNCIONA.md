@@ -599,3 +599,38 @@ ficava fácil demais (97% de vitórias no nível 26, 99% no 30).
   Explorar mais ainda ajuda (os pontos de atributo e o equipamento continuam
   contando), mas o chefe nunca vira um passeio. E como o jogador tem 3 vidas,
   quem perde tem outras chances.
+
+## Dicas e Opções (v1.16)
+
+- **Dicas** (`src/dicas.h/.cpp`): 20 dicas, cada uma ligada a uma situação.
+  17 são do mapa (começo da partida, vida baixa, primeiro item, mochila cheia,
+  pontos de atributo, caixa, chave, armadilha, poça, lava, cada surpresa, loja
+  e o andar do chefe) e 3 da batalha (primeira batalha, Escudo contra um grupo
+  ou com vida baixa, primeiro status ruim).
+  - `proximaDica` olha a situação e devolve a primeira dica pendente que vale
+    agora; `verificarDicasDoMapa` é chamada em `avancarTempo` e mostra no
+    máximo uma por quadro.
+  - No mapa, `mostrarDica` abre uma caixa no meio da tela que **espera uma
+    tecla**. Nos primeiros 0,7 s as teclas são ignoradas (quem estava andando
+    com a tecla apertada não fecha a dica sem ler). Na batalha, a dica aparece
+    na caixa de texto, como mensagem em destaque.
+  - Cada dica aparece **uma vez só**: as já vistas ficam em `opcoes.txt`, então
+    não se repetem nas partidas seguintes. Os testes automáticos
+    (`modoAutomatico`) não mostram nem marcam dicas.
+  - Teste com o bot explorador (100 partidas): as dicas do mapa aparecem nos
+    andares esperados (caixa, chave e mochila no 1, poças no 4, lava no 7,
+    chefe no 10; fonte, altar e baú em ~90% das partidas, arena em 40%).
+- **Opções** (`src/opcoes.h/.cpp`): volume da música e dos efeitos (0 a 100%),
+  tela cheia (também com F11, em qualquer tela), animações normais ou rápidas
+  (as animações da batalha levam metade do tempo e a trava das mensagens
+  importantes cai de 0,9 s para 0,54 s, `tempoDeLeituraMs`), dicas ligadas ou
+  desligadas e "Rever as dicas". Na versão gráfica, a tela fica no menu
+  principal e na pausa (Esc), com setas para ajustar e mouse. No terminal, só
+  existem as opções das dicas (no menu principal).
+- **opcoes.txt**: texto simples, uma opção por linha (`musica=8`), lido no
+  começo do `main` (antes de abrir a janela, para ela já abrir em tela cheia).
+  Linhas desconhecidas são ignoradas e valores errados voltam ao padrão, então
+  um arquivo de outra versão ou editado à mão não quebra o jogo (testado).
+  Está no `.gitignore`, como o `ranking.txt` e o `save.dat`.
+- **Tela cheia** usa o modo "sem bordas" da raylib (`ToggleBorderlessWindowed`):
+  ocupa o monitor sem trocar a resolução dele.

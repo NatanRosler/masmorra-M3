@@ -58,6 +58,7 @@ void iniciarTerminal() {
     SetExitKey(KEY_NULL); // Esc é usada nos menus; fechar pela janela continua funcionando.
     SetTargetFPS(60);
     Ui::iniciarRecursos();
+    Ui::aplicarTelaCheia();   // opcoes.txt já foi lido no main
     iniciarAudio();
 }
 void finalizarTerminal() {

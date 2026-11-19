@@ -19,6 +19,9 @@ inline constexpr Color PERIGO = {243,104,121,255};
 void iniciarRecursos();
 void finalizarRecursos();
 void iniciarQuadro();
+// Tela cheia (Opções ou F11): deixa a janela como opcoes().telaCheia pede.
+void aplicarTelaCheia();
+void alternarTelaCheia();   // troca, grava em opcoes.txt e aplica
 void terminarQuadro();
 void texto(const std::string& s, float x, float y, float tam = 22, Color cor = TEXTO);
 void textoCentro(const std::string& s, float x, float y, float tam = 22, Color cor = TEXTO);

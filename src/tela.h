@@ -76,5 +76,9 @@ void desenharMenuEmCaixa(const std::string& titulo, const std::vector<std::strin
 // Faz o próximo desenho apagar a tela inteira (usado ao sair da batalha).
 void forcarLimpezaDaTela();
 
+// Caixa de dica no meio do mapa (dicas.h). "travada": as teclas ainda não
+// valem (mostra uma barrinha em vez do "aperte uma tecla").
+void desenharDica(const Jogo& jogo, const std::string& titulo, const std::string& texto, bool travada);
+
 // Mostra um aviso no meio da tela (ex.: janela pequena demais).
 void desenharAviso(const std::string& linha1, const std::string& linha2);

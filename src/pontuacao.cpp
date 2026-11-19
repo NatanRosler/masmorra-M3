@@ -141,6 +141,8 @@ std::vector<std::string> textoComoJogar() {
         "",
         "Mochila: até 12 itens (6 Poções de Vida, 3 de cada outra poção e 1 de",
         "cada arma, escudo ou pergaminho de reserva). Cheia? Troque no chão.",
+        "",
+        "OPÇÕES (no menu ou no Esc): volumes, tela cheia (F11), animações e dicas.",
     };
 }
 

@@ -6,3 +6,4 @@ void tocarSom(Som) {}
 void tocarMusica(Musica) {}
 bool alternarSom() { return false; }
 bool somLigado() { return false; }
+void aplicarVolumes() {}

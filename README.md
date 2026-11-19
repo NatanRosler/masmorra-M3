@@ -33,7 +33,8 @@ extraia. Não é preciso instalar nada.
 | Descansar | `Z`: recupera vida (mais rápido a cada 5 níveis; qualquer tecla para) |
 | Histórico de mensagens | `M` |
 | Ajuda | `?` |
-| Pausa | `Esc` |
+| Pausa (e Opções) | `Esc` |
+| Tela cheia | `F11` (versão gráfica) |
 | Ligar / desligar o som | `O` (ou na pausa) |
 | **Na batalha** | setas escolhem, `Enter` confirma, `Esc` volta, `1`–`4` atalhos, ou clique com o mouse |
 
@@ -70,6 +71,8 @@ src/
 | `src/personagem.cpp` | Criação do personagem (nome, elemento, cor, atributos) e ficha (tecla C) |
 | `src/cenario.h/.cpp` | Armadilhas escondidas e caixas que se empurram (mapa que muda) |
 | `src/npcs.h/.cpp` | Personagens que conversam, ajudam e mudam o mapa |
+| `src/dicas.h/.cpp` | Dicas: a caixa que explica cada novidade na primeira vez (e quando cada uma aparece) |
+| `src/opcoes.h/.cpp` | Opções (volumes, tela cheia, animações, dicas) gravadas em `opcoes.txt` |
 | `src/salas.h/.cpp` | Salas especiais: fonte, altar de sangue, baú dourado (mímico), arena e o viajante perdido |
 | `src/tema.h/.cpp` | Temas dos andares: minas, caverna alagada (poças), vulcão (lava) e sala do trono |
 | `src/salvar.h/.cpp` | Salvar e continuar a partida (arquivo binário `save.dat`) |

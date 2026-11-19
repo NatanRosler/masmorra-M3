@@ -45,3 +45,6 @@ void tocarMusica(Musica musica);   // troca a música (ou continua, se for a mes
 // Tecla O: liga e desliga o som. Devolve true se o som ficou ligado.
 bool alternarSom();
 bool somLigado();
+
+// Aplica os volumes de música e de efeitos escolhidos em Opções (opcoes.h).
+void aplicarVolumes();

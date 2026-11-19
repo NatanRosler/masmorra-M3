@@ -7,6 +7,7 @@
 #include "tela.h"
 #include "pontuacao.h"
 #include "som.h"
+#include "dicas.h"
 #include <algorithm>
 
 Mapa& mapaAtual(Jogo& jogo) {
@@ -536,6 +537,9 @@ void avancarTempo(Jogo& jogo, int ms) {
         resolverBatalha(jogo);
         return;
     }
+
+    // Primeira vez que algo aparece (caixa, altar, vida baixa...): uma dica.
+    verificarDicasDoMapa(jogo);
 
     // Descanso: vida a cada segundo e +1 PP em cada golpe a cada 3 (ou 2) segundos.
     if (jogo.descansando) {

@@ -16,6 +16,7 @@
 #include "salas_sprites.h"
 #include "tema.h"
 #include "efeitos.h"
+#include "opcoes.h"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -1004,16 +1005,19 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
         Color cor = b.tipoDoTexto==MSG_BOA ? OURO : PERIGO;
         float t = (float)(relogioMs()-b.textoDesde)/1000.0f;
         float brilho = t<0.6f ? 0.5f+0.5f*std::fabs(std::sin(t*16.0f)) : 1.0f;
-        std::vector<std::string> linhas=quebrarLinhas(b.texto,30,1250);
-        Rectangle caixa={52,646,1336,62.0f+38*(linhas.size()-1)};
+        // Texto comprido (as dicas): letra um pouco menor, para caber.
+        float tam=30, passo=38;
+        std::vector<std::string> linhas=quebrarLinhas(b.texto,tam,1250);
+        if(linhas.size()>2) { tam=25; passo=31; linhas=quebrarLinhas(b.texto,tam,1250); }
+        Rectangle caixa={52,646,1336,62.0f+passo*(linhas.size()-1)};
         DrawRectangleRounded(caixa,0.3f,8,multiplicar(cor,0.22f));
         DrawRectangleRoundedLinesEx(caixa,0.3f,8,3.0f,multiplicar(cor,brilho));
         if(b.tipoDoTexto==MSG_BOA) DrawPoly({86,677},4,13,45,cor);
         else { DrawCircle(86,677,14,cor); textoCentro("!",86,663,24,FUNDO); }
-        for(size_t i=0;i<linhas.size();i++) texto(linhas[i],112,661+38*i,30,cor);
+        for(size_t i=0;i<linhas.size();i++) texto(linhas[i],112,661+passo*i,tam,cor);
         if(b.travado) {
             // Barrinha que esvazia enquanto as teclas estão travadas.
-            float resta = 1.0f - (float)(relogioMs()-b.textoDesde)/TEMPO_DE_LEITURA_MS;
+            float resta = 1.0f - (float)(relogioMs()-b.textoDesde)/tempoDeLeituraMs();
             DrawRectangle(1070,782,(int)(240*std::max(0.0f,resta)),6,cor);
         }
     } else {
@@ -1110,6 +1114,7 @@ void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,
         case ANIM_DESMAIO: duracao=0.6;  break;
         case ANIM_NIVEL:   duracao=0.8;  break;
     }
+    if(opcoes().animacaoRapida) duracao*=0.5;   // Opções: animações rápidas
     if(tipo==ANIM_ENTRADA) {
         Efeitos::limparParticulas(Efeitos::CAMADA_TELA);
         for(int i=0;i<=MAX_INIMIGOS;i++) desmaiado[i]=false;
@@ -1288,6 +1293,38 @@ void desenharMenuEmCaixa(const std::string& nome,const std::vector<std::string>&
         textoQueCabe(descricao.substr(corte+5),275,673,20,890,CIANO);
     }
     texto("Setas e Enter: selecionar   |   Esc: voltar",275,712,19,CIANO);
+    Ui::terminarQuadro();
+}
+// Dica (dicas.cpp): caixa no meio do mapa com uma lâmpada, que espera uma tecla.
+void desenharDica(const Jogo& jogo,const std::string& tituloDaDica,const std::string& textoDaDica,bool travada) {
+    definirRedesenho([&jogo,tituloDaDica,textoDaDica,travada]{ desenharDica(jogo,tituloDaDica,textoDaDica,travada); });
+    Ui::iniciarQuadro();mapa(jogo);
+    DrawRectangle(0,0,Ui::LARGURA,Ui::ALTURA,{0,0,0,150});
+    std::vector<std::string> linhas=quebrarLinhas(textoDaDica,26,730);
+    float altura=190+38.0f*linhas.size();
+    Rectangle caixa={330,(Ui::ALTURA-altura)/2-20,780,altura};
+    painel(caixa,{26,35,56,255},OURO);
+    // Lâmpada acesa.
+    float t=(float)GetTime();
+    Vector2 l={caixa.x+62,caixa.y+66};
+    Color brilho={255,220,120,(unsigned char)(90+40*std::sin(t*3))}; Color semBrilho=brilho; semBrilho.a=0;
+    DrawCircleGradient((int)l.x,(int)l.y,40,brilho,semBrilho);
+    DrawCircleV(l,17,{255,214,90,255});
+    DrawCircleV({l.x-5,l.y-5},5,{255,246,200,255});
+    DrawRectangle((int)l.x-8,(int)l.y+14,16,12,{170,176,190,255});
+    DrawLine((int)l.x-8,(int)l.y+19,(int)l.x+8,(int)l.y+19,{110,116,130,255});
+    texto("DICA",caixa.x+112,caixa.y+30,20,CIANO);
+    texto(tituloDaDica,caixa.x+112,caixa.y+54,32,OURO);
+    separador(caixa.x+30,caixa.y+108,caixa.width-60);
+    for(size_t i=0;i<linhas.size();i++) texto(linhas[i],caixa.x+30,caixa.y+128+38*i,26,TEXTO);
+    float rodape=caixa.y+caixa.height-46;
+    if(travada) {
+        // Barrinha enchendo enquanto as teclas ainda não valem.
+        DrawRectangleRounded({caixa.x+30,rodape+10,caixa.width-60,6},1,4,{45,58,84,255});
+    } else {
+        texto("Aperte qualquer tecla para continuar",caixa.x+30,rodape,21,OURO);
+        textoCentro("Dicas: em OPÇÕES",caixa.x+caixa.width-130,rodape+2,18,APAGADO);
+    }
     Ui::terminarQuadro();
 }
 void desenharAjuda(const Jogo& jogo) {

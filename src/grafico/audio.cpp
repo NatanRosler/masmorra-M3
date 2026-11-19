@@ -12,6 +12,7 @@
 // -----------------------------------------------------------------------------
 #include "som.h"
 #include "audio.h"
+#include "opcoes.h"
 #include "raylib.h"
 
 #include <atomic>
@@ -199,9 +200,9 @@ void iniciarAudio() {
     SetAudioStreamBufferSizeDefault(2048);
     fluxoDaMusica = LoadAudioStream(TAXA, 16, 1);
     SetAudioStreamCallback(fluxoDaMusica, gerarMusica);
-    SetAudioStreamVolume(fluxoDaMusica, 0.8f);
     PlayAudioStream(fluxoDaMusica);
     audioPronto = true;
+    aplicarVolumes();
 }
 
 void finalizarAudio() {
@@ -228,3 +229,10 @@ bool alternarSom() {
 }
 
 bool somLigado() { return ligado; }
+
+void aplicarVolumes() {
+    if (!audioPronto) return;
+    // A música já era tocada a 80% (para não cobrir os efeitos).
+    SetAudioStreamVolume(fluxoDaMusica, 0.8f * opcoes().volumeMusica / 10.0f);
+    for (int i = 0; i < NUM_SONS; i++) SetSoundVolume(sons[i], opcoes().volumeEfeitos / 10.0f);
+}

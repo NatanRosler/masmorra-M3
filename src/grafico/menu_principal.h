@@ -8,3 +8,5 @@ enum EscolhaDoMenu { MENU_SAIR, MENU_NOVO_JOGO, MENU_CONTINUAR };
 int mostrarMenuPrincipal();
 // Retorna 0 para continuar, 1 para voltar ao menu inicial, 2 para sair.
 int mostrarMenuDePausa();
+// Tela de Opções (volumes, tela cheia, animações e dicas), em opcoes.txt.
+void mostrarOpcoes();

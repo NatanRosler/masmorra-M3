@@ -1,5 +1,6 @@
 #include "visual.h"
 #include "efeitos.h"
+#include "opcoes.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -71,7 +72,20 @@ void iniciarRecursos() {
     }
 }
 void finalizarRecursos() { if (fonteExterna) UnloadFont(fonte); }
+void aplicarTelaCheia() {
+    // "Tela cheia sem bordas": ocupa o monitor sem trocar a resolução dele
+    // (mais rápido e sem a tela piscando preta no Windows).
+    bool esta=IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE);
+    if(opcoes().telaCheia!=esta) ToggleBorderlessWindowed();
+}
+void alternarTelaCheia() {
+    opcoes().telaCheia=!opcoes().telaCheia;
+    salvarOpcoes();
+    aplicarTelaCheia();
+}
 void iniciarQuadro() {
+    // F11 troca a tela cheia em qualquer tela do jogo.
+    if(IsKeyPressed(KEY_F11)) alternarTelaCheia();
     // Cada quadro registra de novo os botões clicáveis que desenhar.
     limparOpcoes();
     BeginDrawing(); ClearBackground(FUNDO);

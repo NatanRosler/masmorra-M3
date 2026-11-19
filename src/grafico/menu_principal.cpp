@@ -8,6 +8,8 @@
 #include "som.h"
 #include "efeitos.h"
 #include "salvar.h"
+#include "opcoes.h"
+#include "dicas.h"
 #include <array>
 #include <cmath>
 #include <string>
@@ -16,16 +18,16 @@ namespace {
 using namespace Ui;
 enum Pagina { INICIO, PERSONAGENS };
 // Com partida salva aparece mais um botão ("CONTINUAR") no topo.
-enum Opcao { CONTINUAR, JOGAR, COMO_JOGAR, ITENS, PONTUACAO, PERSONAGENS_OPCAO, SAIR, NUM_OPCOES };
-const char* NOMES_DAS_OPCOES[NUM_OPCOES] = {"CONTINUAR","NOVO JOGO","COMO JOGAR","ITENS","PONTUAÇÃO","PERSONAGENS","SAIR"};
+enum Opcao { CONTINUAR, JOGAR, COMO_JOGAR, ITENS, PONTUACAO, PERSONAGENS_OPCAO, OPCOES_OPCAO, SAIR, NUM_OPCOES };
+const char* NOMES_DAS_OPCOES[NUM_OPCOES] = {"CONTINUAR","NOVO JOGO","COMO JOGAR","ITENS","PONTUAÇÃO","PERSONAGENS","OPÇÕES","SAIR"};
 bool temSave = false;          // atualizado ao abrir o menu
 std::string resumoDoSave;
 int numBotoes() { return temSave ? NUM_OPCOES : NUM_OPCOES - 1; }
 // A opção do botão i (sem save, o primeiro botão já é "NOVO JOGO").
 int opcaoDoBotao(int i) { return temSave ? i : i + 1; }
 Rectangle botaoDoMenu(int i) {
-    // 6 botões com espaço de 66; 7 botões ficam um pouco mais juntos.
-    return temSave ? Rectangle{155,350.0f+i*58,390,50} : Rectangle{155,352.0f+i*66,390,56};
+    // 7 botões com espaço de 57; com o CONTINUAR (8 botões) ficam mais juntos.
+    return temSave ? Rectangle{155,350.0f+i*52,390,45} : Rectangle{155,350.0f+i*57,390,49};
 }
 
 bool clicou(Rectangle r) {
@@ -107,8 +109,129 @@ void inicio(int cursor) {
         textoCentro(resumoDoSave,965,722,19,TEXTO);
     } else texto("SEU JOGO, SUAS REGRAS",749,705,22,CIANO);
     texto("Setas / mouse para escolher  |  Enter para confirmar  |  O: som "+
-          std::string(somLigado()?"ligado":"desligado"),151,770,20,APAGADO);
+          std::string(somLigado()?"ligado":"desligado"),151,785,20,APAGADO);
 }
+}
+
+// ---- OPÇÕES (menu principal e pausa) -------------------------------------------
+namespace {
+enum LinhaDasOpcoes { OP_MUSICA, OP_EFEITOS, OP_TELA, OP_ANIMACAO, OP_DICAS, OP_REVER, OP_VOLTAR, NUM_LINHAS };
+const char* NOMES_DAS_LINHAS[NUM_LINHAS] = {"Música","Efeitos sonoros","Tela cheia","Animações","Dicas",
+                                           "Rever as dicas","VOLTAR"};
+const char* EXPLICACOES[NUM_LINHAS] = {
+    "Volume da música. Setas para os lados ajustam (de 10 em 10%).",
+    "Volume dos golpes, itens e menus. A tecla O liga e desliga todo o som.",
+    "Ocupa a tela toda. A tecla F11 também troca, em qualquer tela do jogo.",
+    "Rápidas: as animações da batalha levam metade do tempo.",
+    "Uma caixa explicando cada novidade, na primeira vez que ela aparece.",
+    "Todas as dicas voltam a aparecer (cada uma na próxima vez que a situação acontecer).",
+    "Voltar (Esc).",
+};
+std::string avisoDasOpcoes;      // "Pronto! ..." depois de rever as dicas
+Rectangle linhaDasOpcoes(int i) { return {300,338.0f+i*58,840,50}; }
+Rectangle setaEsquerda(int i) { Rectangle r=linhaDasOpcoes(i); return {r.x+470,r.y,50,r.height}; }
+Rectangle setaDireita(int i)  { Rectangle r=linhaDasOpcoes(i); return {r.x+r.width-60,r.y,50,r.height}; }
+
+void desenharSeta(Rectangle r,bool paraDireita,Color cor) {
+    float cx=r.x+r.width/2, cy=r.y+r.height/2;
+    if(paraDireita) DrawTriangle({cx-6,cy-9},{cx-6,cy+9},{cx+8,cy},cor);
+    else DrawTriangle({cx+6,cy-9},{cx-8,cy},{cx+6,cy+9},cor);
+}
+void desenharOpcoes(int cursor) {
+    const Opcoes& o=opcoes();
+    titulo();
+    painel({260,256,920,590});
+    textoCentro("OPÇÕES",720,276,34,OURO);
+    for(int i=0;i<NUM_LINHAS;i++) {
+        Rectangle r=linhaDasOpcoes(i);
+        bool ativa=(i==cursor);
+        if(i==OP_VOLTAR) { botao({r.x+270,r.y+4,300,46},"VOLTAR",ativa); continue; }
+        painel(r,ativa?Color{52,66,96,255}:PAINEL2,ativa?OURO:Color{69,89,110,255});
+        texto(NOMES_DAS_LINHAS[i],r.x+26,r.y+12,25,ativa?OURO:TEXTO);
+        Color cor=ativa?TEXTO:APAGADO;
+        if(i==OP_MUSICA || i==OP_EFEITOS) {
+            int nivel=(i==OP_MUSICA)?o.volumeMusica:o.volumeEfeitos;
+            desenharSeta(setaEsquerda(i),false,cor);
+            desenharSeta(setaDireita(i),true,cor);
+            for(int k=0;k<10;k++) {
+                Rectangle q={r.x+530+k*19.0f,r.y+16,14,18};
+                if(k<nivel) DrawRectangleRec(q,ativa?OURO:CIANO); else DrawRectangleLinesEx(q,1.5f,{90,110,135,255});
+            }
+            texto(std::to_string(nivel*10)+"%",r.x+730,r.y+12,23,cor);
+        } else if(i==OP_REVER) {
+            std::string vistas=std::to_string(dicasVistas())+" de "+std::to_string((int)NUM_DICAS)+" já vistas";
+            textoCentro(vistas,r.x+660,r.y+14,21,cor);
+        } else {
+            std::string valor = i==OP_TELA ? (o.telaCheia?"SIM":"NÃO")
+                              : i==OP_ANIMACAO ? (o.animacaoRapida?"RÁPIDAS":"NORMAIS")
+                              : (o.mostrarDicas?"LIGADAS":"DESLIGADAS");
+            desenharSeta(setaEsquerda(i),false,cor);
+            desenharSeta(setaDireita(i),true,cor);
+            textoCentro(valor,r.x+655,r.y+12,24,ativa?OURO:TEXTO);
+        }
+    }
+    std::string rodape = avisoDasOpcoes.empty() ? EXPLICACOES[cursor] : avisoDasOpcoes;
+    textoCentro(rodape,720,754,20,avisoDasOpcoes.empty()?APAGADO:VIDA);
+    textoCentro("Setas: escolher e ajustar   |   Enter: trocar   |   Esc: voltar",720,794,18,CIANO);
+}
+// Muda a opção da linha (passo = -1 ou +1) e já grava e aplica. "daVolta":
+// Enter ou clique no volume 100% volta para 0 (as setas param no limite).
+void mudarOpcao(int linha,int passo,bool daVolta) {
+    Opcoes& o=opcoes();
+    avisoDasOpcoes.clear();
+    if(linha==OP_MUSICA || linha==OP_EFEITOS) {
+        int& nivel=(linha==OP_MUSICA)?o.volumeMusica:o.volumeEfeitos;
+        nivel+=passo;
+        if(nivel>10) nivel=daVolta?0:10;
+        if(nivel<0) nivel=0;
+        salvarOpcoes();
+        aplicarVolumes();
+        if(linha==OP_EFEITOS) tocarSom(SOM_ITEM);   // para ouvir o volume novo
+        return;
+    }
+    if(linha==OP_TELA) { alternarTelaCheia(); return; }
+    if(linha==OP_ANIMACAO) o.animacaoRapida=!o.animacaoRapida;
+    if(linha==OP_DICAS) o.mostrarDicas=!o.mostrarDicas;
+    if(linha==OP_REVER) {
+        if(passo<0) return;
+        zerarDicas();
+        avisoDasOpcoes="Pronto! Todas as dicas vão aparecer de novo.";
+    }
+    salvarOpcoes();
+}
+}
+
+void mostrarOpcoes() {
+    int cursor=0;
+    avisoDasOpcoes.clear();
+    while(!WindowShouldClose()) {
+        Efeitos::trocarDeTela(54);
+        iniciarQuadro(); desenharOpcoes(cursor); terminarQuadro();
+        if(IsKeyPressed(KEY_ESCAPE)) return;
+        if(teclaSubir()) { cursor=(cursor+NUM_LINHAS-1)%NUM_LINHAS; avisoDasOpcoes.clear(); tocarSom(SOM_MENU); }
+        if(teclaDescer()) { cursor=(cursor+1)%NUM_LINHAS; avisoDasOpcoes.clear(); tocarSom(SOM_MENU); }
+        bool esquerda=IsKeyPressed(KEY_LEFT)||IsKeyPressedRepeat(KEY_LEFT)||IsKeyPressed(KEY_A);
+        bool direita=IsKeyPressed(KEY_RIGHT)||IsKeyPressedRepeat(KEY_RIGHT)||IsKeyPressed(KEY_D);
+        if((esquerda||direita) && cursor!=OP_VOLTAR && cursor!=OP_REVER) {
+            mudarOpcao(cursor,direita?+1:-1,false);
+            if(cursor!=OP_EFEITOS) tocarSom(SOM_MENU);
+        }
+        // Mouse: as setas ajustam; clicar na linha é igual ao Enter.
+        int clicada=-1, passo=+1;
+        bool naSeta=false;
+        for(int i=0;i<NUM_LINHAS;i++) {
+            if(i!=OP_VOLTAR && i!=OP_REVER && clicou(setaEsquerda(i))) { clicada=i; passo=-1; naSeta=true; }
+            else if(i!=OP_VOLTAR && i!=OP_REVER && clicou(setaDireita(i))) { clicada=i; naSeta=true; }
+            else if(clicou(linhaDasOpcoes(i))) clicada=i;
+        }
+        if(confirmar()) clicada=cursor;
+        if(clicada>=0) {
+            cursor=clicada;
+            tocarSom(SOM_MENU);
+            if(clicada==OP_VOLTAR) return;
+            mudarOpcao(clicada,passo,!naSeta);
+        }
+    }
 }
 
 // Pergunta antes de começar outra partida por cima da salva.
@@ -155,6 +278,7 @@ static int executar(int opcao, Pagina& pagina) {
     if(opcao==ITENS) mostrarPagina("ITENS", textoDosItens());
     if(opcao==PONTUACAO) mostrarPagina("PONTUAÇÃO E RANKING", textoDaPontuacao());
     if(opcao==PERSONAGENS_OPCAO) pagina=PERSONAGENS;
+    if(opcao==OPCOES_OPCAO) mostrarOpcoes();
     return -1;
 }
 
@@ -196,7 +320,7 @@ int mostrarMenuPrincipal() {
 }
 
 static void desenharPausa(int cursor) {
-    const char* nomes[]={"CONTINUAR","SALVAR E IR AO MENU","SALVAR E SAIR",somLigado()?"SOM: LIGADO":"SOM: DESLIGADO"};
+    const char* nomes[]={"CONTINUAR","SALVAR E IR AO MENU","SALVAR E SAIR","OPÇÕES"};
     titulo();
     painel({397,265,646,520});
     textoCentro("JOGO PAUSADO",720,291,39,OURO);
@@ -218,7 +342,7 @@ int mostrarMenuDePausa() {
         if(confirmar()) escolhida=cursor;
         for(int i=0;i<4;i++) if(clicou({460.0f,367.0f+i*92,520,68})) { escolhida=i; cursor=i; }
         if(escolhida>=0) { tocarSom(SOM_MENU); apertar({460.0f,367.0f+escolhida*92,520,68},desenharPausa,cursor); }
-        if(escolhida==3) { alternarSom(); continue; }
+        if(escolhida==3) { mostrarOpcoes(); continue; }
         if(escolhida>=0) return escolhida;
     }
     return 2;

@@ -1048,6 +1048,35 @@ void desenharMenuEmCaixa(const std::string& titulo, const std::vector<std::strin
 }
 
 
+// Dica (dicas.cpp): caixa amarela no meio do mapa, que espera uma tecla.
+void desenharDica(const Jogo& jogo, const std::string& titulo, const std::string& texto, bool travada) {
+    desenharJogo(jogo);
+    const Cor CAIXA  = { 230, 236 };
+    const Cor TITULO = { 220, 236 };
+    const Cor RODAPE = { 246, 236 };
+    const int LARGURA = 66;
+    std::vector<std::string> linhas = quebrarTexto(texto, LARGURA - 4);
+    int altura = (int)linhas.size() + 6;
+    int topo = (TELA_LINHAS - altura) / 2 + 1;
+    int esquerda = (TELA_COLUNAS - LARGURA) / 2 + 1;
+    Pincel p;
+    int linha = topo;
+    p.irPara(linha++, esquerda); p.texto(std::string(LARGURA, ' '), CAIXA);
+    p.irPara(linha++, esquerda); p.texto("  " + ajustarLargura("DICA: " + titulo, LARGURA - 4) + "  ", TITULO);
+    p.irPara(linha++, esquerda); p.texto(std::string(LARGURA, ' '), CAIXA);
+    for (const std::string& l : linhas) {
+        p.irPara(linha++, esquerda);
+        p.texto("  " + ajustarLargura(l, LARGURA - 4) + "  ", CAIXA);
+    }
+    p.irPara(linha++, esquerda); p.texto(std::string(LARGURA, ' '), CAIXA);
+    p.irPara(linha++, esquerda);
+    p.texto("  " + ajustarLargura(travada ? "Leia com atenção..." : "Aperte qualquer tecla para continuar  (Opções: dicas)",
+                                  LARGURA - 4) + "  ", RODAPE);
+    p.irPara(linha++, esquerda); p.texto(std::string(LARGURA, ' '), CAIXA);
+    p.saida += ansiResetar();
+    escreverNaTela(p.saida);
+}
+
 // Animações e efeitos: só existem na versão gráfica.
 void animarBatalha(const Jogo&, const Batalha&, int, int, int, int, int, bool) {}
 void efeitoNoMapa(const Jogo&, int, int, int, int) {}

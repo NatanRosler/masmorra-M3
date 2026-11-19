@@ -9,6 +9,8 @@
 #include "som.h"
 #include "dificuldade.h"
 #include "loja.h"
+#include "dicas.h"
+#include "opcoes.h"
 #include "tema.h"
 
 // =============================================================================
@@ -178,11 +180,11 @@ static void narrar(Jogo& jogo, Batalha& b, const std::string& texto, TipoMensage
     b.textoDesde = relogioMs();
     b.menu = MENU_NENHUM;
     if (jogo.modoAutomatico) return;
-    // Mensagem importante: durante TEMPO_DE_LEITURA_MS as teclas são lidas e
+    // Mensagem importante: durante tempoDeLeituraMs() as teclas são lidas e
     // jogadas fora. Quem aperta Enter sem parar não pula o aviso sem ver.
     if (tipo != MSG_NORMAL) {
         b.travado = true;
-        while (relogioMs() - b.textoDesde < TEMPO_DE_LEITURA_MS) {
+        while (relogioMs() - b.textoDesde < tempoDeLeituraMs()) {
             desenharBatalha(jogo, b);
             lerTeclaComEspera(30);
         }
@@ -208,7 +210,7 @@ static void animarVida(Jogo& jogo, Batalha& b, int quem) {
         return;
     }
     int inicio = b.vidaMostrada[quem];
-    const int PASSOS = 12;
+    const int PASSOS = opcoes().animacaoRapida ? 6 : 12;
     for (int i = 1; i <= PASSOS; i++) {
         b.vidaMostrada[quem] = inicio + (alvo - inicio) * i / PASSOS;
         desenharBatalha(jogo, b);
@@ -268,6 +270,13 @@ static void mudarEstagio(Jogo& jogo, Batalha& b, Lutador& quem, int& estagio, in
     else             narrar(jogo, b, nome + ": " + atributo + " diminuiu!");
 }
 
+// Dica na batalha: aparece na própria caixa de texto, uma vez só (dicas.h).
+static void dicaNaBatalha(Jogo& jogo, Batalha& b, Dica dica) {
+    if (jogo.modoAutomatico || !dicaPendente(dica)) return;
+    marcarDicaVista(dica);
+    narrar(jogo, b, std::string("DICA - ") + tituloDaDica(dica) + ": " + textoDaDica(dica), MSG_BOA);
+}
+
 static void aplicarStatus(Jogo& jogo, Batalha& b, Lutador& alvo, Status status, bool avisarFalha) {
     std::string nome = comMaiuscula(alvo.nome);
     bool imune = (status == ENVENENADO && alvo.elemento == VENENO);
@@ -288,6 +297,7 @@ static void aplicarStatus(Jogo& jogo, Batalha& b, Lutador& alvo, Status status, 
         alvo.rodadasDormindo = sortear(jogo.sorte, 1, 3);
         narrar(jogo, b, nome + " caiu no sono!", tipo);
     }
+    if (alvo.ehJogador) dicaNaBatalha(jogo, b, DICA_STATUS);
 }
 
 static void aplicarEfeito(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo,
@@ -935,11 +945,21 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
         }
     }
 
+    dicaNaBatalha(jogo, b, DICA_BATALHA);
+
     jogo.rodadasDaUltimaBatalha = 0;
     while (true) {
         jogo.rodadasDaUltimaBatalha++;
 
         // ---- 1. Escolhas ----------------------------------------------------------
+        // Dica do Escudo: contra um grupo ou com a vida pela metade.
+        bool temEscudo = false;
+        for (int s = 0; s < b.jogador.numGolpes; s++) {
+            if (b.jogador.golpes[s] == G_ESCUDO) temEscudo = true;
+        }
+        if (temEscudo && (inimigosNaLuta(b) >= 2 || *b.jogador.vida * 2 < b.jogador.vidaMaxima)) {
+            dicaNaBatalha(jogo, b, DICA_ESCUDO);
+        }
         Acao acao = escolherAcaoDoJogador(jogo, b);
         int golpeDe[MAX_INIMIGOS];
         for (int i = 0; i < b.numInimigos; i++) {

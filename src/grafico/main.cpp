@@ -16,6 +16,7 @@
 #include "pontuacao.h"
 #include "som.h"
 #include "salvar.h"
+#include "opcoes.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -51,6 +52,7 @@ static uint32_t lerSemente(int argc, char* argv[]) {
 
 int main(int argc, char* argv[]) {
     uint32_t sementeInicial = lerSemente(argc, argv);
+    carregarOpcoes();   // antes da janela: ela já abre em tela cheia, se for o caso
     iniciarTerminal();
 
     // "static" porque o Jogo é grande (10 andares de 79 x 21 células).

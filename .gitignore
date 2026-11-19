@@ -31,3 +31,6 @@ ranking.txt
 # Partida salva (cada um tem a sua)
 save.dat
 save.tmp
+
+# Opções e dicas já vistas (cada um tem as suas)
+opcoes.txt
