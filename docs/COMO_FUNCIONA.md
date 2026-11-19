@@ -468,3 +468,32 @@ páginas de texto usam a maior letra (até 28) em que todas as linhas cabem.
 - **Teste:** 40 partidas foram salvas, carregadas e salvas de novo (o arquivo
   sai idêntico, byte a byte); depois as duas cópias jogaram 800 passos com as
   mesmas teclas e terminaram iguais. Arquivo corrompido ou cortado é recusado.
+
+## Temas dos andares (v1.11)
+
+`src/tema.h/.cpp`. A cada 3 andares a masmorra muda de cara e de regra:
+
+| Andares | Tema | Regra |
+|---|---|---|
+| 1-3 | As minas de Valdoria | como sempre |
+| 4-6 | Caverna alagada | **poças** (`POCA`): cada passo nelas vale 2 (jogador e monstros; o morcego voa por cima). Monstros de Água +20% de ataque |
+| 7-9 | Profundezas vulcânicas | **lava** (`LAVA`): queima a cada passo (mesmo dano das armadilhas da dificuldade), ilumina em volta e os monstros desviam. Monstros de Fogo +20% |
+| 10 | Sala do trono | chão em xadrez, tochas azuis e um tapete da chegada até o chefe |
+
+- **Geração** (`decorarAndar`): roda logo depois do mapa, com semente própria,
+  longe das escadas e das portas. Poças pequenas (1 a 6 casas) crescem a partir
+  de uma casa sorteada, preferindo as vizinhas com mais água (ficam redondas);
+  rachaduras de lava são caminhos finos e tortos que começam no meio de uma
+  sala. Depois de cada rachadura, uma busca em largura (BFS) que trata a lava
+  como parede confere se todo o andar continua alcançável **sem pisar na lava**;
+  se não, a rachadura é desfeita. Teste com 300 sementes: ~45 casas de água nos
+  andares 4-6, ~25 de lava nos 7-9, nenhum lugar só alcançável pela lava.
+- **Visual:** a água e a lava ocupam só parte da casa: a poça é uma mancha de
+  borda irregular que se emenda com as poças vizinhas, e a lava é uma rachadura
+  brilhante que liga as casas de lava (também na diagonal). Cores de chão e
+  parede por tema, a luz tinge as células com a cor
+  dela (vermelho perto da lava, azul nas tochas do trono), ondas na água, lava
+  pulsando, gotas pingando na caverna, brasas subindo do vulcão, e o nome do
+  tema aparece grande no meio do mapa ao chegar.
+- **Equilíbrio (bots):** no Médio, quem só desce chega ao andar 10 em ~6-7% das
+  partidas (era ~9%); quem explora, em ~84%.

@@ -1,5 +1,6 @@
 // monstros.cpp
 #include "monstros.h"
+#include "tema.h"
 #include "jogo.h"
 #include "aleatorio.h"
 #include "cenario.h"
@@ -352,6 +353,7 @@ static bool celulaLivre(const Jogo& jogo, int x, int y) {
     if (x == jogo.jogador.x && y == jogo.jogador.y) return false;
     if (npcEm(andar, x, y) >= 0) return false;
     if (andar.zonaSegura[y][x]) return false;   // a lojinha do comerciante
+    if (andar.mapa.celulas[y][x] == LAVA) return false;   // monstros não pisam na lava
     return monstroEm(andar, x, y) < 0;
 }
 
@@ -547,8 +549,10 @@ void agirMonstros(Jogo& jogo, int ms) {
         }
         m.tempoAcumulado += ms;
         // Age quantas vezes o tempo acumulado permitir (normalmente uma).
-        while (m.vivo && m.tempoAcumulado >= intervaloDoMonstro(m)) {
-            m.tempoAcumulado -= intervaloDoMonstro(m);
+        // Na água o monstro anda na metade da velocidade (o morcego voa por cima).
+        int lentidao = (tipoDe(m).especial & ERRATICO) ? 1 : multiplicadorDoPasso(andar, m.x, m.y);
+        while (m.vivo && m.tempoAcumulado >= intervaloDoMonstro(m) * lentidao) {
+            m.tempoAcumulado -= intervaloDoMonstro(m) * lentidao;
             if (m.turnosSemBatalha > 0) m.turnosSemBatalha--;
             // O ogro (e o chefe) despedaça as caixas que estão encostadas nele.
             if ((tipoDe(m).especial & QUEBRA_CAIXAS) && m.estado != DORMINDO) quebrarCaixasPerto(jogo, m);

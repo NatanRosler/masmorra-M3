@@ -1,6 +1,7 @@
 // jogo.cpp
 #include "jogo.h"
 #include "salvar.h"
+#include "tema.h"
 #include "aleatorio.h"
 #include "terminal.h"
 #include "tela.h"
@@ -42,6 +43,8 @@ static Andar& prepararAndar(Jogo& jogo, int numero) {
         a.numNpcs = 0;
         a.chavesGuardadas = 0;
         prepararSalaDaLoja(a, numero);   // antes dos monstros: lá dentro ninguém nasce
+        // Tema do andar: poças d'água (4-6) ou rachaduras de lava (7-9).
+        decorarAndar(a, numero, misturar(jogo.semente, (uint32_t)numero + 4000));
         int chegadaX = a.escadas.chegadaSobeX, chegadaY = a.escadas.chegadaSobeY;
         if (jogo.comMonstros) {
             // Semente separada: os monstros não mudam o desenho do mapa.
@@ -126,7 +129,7 @@ static void restaurarPP(Jogador& j) {
 const int ALCANCE_DA_VISAO = 80;
 
 const Luz COR_LUZ_JOGADOR = { 1.00f, 0.96f, 0.88f }; // branco amarelado
-const Luz COR_LUZ_TOCHA   = { 1.00f, 0.68f, 0.38f }; // laranja
+const Luz COR_LUZ_LAVA    = { 0.55f, 0.18f, 0.05f }; // vermelho fraco (cada casa de lava)
 const int RAIO_LUZ_TOCHA  = 7;
 
 // Como no Brogue, a luz do jogador enfraquece conforme ele desce:
@@ -144,10 +147,14 @@ void atualizarVisao(Jogo& jogo) {
     // 1. Luz: a do jogador + a de todas as tochas do andar.
     apagarLuzes(jogo.luz);
     adicionarLuz(mapa, jx, jy, raioDaLuzDoJogador(jogo.andar), COR_LUZ_JOGADOR, jogo.luz);
+    // A cor das tochas depende do tema do andar; a lava também ilumina.
+    Luz corDaTocha = FICHAS_DOS_TEMAS[temaDoAndar(jogo.andar)].luzDaTocha;
     for (int y = 0; y < MAPA_ALTURA; y++) {
         for (int x = 0; x < MAPA_LARGURA; x++) {
             if (mapa.celulas[y][x] == TOCHA) {
-                adicionarLuz(mapa, x, y, RAIO_LUZ_TOCHA, COR_LUZ_TOCHA, jogo.luz);
+                adicionarLuz(mapa, x, y, RAIO_LUZ_TOCHA, corDaTocha, jogo.luz);
+            } else if (mapa.celulas[y][x] == LAVA) {
+                adicionarLuz(mapa, x, y, 2, COR_LUZ_LAVA, jogo.luz);
             }
         }
     }
@@ -231,6 +238,13 @@ static void irParaAndar(Jogo& jogo, int novoAndar) {
         jogo.jogador.x = destino.escadas.chegadaDesceX;
         jogo.jogador.y = destino.escadas.chegadaDesceY;
         adicionarMensagem(jogo, "Você sobe para o andar " + std::to_string(novoAndar) + ".");
+    }
+    // Chegou a um trecho novo da masmorra (minas, caverna, vulcão, trono).
+    int tema = temaDoAndar(novoAndar);
+    if (descendo && tema != temaDoAndar(andarAnterior)) {
+        const FichaDoTema& f = FICHAS_DOS_TEMAS[tema];
+        // (Na versão gráfica o nome também aparece grande no meio do mapa.)
+        adicionarMensagem(jogo, std::string(f.nome) + ": " + f.frase);
     }
     // Salva sozinho a cada andar novo (se o jogo fechar de repente, perde pouco).
     salvarPartida(jogo);
@@ -540,7 +554,9 @@ static void depoisDoPasso(Jogo& jogo) {
     if (jogo.morto) return;
     atualizarVisao(jogo);
     deixarCheiro(jogo);
-    jogo.esperaDoJogadorMs = intervaloDoJogador(jogo.jogador);
+    // Na água (caverna alagada), cada passo leva o dobro do tempo.
+    jogo.esperaDoJogadorMs = intervaloDoJogador(jogo.jogador) *
+                             multiplicadorDoPasso(andarAtual(jogo), jogo.jogador.x, jogo.jogador.y);
     if (jogo.batalhaPendente >= 0) resolverBatalha(jogo);
 }
 

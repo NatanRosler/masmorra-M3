@@ -19,7 +19,9 @@ enum TipoCelula {
     ESCADA_SOBE,
     TOCHA,         // parede com uma tocha presa: não dá para passar, mas ilumina
     PORTA_TRANCADA,// só abre com uma chave
-    CAIXA          // obstáculo: dá para empurrar (ou quebrar); não bloqueia a visão
+    CAIXA,         // obstáculo: dá para empurrar (ou quebrar); não bloqueia a visão
+    POCA,          // poça d'água da caverna alagada (andares 4-6): passa, mas devagar
+    LAVA           // profundezas vulcânicas (7-9): dá para passar, mas queima
 };
 
 struct Mapa {

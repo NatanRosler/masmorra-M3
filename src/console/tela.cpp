@@ -1,6 +1,7 @@
 // tela.cpp
 #include "tela.h"
 #include "jogo.h"
+#include "tema.h"
 #include "terminal.h"
 #include "batalha.h"
 #include "itens.h"
@@ -32,14 +33,22 @@ struct Aparencia {
     bool brilhaSozinho; // tochas não dependem da luz para aparecer
 };
 
-static Aparencia aparenciaDaCelula(const Mapa& mapa, int x, int y) {
+// Cores do chão e da parede de cada tema (minas, caverna, vulcão, trono).
+static const CorRGB PAREDE_FRENTE[NUM_TEMAS] = { { 170, 155, 140 }, { 120, 165, 175 }, { 150, 95, 85 }, { 170, 175, 205 } };
+static const CorRGB PAREDE_FUNDO[NUM_TEMAS]  = { { 105, 95, 85 },   { 50, 80, 95 },    { 70, 35, 35 }, { 75, 80, 110 } };
+static const CorRGB CHAO_FRENTE[NUM_TEMAS]   = { { 185, 175, 160 }, { 150, 190, 195 }, { 190, 150, 130 }, { 190, 195, 215 } };
+static const CorRGB CHAO_FUNDO[NUM_TEMAS]    = { { 62, 56, 50 },    { 36, 56, 62 },    { 56, 36, 34 }, { 50, 54, 72 } };
+
+static Aparencia aparenciaDaCelula(const Mapa& mapa, int x, int y, int tema) {
     switch (mapa.celulas[y][x]) {
         case PAREDE:
             if (ehVisivelComoParede(mapa, x, y)) {
-                return { '#', { 170, 155, 140 }, { 105, 95, 85 }, false };
+                return { '#', PAREDE_FRENTE[tema], PAREDE_FUNDO[tema], false };
             }
             return { ' ', { 0, 0, 0 }, { 0, 0, 0 }, false }; // rocha maciça
-        case CHAO:         return { '.', { 185, 175, 160 }, { 62, 56, 50 },  false };
+        case CHAO:         return { '.', CHAO_FRENTE[tema], CHAO_FUNDO[tema], false };
+        case POCA:         return { '~', { 120, 190, 255 }, { 25, 70, 120 }, false };
+        case LAVA:         return { '~', { 255, 200, 80 },  { 190, 50, 20 }, true };   // brilha sozinha
         case PORTA:        return { '+', { 235, 185, 95 },  { 115, 72, 30 }, false };
         case ESCADA_DESCE: return { '>', { 255, 255, 255 }, { 110, 110, 120 }, false };
         case ESCADA_SOBE:  return { '<', { 255, 255, 255 }, { 110, 110, 120 }, false };
@@ -338,7 +347,7 @@ void desenharJogo(const Jogo& jogo) {
             Cor cor = { FUNDO_PRETO, FUNDO_PRETO };
 
             if (dentroDoMapa(x, y)) {
-                Aparencia a = aparenciaDaCelula(mapa, x, y);
+                Aparencia a = aparenciaDaCelula(mapa, x, y, temaDoAndar(jogo.andar));
                 // Lojinha do comerciante: tapete vinho no chão.
                 if (andar.zonaSegura[y][x] && mapa.celulas[y][x] == CHAO) {
                     a.simbolo = ':';

@@ -9,6 +9,7 @@
 #include "som.h"
 #include "dificuldade.h"
 #include "loja.h"
+#include "tema.h"
 
 // =============================================================================
 // TABELAS
@@ -796,6 +797,8 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
     for (int i = 0; i < quantos; i++) {
         b.monstros[i] = participantes[i];
         b.inimigos[i] = montarLutadorDoMonstro(*participantes[i]);
+        // O ambiente fortalece um elemento (Água na caverna, Fogo no vulcão).
+        b.inimigos[i].ataque = b.inimigos[i].ataque * bonusDoAmbiente(jogo.andar, b.inimigos[i].elemento) / 100;
         b.inimigos[i].indice = i + 1;
         b.naLuta[i] = true;
         b.vidaMostrada[i + 1] = *b.inimigos[i].vida;
@@ -863,6 +866,16 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
         narrar(jogo, b, comMaiuscula(apresentacao) + " quer lutar!", contraOChefe ? MSG_PERIGO : MSG_NORMAL);
     } else {
         narrar(jogo, b, "Um grupo ataca: " + apresentacao + "!", MSG_PERIGO);
+    }
+
+    // Aviso do ambiente: algum inimigo está mais forte por causa do tema do andar?
+    for (int i = 0; i < quantos; i++) {
+        if (bonusDoAmbiente(jogo.andar, b.inimigos[i].elemento) > 100) {
+            const char* onde = (b.inimigos[i].elemento == AGUA) ? "A água da caverna" : "O calor da lava";
+            narrar(jogo, b, std::string(onde) + " fortalece os monstros de " + NOMES_DOS_ELEMENTOS[b.inimigos[i].elemento] +
+                            ": eles batem 20% mais forte aqui!", MSG_PERIGO);
+            break;
+        }
     }
 
     jogo.rodadasDaUltimaBatalha = 0;

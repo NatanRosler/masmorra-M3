@@ -116,6 +116,20 @@ void armadilhaPegaJogador(Jogo& jogo) {
     Andar& andar = andarAtual(jogo);
     Jogador& j = jogo.jogador;
 
+    // Lava (profundezas vulcânicas): queima a cada passo em cima dela.
+    if (andar.mapa.celulas[j.y][j.x] == LAVA) {
+        tocarSom(SOM_DANO);
+        int dano = danoDaArmadilha(j.vidaMaxima, dificuldadeAtual().danoDasArmadilhas);
+        efeitoNoMapa(jogo, EFEITO_LAVA, j.x, j.y, dano);
+        j.vida -= dano;
+        adicionarMensagem(jogo, "A lava queima seus pés! Você perde " + std::to_string(dano) + " de vida.", MSG_PERIGO);
+        if (j.vida <= 0) {
+            j.vida = 0;
+            desmaiar(jogo, "queimado pela lava");
+            return;
+        }
+    }
+
     int i = armadilhaEm(andar, j.x, j.y);
     if (i >= 0) {
         Armadilha& a = andar.armadilhas[i];

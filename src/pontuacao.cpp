@@ -119,6 +119,7 @@ std::vector<std::string> textoComoJogar() {
         "STATUS ou FUGIR. Golpes têm PP e elemento: Fogo > Planta > Água > Fogo.",
         "Até 3 monstros podem entrar na mesma batalha.",
         "",
+        "Andares 4-6: poças d'água (passos lentos). Andares 7-9: lava (queima, desvie!).",
         "Sair salva a partida: use CONTINUAR no menu. Ao perder ou vencer, o save some.",
         "",
         "Z: descansar (+1 de vida por segundo)    I: mochila    C: ficha",

@@ -30,6 +30,7 @@ set(FONTES_DA_LOGICA
     src/npcs.cpp
     src/loja.cpp
     src/salvar.cpp
+    src/tema.cpp
     src/pontuacao.cpp
     src/dificuldade.cpp
 )

@@ -13,6 +13,7 @@
 #include "sprites.h"
 #include "extra_sprites.h"
 #include "itens_sprites.h"
+#include "tema.h"
 #include "efeitos.h"
 #include <algorithm>
 #include <cmath>
@@ -119,6 +120,47 @@ void etiquetaDeStatus(int status,float x,float y) {
     textoCentro(nomes[status],x+64,y+3,15,cores[status]);
 }
 
+// Cor da célula sob a luz: a claridade escurece e a COR da luz tinge
+// (vermelho perto da lava, azul nas tochas do trono...).
+Color iluminarComCor(Color c,Luz l,float claridade) {
+    float maior=std::max({l.r,l.g,l.b,0.001f});
+    auto canal=[&](unsigned char v,float comp){ return (unsigned char)std::clamp(v*claridade*(0.55f+0.45f*comp/maior),0.0f,255.0f); };
+    return {canal(c.r,l.r),canal(c.g,l.g),canal(c.b,l.b),c.a};
+}
+// Tapete da sala do trono: o caminho da chegada até o chefe (calculado uma vez).
+bool tapete[MAPA_ALTURA][MAPA_LARGURA];
+uint32_t tapeteDaSemente=0; bool tapetePronto=false;
+bool noTapete(const Andar& a,int x,int y) { (void)a; return tapetePronto && tapete[y][x]; }
+void prepararTapete(const Jogo& jogo) {
+    if(temaDoAndar(jogo.andar)!=TEMA_TRONO) return;
+    if(tapetePronto && tapeteDaSemente==jogo.semente) return;
+    const Andar& a=andarAtual(jogo);
+    int chefe=-1;
+    for(int i=0;i<a.numMonstros;i++) if(a.monstros[i].vivo && (tipoDe(a.monstros[i]).especial & CHEFE)) chefe=i;
+    for(int y=0;y<MAPA_ALTURA;y++) for(int x=0;x<MAPA_LARGURA;x++) tapete[y][x]=false;
+    tapeteDaSemente=jogo.semente; tapetePronto=true;
+    if(chefe<0) return;
+    // Volta do chefe até a chegada seguindo o mapa de distâncias.
+    static int d[MAPA_ALTURA][MAPA_LARGURA];
+    calcularDistancias(a.mapa,a.escadas.chegadaSobeX,a.escadas.chegadaSobeY,d);
+    int x=a.monstros[chefe].x, y=a.monstros[chefe].y;
+    for(int passos=0;passos<400 && d[y][x]>0;passos++) {
+        tapete[y][x]=true;
+        // Prefere andar em linha reta; na diagonal, o tapete também cobre a quina.
+        int melhor=-1;
+        for(int k=0;k<8 && melhor<0;k++) {
+            int nx=x+DIRECOES_DX[k], ny=y+DIRECOES_DY[k];
+            if(dentroDoMapa(nx,ny) && d[ny][nx]!=INALCANCAVEL && d[ny][nx]<d[y][x]) melhor=k;
+        }
+        if(melhor<0) break;
+        if(melhor>=4) {
+            if(a.mapa.celulas[y][x+DIRECOES_DX[melhor]]==CHAO) tapete[y][x+DIRECOES_DX[melhor]]=true;
+            else if(a.mapa.celulas[y+DIRECOES_DY[melhor]][x]==CHAO) tapete[y+DIRECOES_DY[melhor]][x]=true;
+        }
+        x+=DIRECOES_DX[melhor]; y+=DIRECOES_DY[melhor];
+    }
+    tapete[y][x]=true;
+}
 // Parede encostada na lojinha (para desenhar as prateleiras).
 bool encostaNaLoja(const Andar& a,int x,int y) {
     if(!a.loja.existe) return false;
@@ -136,16 +178,91 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
     bool agora=jogo.visivel[y][x];
     float claridade=agora?std::clamp(brilho(jogo.luz[y][x]),0.27f,1.0f):0.29f;
     auto tipo=a.mapa.celulas[y][x];
-    Color chao=agora?Color{72,64,60,255}:Color{24,33,55,255};
-    Color parede=agora?Color{121,102,90,255}:Color{40,49,70,255};
+    int tema=temaDoAndar(jogo.andar);
+    // Cores do chão e da parede de cada tema: minas, caverna, vulcão, trono.
+    const Color CHAO_DO_TEMA[NUM_TEMAS]={{72,64,60,255},{52,70,74,255},{66,50,46,255},{70,74,92,255}};
+    const Color PAREDE_DO_TEMA[NUM_TEMAS]={{121,102,90,255},{78,108,116,255},{92,58,52,255},{118,124,150,255}};
+    Color chao=agora?CHAO_DO_TEMA[tema]:Color{24,33,55,255};
+    Color parede=agora?PAREDE_DO_TEMA[tema]:Color{40,49,70,255};
     Color cor= (tipo==PAREDE || tipo==TOCHA) ? parede : chao;
-    if(agora)cor=multiplicar(cor,claridade);
+    if(agora)cor=iluminarComCor(cor,jogo.luz[y][x],claridade);
     DrawRectangle(px,py,TAM,TAM,cor);
     if(tipo==PAREDE || tipo==TOCHA) {
         // Ladrilhos retangulares e linhas de rejunte.
         DrawLine(px,py+TAM/2,px+TAM,py+TAM/2,multiplicar({31,37,48,255},claridade));
         DrawLine(px+TAM/2,py,px+TAM/2,py+TAM/2,multiplicar({31,37,48,255},claridade));
         DrawLine(px+TAM/4,py+TAM/2,px+TAM/4,py+TAM,multiplicar({31,37,48,255},claridade));
+        // Vulcão: algumas paredes têm veios de lava brilhando.
+        if(tema==TEMA_VULCAO && agora && (x*13+y*7)%5==0) {
+            float pulso=0.7f+0.3f*std::sin((float)GetTime()*2+x+y);
+            DrawLine(px+3,py+4,px+9,py+10,multiplicar({255,120,40,255},pulso));
+            DrawLine(px+9,py+10,px+8,py+18,multiplicar({255,120,40,255},pulso));
+        }
+        // Caverna: musgo verde-azulado em algumas paredes.
+        if(tema==TEMA_CAVERNA && agora && (x*11+y*5)%4==0)
+            DrawRectangle(px+2,py+TAM-5,TAM-6,3,multiplicar({70,140,120,255},claridade));
+    } else if(tipo==POCA) {
+        // Poça d'água: só uma parte da casa, com bordas arredondadas. Se a
+        // vizinha também é água, as duas se emendam (poças maiores ficam inteiras).
+        float t=(float)GetTime();
+        float f = agora ? claridade : 0.4f;
+        DrawRectangleLines(px,py,TAM,TAM,multiplicar({39,43,56,255},f));
+        Color agua=multiplicar({34,92,140,255},f);
+        int jx=(x*7+y*3)%3-1, jy=(x*3+y*5)%3-1;   // cada poça um pouco torta
+        float cxp=px+12.0f+jx, cyp=py+12.0f+jy;
+        auto ehAgua=[&](int dx,int dy){ return dentroDoMapa(x+dx,y+dy) && a.mapa.celulas[y+dy][x+dx]==POCA; };
+        bool l=ehAgua(1,0), o=ehAgua(-1,0), s=ehAgua(0,1), n=ehAgua(0,-1);
+        // Raio diferente em cada casa: a borda da poça fica irregular.
+        float r=7.5f+(float)((x*13+y*7)%4);
+        int ri=(int)r;
+        DrawCircleV({cxp,cyp},r,agua);
+        if(l) DrawRectangle((int)cxp,(int)cyp-ri,px+TAM-(int)cxp,2*ri+1,agua);
+        if(o) DrawRectangle(px,(int)cyp-ri,(int)cxp-px,2*ri+1,agua);
+        if(s) DrawRectangle((int)cxp-ri,(int)cyp,2*ri+1,py+TAM-(int)cyp,agua);
+        if(n) DrawRectangle((int)cxp-ri,py,2*ri+1,(int)cyp-py,agua);
+        // Cantos: com água dos dois lados e na diagonal, a poça fica cheia ali.
+        if(l&&s&&ehAgua(1,1)) DrawRectangle((int)cxp,(int)cyp,px+TAM-(int)cxp,py+TAM-(int)cyp,agua);
+        if(o&&s&&ehAgua(-1,1)) DrawRectangle(px,(int)cyp,(int)cxp-px,py+TAM-(int)cyp,agua);
+        if(l&&n&&ehAgua(1,-1)) DrawRectangle((int)cxp,py,px+TAM-(int)cxp,(int)cyp-py,agua);
+        if(o&&n&&ehAgua(-1,-1)) DrawRectangle(px,py,(int)cxp-px,(int)cyp-py,agua);
+        // Ondinhas que se mexem.
+        for(int k=0;k<2;k++) {
+            float onda=std::sin(t*2.2f+x*1.3f+y*0.7f+k*2.1f);
+            int oy=(int)cyp-3+k*6+(int)(onda*1.2f);
+            DrawLine((int)cxp-5+k*2,oy,(int)cxp+3+k*2,oy,multiplicar({120,190,240,255},f*(0.7f+0.3f*onda)));
+        }
+    } else if(tipo==LAVA) {
+        // Lava: uma rachadura no chão que liga as casas de lava vizinhas
+        // (também na diagonal). Brilha sozinha, mesmo no escuro, e pulsa.
+        float t=(float)GetTime();
+        float pulso=0.8f+0.2f*std::sin(t*2.5f+x*0.9f+y*1.4f);
+        float f = agora ? pulso : 0.45f;
+        DrawRectangleLines(px,py,TAM,TAM,multiplicar({39,43,56,255},agora?claridade:0.45f));
+        Vector2 c={px+12.0f+(x*5+y*3)%5-2,py+12.0f+(x*3+y*7)%5-2};
+        Color quente=multiplicar({255,140,40,255},f); quente.a=150;
+        Color fora=quente; fora.a=0;
+        DrawCircleGradient((int)c.x,(int)c.y,14,quente,fora);
+        Color borda=multiplicar({150,35,15,255},f), miolo=multiplicar({255,190,70,255},f);
+        int vizinhos=0;
+        for(int d=0;d<8;d++) {
+            int nx=x+DIRECOES_DX[d], ny=y+DIRECOES_DY[d];
+            if(!dentroDoMapa(nx,ny) || a.mapa.celulas[ny][nx]!=LAVA) continue;
+            vizinhos++;
+            Vector2 fim={px+12.0f+DIRECOES_DX[d]*12.5f,py+12.0f+DIRECOES_DY[d]*12.5f};
+            DrawLineEx(c,fim,7,borda);
+            DrawLineEx(c,fim,3,miolo);
+        }
+        DrawCircleV(c,vizinhos?4.5f:6.0f,borda);
+        DrawCircleV(c,vizinhos?2.5f:3.5f,miolo);
+    } else if(tema==TEMA_TRONO && tipo==CHAO && agora) {
+        // Sala do trono: chão polido em xadrez, com o tapete até o chefe.
+        if((x+y)%2==0) DrawRectangle(px,py,TAM,TAM,multiplicar({86,90,112,255},claridade));
+        DrawRectangleLines(px,py,TAM,TAM,multiplicar({50,54,72,255},claridade));
+        if(noTapete(a,x,y)) {
+            DrawRectangle(px+3,py,TAM-6,TAM,multiplicar({140,30,45,255},claridade));
+            DrawLine(px+4,py,px+4,py+TAM,multiplicar({214,170,80,255},claridade));
+            DrawLine(px+TAM-5,py,px+TAM-5,py+TAM,multiplicar({214,170,80,255},claridade));
+        }
     } else if(a.zonaSegura[y][x] && tipo==CHAO) {
         // Lojinha do comerciante: tapete vinho com barra dourada.
         float f = agora ? claridade : 0.45f;
@@ -180,9 +297,13 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
         // A chama tremula: o tamanho muda com duas ondas de ritmos diferentes.
         float t=(float)GetTime();
         float tremula=std::sin(t*11.0f+x*1.7f)*1.5f+std::sin(t*17.0f+y*2.3f)*1.0f;
+        // A chama tem a cor do tema (azul na sala do trono, vermelha no vulcão).
+        const Color BRILHO[NUM_TEMAS]={{255,173,48,0},{150,220,255,0},{255,90,40,0},{110,150,255,0}};
+        const Color CHAMA[NUM_TEMAS]={{255,211,96,255},{200,240,255,255},{255,150,80,255},{170,200,255,255}};
+        Color b=BRILHO[tema]; Color fora=b; b.a=(unsigned char)(140+tremula*10);
         DrawRectangle(px+10,py+13,4,9,{105,75,50,255});
-        DrawCircleGradient(px+12,py+8,11+tremula,{255,173,48,(unsigned char)(140+tremula*10)},{255,173,48,0});
-        DrawCircle(px+12,(int)(py+8-tremula*0.4f),4+tremula*0.3f,{255,211,96,255});
+        DrawCircleGradient(px+12,py+8,11+tremula,b,fora);
+        DrawCircle(px+12,(int)(py+8-tremula*0.4f),4+tremula*0.3f,CHAMA[tema]);
     } else if(tipo==CAIXA) {
         // Caixa de madeira (dá para empurrar).
         float f = agora ? claridade : 0.45f;
@@ -353,19 +474,81 @@ void seguir(PosicaoSuave& s,int x,int y,bool pular,float dt) {
     s.x=Efeitos::aproximar(s.x,(float)x,22,dt);
     s.y=Efeitos::aproximar(s.y,(float)y,22,dt);
 }
+// Nome do tema aparecendo grande no meio do mapa ao chegar num trecho novo.
+double tituloDoTemaDesde=-100;
+int temaDoTitulo=0;
+uint32_t sementeDesenhada=0;
 void atualizarPosicoesSuaves(const Jogo& jogo) {
     double agora=GetTime();
     float dt=(float)std::min(0.1,agora-ultimoQuadroDoMapa);
     ultimoQuadroDoMapa=agora;
-    bool novoAndar=(andarDesenhado!=jogo.andar);
+    bool outraPartida=(sementeDesenhada!=jogo.semente);
+    bool novoAndar=(andarDesenhado!=jogo.andar) || outraPartida;
     if(novoAndar) {
+        int temaNovo=temaDoAndar(jogo.andar);
+        if(andarDesenhado<0 || outraPartida || temaDoAndar(andarDesenhado)!=temaNovo) {
+            tituloDoTemaDesde=agora; temaDoTitulo=temaNovo;
+        }
         if(andarDesenhado>=0) Efeitos::escurecer();   // desceu ou subiu a escada
         andarDesenhado=jogo.andar;
+        sementeDesenhada=jogo.semente;
         Efeitos::limparParticulas(Efeitos::CAMADA_MAPA);
+        prepararTapete(jogo);
     }
     seguir(jogadorSuave,jogo.jogador.x,jogo.jogador.y,novoAndar,dt);
     const Andar& a=andarAtual(jogo);
     for(int i=0;i<a.numMonstros;i++) seguir(monstrosSuaves[i],a.monstros[i].x,a.monstros[i].y,novoAndar,dt);
+}
+// Gotas pingando na caverna e brasas subindo da lava (só onde o jogador vê).
+double ultimaParticulaDoAmbiente=0;
+void particulasDoAmbiente(const Jogo& jogo,const Andar& a,int cx,int cy) {
+    int tema=temaDoAndar(jogo.andar);
+    if(tema!=TEMA_CAVERNA && tema!=TEMA_VULCAO) return;
+    double agora=GetTime();
+    if(agora-ultimaParticulaDoAmbiente<0.06) return;
+    ultimaParticulaDoAmbiente=agora;
+    // Sorteia uma célula visível na tela.
+    for(int tentativa=0;tentativa<12;tentativa++) {
+        int x=cx+GetRandomValue(0,CW), y=cy+GetRandomValue(0,CH);
+        if(!dentroDoMapa(x,y) || !jogo.visivel[y][x]) continue;
+        TipoCelula c=a.mapa.celulas[y][x];
+        Efeitos::Particula p{};
+        p.inicio=agora; p.camada=Efeitos::CAMADA_MAPA; p.giro=0;
+        if(tema==TEMA_CAVERNA && (c==CHAO || c==POCA)) {
+            // Gota caindo do teto.
+            p.x=x*TAM+GetRandomValue(4,20); p.y=y*TAM-10; p.vx=0; p.vy=60; p.gravidade=260;
+            p.cor={150,205,255,220}; p.tamanho=1.6f; p.vida=0.35; p.forma=Efeitos::BOLINHA;
+            Efeitos::criarParticula(p);
+            if(c==POCA) {   // ao cair na poça, uma ondinha
+                Efeitos::Particula anel=p; anel.y=y*TAM+14; anel.vy=0; anel.gravidade=0; anel.inicio=agora+0.33;
+                anel.forma=Efeitos::ANEL; anel.tamanho=5; anel.vida=0.5; anel.cor={150,205,255,160};
+                Efeitos::criarParticula(anel);
+            }
+            return;
+        }
+        if(tema==TEMA_VULCAO && c==LAVA) {
+            // Brasa subindo e se apagando.
+            p.x=x*TAM+GetRandomValue(3,21); p.y=y*TAM+GetRandomValue(6,18);
+            p.vx=(float)GetRandomValue(-12,12); p.vy=-(float)GetRandomValue(25,55); p.gravidade=0;
+            p.cor=GetRandomValue(0,1)?Color{255,170,60,255}:Color{255,90,40,255};
+            p.tamanho=1.8f; p.vida=0.9+GetRandomValue(0,6)/10.0; p.forma=Efeitos::QUADRADO;
+            Efeitos::criarParticula(p);
+            return;
+        }
+    }
+}
+// Nome do tema grande no meio do mapa (aparece e some em ~3 segundos).
+void tituloDoTema() {
+    float t=(float)(GetTime()-tituloDoTemaDesde);
+    if(t<0 || t>3.2f) return;
+    float alfa = t<0.4f ? t/0.4f : (t>2.4f ? (3.2f-t)/0.8f : 1.0f);
+    const FichaDoTema& f=FICHAS_DOS_TEMAS[temaDoTitulo];
+    float meioX=MX+CW*TAM/2.0f, y=MY+CH*TAM/2.0f-60;
+    DrawRectangle(MX,(int)y-14,CW*TAM,112,{8,12,24,(unsigned char)(170*alfa)});
+    Color ouro=OURO; ouro.a=(unsigned char)(255*alfa);
+    Color texto=TEXTO; texto.a=(unsigned char)(230*alfa);
+    textoCentro(f.nome,meioX,y,40,ouro);
+    textoCentro(f.frase,meioX,y+54,20,texto);
 }
 void mapa(const Jogo& jogo) {
     titulo("EXPLORAÇÃO   |   O mapa se revela conforme você caminha");
@@ -403,11 +586,13 @@ void mapa(const Jogo& jogo) {
     float hx,hy; naTela(jogadorSuave.x,jogadorSuave.y,hx,hy);
     DrawCircle((int)hx+12,(int)hy+12,12,{220,205,141,55});
     desenharSprite(HEROI,hx+2,hy+1,1.25f,1.0f);
+    particulasDoAmbiente(jogo,a,cx,cy);
     // Efeitos do mapa (lascas, espinhos, números) acompanham a câmera.
     Efeitos::desenharParticulas(Efeitos::CAMADA_MAPA,MX-camX*TAM,MY-camY*TAM);
     Efeitos::desenharTextosFlutuantes(Efeitos::CAMADA_MAPA,MX-camX*TAM,MY-camY*TAM);
     pararDeRecortar();
     DrawRectangleLinesEx(janela,2,{83,110,133,255});
+    tituloDoTema();
     faixaDeDestaque(jogo);
     hud(jogo);
 }
@@ -779,6 +964,12 @@ void efeitoNoMapa(const Jogo& jogo,int efeito,int x,int y,int valor) {
             break;
         case EFEITO_ATORDOAR:
             Efeitos::explosaoDoElemento(0,px,py,MAPA,0.6f);
+            break;
+        case EFEITO_LAVA:
+            Efeitos::explosaoDoElemento(1,px,py,MAPA,0.7f);   // chamas
+            Efeitos::piscar({255,80,30,255},0.2);
+            Efeitos::tremer(4,0.2);
+            Efeitos::textoFlutuante("-"+std::to_string(valor),px,py-14,PERIGO,24,MAPA);
             break;
         case EFEITO_MOEDAS:
             Efeitos::brilhoSubindo(px,py-6,OURO,14,MAPA);
