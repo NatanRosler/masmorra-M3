@@ -30,7 +30,7 @@ extraia. Não é preciso instalar nada.
 | Mochila (usar / equipar) | `I` |
 | Ficha (distribuir pontos de atributo) | `C` |
 | Empurrar caixa / conversar | ande na direção dela / da pessoa |
-| Descansar | `Z`: +1 de vida por segundo (qualquer tecla para) |
+| Descansar | `Z`: recupera vida (mais rápido a cada 5 níveis; qualquer tecla para) |
 | Histórico de mensagens | `M` |
 | Ajuda | `?` |
 | Pausa | `Esc` |

@@ -45,4 +45,6 @@ std::vector<std::string> textoDosItens();
 std::vector<std::string> textoDaPontuacao();
 
 // Mostra uma página de texto e espera uma tecla.
+// Uma linha igual a QUEBRA_DE_PAGINA divide o texto em páginas.
+const char* const QUEBRA_DE_PAGINA = "---";
 void mostrarPagina(const std::string& titulo, const std::vector<std::string>& linhas);

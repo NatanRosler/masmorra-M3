@@ -183,6 +183,11 @@ struct Batalha {
     int cursor;                  // opção selecionada
     int golpeNovo;               // golpe sendo aprendido (MENU_ESQUECER)
 
+    // Golpe Escudo: o jogador ergue o escudo e pode bloquear os ataques da rodada.
+    bool escudoErguido;          // erguido nesta rodada
+    bool escudoNaRodadaAnterior; // duas rodadas seguidas: a chance cai pela metade
+    int chanceDoBloqueio;        // chance (%) enquanto está erguido
+
     // Itens que podem ser usados na batalha (lista montada ao abrir ITENS).
     int itensUsaveis[16];
     int numItensUsaveis;

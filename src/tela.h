@@ -42,6 +42,7 @@ enum AnimacaoDaBatalha {
     ANIM_CURA,            // "quem" recupera "valor" de vida
     ANIM_DESMAIO,         // "quem" desmaia
     ANIM_NIVEL,           // o jogador sobe para o nível "valor"
+    ANIM_BLOQUEIO,        // "quem" ataca e o escudo de "alvo" (o jogador) bloqueia
 };
 // quem/alvo: 0 = jogador, 1 a 3 = inimigos.
 void animarBatalha(const Jogo& jogo, const Batalha& b, int animacao, int quem, int alvo,

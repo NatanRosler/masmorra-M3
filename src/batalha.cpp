@@ -39,7 +39,7 @@ int eficacia(Elemento ataque, Elemento defesa) {
 const Golpe GOLPES[NUM_GOLPES] = {
     //  nome               elemento poder prec  PP  efeito        chance prior.
     { "Golpe",             NORMAL,  40,  100,   0, SEM_EFEITO,      0,  0 },
-    { "Escudo",            NORMAL,   0,  100,  10, SOBE_DEFESA,   100,  0 },
+    { "Escudo",            NORMAL,   0,  100,  10, SOBE_DEFESA,   100,  2 },
     { "Golpe Forte",       NORMAL,  65,   85,  10, SEM_EFEITO,      0,  0 },
     { "Tocha",             FOGO,    55,  100,  12, SEM_EFEITO,      0,  0 },
     { "Jato d'Água",       AGUA,    55,  100,  12, SEM_EFEITO,      0,  0 },
@@ -327,6 +327,22 @@ static void usarGolpe(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo, 
     if (atacante.pp != nullptr && golpe.ppMaximo > 0) atacante.pp[slot]--;
     narrar(jogo, b, nome + " usa " + golpe.nome + "!");
 
+    // Escudo: age antes de todos (prioridade 2) e fica erguido até o fim da
+    // rodada. A chance depende do escudo equipado e cai pela metade se ele
+    // já estava erguido na rodada anterior (senão dava para bloquear sempre).
+    if (atacante.ehJogador && atacante.golpes[slot] == G_ESCUDO) {
+        b.escudoErguido = true;
+        b.chanceDoBloqueio = chanceDeBloqueio(jogo.jogador.escudo, true);
+        if (b.escudoNaRodadaAnterior) {
+            b.chanceDoBloqueio /= 2;
+            narrar(jogo, b, "Você ergue o escudo de novo, já cansado: " + std::to_string(b.chanceDoBloqueio) +
+                            "% de chance de bloquear.");
+        } else {
+            narrar(jogo, b, "Você ergue o escudo: " + std::to_string(b.chanceDoBloqueio) +
+                            "% de chance de bloquear os ataques desta rodada.");
+        }
+    }
+
     // Chance de acertar = precisão do golpe + Destreza de quem ataca - esquiva
     // (Agilidade) de quem defende. Golpes que só mexem em quem usa não erram.
     int chanceDeAcertar = golpe.precisao;
@@ -340,6 +356,19 @@ static void usarGolpe(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo, 
         if (golpe.precisao >= 100 && contraOAlvo) narrar(jogo, b, comMaiuscula(alvo.nome) + " se esquivou!");
         else narrar(jogo, b, "Mas errou!");
         return;
+    }
+
+    // Bloqueio: um ataque com dano contra o jogador pode parar no escudo
+    // (erguido com o golpe Escudo, ou só o escudo equipado, com chance menor).
+    if (alvo.ehJogador && golpe.poder > 0) {
+        int chanceBloquear = b.escudoErguido ? b.chanceDoBloqueio : chanceDeBloqueio(jogo.jogador.escudo, false);
+        if (chanceBloquear > 0 && sortear(jogo.sorte, 1, 100) <= chanceBloquear) {
+            tocarSom(SOM_BLOQUEIO);
+            animarBatalha(jogo, b, ANIM_BLOQUEIO, ladoDe(atacante), ladoDe(alvo), golpe.elemento, 0, false);
+            narrar(jogo, b, b.escudoErguido ? "Você bloqueou o ataque com o escudo!"
+                                            : "Seu escudo aparou o golpe sozinho!", MSG_BOA);
+            return;
+        }
     }
 
     // Golpes de status: só o efeito.
@@ -828,6 +857,9 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
     b.cursor = 0;
     b.golpeNovo = -1;
     b.numItensUsaveis = 0;
+    b.escudoErguido = false;
+    b.escudoNaRodadaAnterior = false;
+    b.chanceDoBloqueio = 0;
     b.numAlvos = 0;
 
     animarBatalha(jogo, b, ANIM_ENTRADA, 0, 0, 0, 0, false);
@@ -955,6 +987,10 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
         ordenarAgentes(agentes, numAgentes);
 
         // ---- 3. Ações ---------------------------------------------------------------
+        // O escudo erguido na rodada passada abaixa (e fica a lembrança, para
+        // a chance cair se ele for erguido de novo logo em seguida).
+        b.escudoNaRodadaAnterior = b.escudoErguido;
+        b.escudoErguido = false;
         for (int a = 0; a < numAgentes; a++) {
             const Agente& ag = agentes[a];
             if (ag.quem == 0) {

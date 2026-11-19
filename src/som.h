@@ -26,6 +26,7 @@ enum Som {
     SOM_CAIXA,
     SOM_VITORIA,
     SOM_DERROTA,         // o jogador desmaiou
+    SOM_BLOQUEIO,        // o escudo bloqueou um ataque
     NUM_SONS
 };
 

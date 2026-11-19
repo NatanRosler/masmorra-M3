@@ -89,6 +89,11 @@ int itemEm(const Andar& andar, int x, int y);
 // O jogador pega o que houver na célula onde está.
 void pegarItensDoChao(Jogo& jogo);
 
+// Chance (em %) de bloquear um ataque por inteiro. Erguendo o escudo (golpe
+// Escudo): 30% sem escudo, 45% madeira, 60% ferro, 75% torre. Sem erguer, só
+// o escudo equipado: 5% madeira, 8% ferro, 12% torre.
+int chanceDeBloqueio(const TipoItem* escudo, bool erguido);
+
 // Coloca a arma ou o escudo na mão (o anterior volta para a mochila).
 void equipar(Jogo& jogo, int tipo);
 

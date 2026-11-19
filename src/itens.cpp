@@ -59,13 +59,13 @@ const TipoItem TIPOS_DE_ITEM[NUM_TIPOS_DE_ITEM] = {
     // ---- Escudos ----------------------------------------------------------------
     { "Escudo de Madeira", "um", ']', { 175, 130, 80 }, ESCUDO,
       0, false, false,    0, 2, 0, 0,   -1, -1,   1, 4, 5,
-      "Defesa +2." },
+      "Defesa +2. Bloqueia 45% (5% sozinho)." },
     { "Escudo de Ferro", "um", ']', { 190, 190, 205 }, ESCUDO,
       0, false, false,    0, 4, 0, 0,   -1, -1,   3, 8, 4,
-      "Defesa +4." },
+      "Defesa +4. Bloqueia 60% (8% sozinho)." },
     { "Escudo de Torre", "um", ']', { 150, 150, 175 }, ESCUDO,
       0, false, false,    0, 6, -3, 0,  -1, -1,   6, 10, 2,
-      "Defesa +6, mas Velocidade -3 (é pesado)." },
+      "Defesa +6, Velocidade -3. Bloqueia 75%." },
 
     // ---- Cristais (power-ups: efeito permanente ao pegar) -----------------------
     { "Cristal de Vida", "um", '*', { 255, 100, 140 }, CRISTAL,
@@ -311,6 +311,13 @@ void guardarOuLargar(Jogo& jogo, int tipo) {
     largarNoChao(jogo, tipo, j.x, j.y);
     adicionarMensagem(jogo, motivoDeNaoCaber(j, tipo) + " " + comMaiusculaInicial(nomeComArtigo(tipo)) +
                             " ficou no chão.");
+}
+
+int chanceDeBloqueio(const TipoItem* escudo, bool erguido) {
+    if (escudo == &TIPOS_DE_ITEM[I_ESCUDO_DE_MADEIRA]) return erguido ? 45 : 5;
+    if (escudo == &TIPOS_DE_ITEM[I_ESCUDO_DE_FERRO])   return erguido ? 60 : 8;
+    if (escudo == &TIPOS_DE_ITEM[I_ESCUDO_DE_TORRE])   return erguido ? 75 : 12;
+    return erguido ? 30 : 0;   // sem escudo: só o braço
 }
 
 void equipar(Jogo& jogo, int tipo) {

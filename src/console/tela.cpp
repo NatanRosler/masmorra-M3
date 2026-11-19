@@ -519,7 +519,7 @@ void desenharAjuda(const Jogo& jogo) {
         "Diagonais      Home PgUp End PgDn  ou  y u b n",
         "Teclado num.   7 8 9 / 4 6 / 1 2 3",
         "Batalhar       ande na direção do monstro",
-        "Descansar      z  ou  Z   (+1 de vida por segundo)",
+        "Descansar      z  ou  Z   (cura mais a cada 5 níveis)",
         "               qualquer tecla para de descansar",
         "Mochila        i          Ficha (atributos)   C",
         "Mensagens      M          Sair   Q",

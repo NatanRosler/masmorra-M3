@@ -935,6 +935,23 @@ void spriteDoLutador(const Batalha& b,int quem,const Sprite& arte) {
     const Lutador& l=(quem==0)?b.jogador:b.inimigos[quem-1];
     iconeDeStatus(l.status,x+8*p+an.dx,y+an.dy-6);
 }
+// Escudo erguido (golpe Escudo): um escudo azulado brilhando na frente do herói.
+void escudoErguidoNaBatalha(const Batalha& b) {
+    Vector2 c=centroDoSprite(b,0);
+    float t=(float)GetTime();
+    float x=c.x+62+animacao[0].dx, y=c.y-6+animacao[0].dy;
+    Color luz={150,200,255,(unsigned char)(70+30*std::sin(t*4))}; Color fora=luz; fora.a=0;
+    DrawCircleGradient((int)x,(int)y,58,luz,fora);
+    // Contorno do escudo: retângulo em cima e ponta embaixo.
+    Color borda={215,235,255,235}, dentro={110,150,210,150};
+    DrawRectangleRounded({x-24,y-34,48,40},0.25f,6,dentro);
+    DrawTriangle({x-24,y+5},{x,y+38},{x+24,y+5},dentro);
+    DrawRectangleRoundedLinesEx({x-24,y-34,48,40},0.25f,6,3,borda);
+    DrawLineEx({x-24,y+5},{x,y+38},3,borda);
+    DrawLineEx({x,y+38},{x+24,y+5},3,borda);
+    DrawLineEx({x,y-28},{x,y+30},2,{215,235,255,140});
+    DrawLineEx({x-18,y-10},{x+18,y-10},2,{215,235,255,140});
+}
 void telaBatalha(const Jogo& jogo,const Batalha& b) {
     titulo("BATALHA   |   Golpes, elementos e turnos");
     painel({39,121,1362,468});
@@ -944,6 +961,7 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
     DrawEllipse(1010,466,280,54,{44,63,76,255});
     definirCorDoHeroi(paraCor(CORES_DO_JOGADOR[jogo.jogador.cor]));
     spriteDoLutador(b,0,HEROI);
+    if(b.escudoErguido) escudoErguidoNaBatalha(b);
     painelDoLutador(b.jogador,b.vidaMostrada[0],{55,140,430,107},CIANO,CIANO,false);
     if(b.numInimigos==1) {
         const Monstro& m=*b.monstros[0];
@@ -1072,6 +1090,7 @@ void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,
     switch(tipo) {
         case ANIM_ENTRADA: duracao=0.65; break;
         case ANIM_GOLPE:   duracao=0.55; break;
+        case ANIM_BLOQUEIO: duracao=0.6; break;
         case ANIM_DESMAIO: duracao=0.6;  break;
         case ANIM_NIVEL:   duracao=0.8;  break;
     }
@@ -1123,6 +1142,24 @@ void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,
                     animacao[alvo].dx=std::sin(u*60)*6*(1-u);
                     animacao[alvo].alfa=(((int)(u*duracao*1000/70))%2==0)?0.3f:1.0f;
                 }
+            }
+            break;
+        }
+        case ANIM_BLOQUEIO: {
+            // O monstro dá o bote, bate no escudo e é jogado para trás.
+            if(t<0.25f) animacao[quem].dx=direcao*70*std::sin(3.14159f*t/0.5f);
+            if(t>=0.25f && !disparou) {
+                disparou=true;
+                float frente=centroAlvo.x-direcao*58;   // o escudo fica na frente do herói
+                Efeitos::brilhoSubindo(frente,centroAlvo.y,{200,225,255,255},22,Efeitos::CAMADA_TELA);
+                Efeitos::textoFlutuante("BLOQUEOU!",centroAlvo.x,centroAlvo.y-80,{170,215,255,255},36,Efeitos::CAMADA_TELA,1.0);
+                Efeitos::tremer(4,0.15);
+                Efeitos::piscar({200,225,255,255},0.08);
+            }
+            if(t>=0.25f) {
+                float u=(t-0.25f)/0.75f;
+                animacao[quem].dx=direcao*(70*(1-suavizar(u*1.4f))-30*std::sin(3.14159f*u));   // recua além do lugar e volta
+                animacao[alvo].dx=-direcao*6*std::sin(3.14159f*std::min(1.0f,u*3));   // o herói segura o tranco
             }
             break;
         }

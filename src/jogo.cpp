@@ -7,6 +7,7 @@
 #include "tela.h"
 #include "pontuacao.h"
 #include "som.h"
+#include <algorithm>
 
 Mapa& mapaAtual(Jogo& jogo) {
     return jogo.andares[jogo.andar - 1].mapa;
@@ -496,7 +497,14 @@ static bool ppCheio(const Jogador& j) {
     return true;
 }
 
-// Tecla Z: começa a descansar. A vida volta só assim (1 por segundo).
+// O descanso melhora com o nível: +1 de vida por segundo no começo e +1 a
+// cada 5 níveis (nível 5: 2, nível 10: 3...). Assim encher a vida leva uns
+// 12 segundos em qualquer fase do jogo. Os PP voltam a cada 3 segundos
+// (a cada 2 a partir do nível 15).
+int curaDoDescanso(const Jogador& j) { return 1 + j.nivel / 5; }
+static int segundosPorPP(const Jogador& j) { return j.nivel >= 15 ? 2 : 3; }
+
+// Tecla Z: começa a descansar. A vida volta só assim.
 static void comecarDescanso(Jogo& jogo) {
     const Jogador& j = jogo.jogador;
     if (algumMonstroVisivel(jogo)) {
@@ -511,7 +519,8 @@ static void comecarDescanso(Jogo& jogo) {
     jogo.msDeDescanso = 0;
     jogo.segundosDeDescanso = 0;
     tocarSom(SOM_CURA);
-    adicionarMensagem(jogo, "Você descansa... (+1 de vida por segundo; qualquer tecla para parar)");
+    adicionarMensagem(jogo, "Você descansa... (+" + std::to_string(curaDoDescanso(j)) +
+                            " de vida por segundo; qualquer tecla para parar)");
 }
 
 void avancarTempo(Jogo& jogo, int ms) {
@@ -528,7 +537,7 @@ void avancarTempo(Jogo& jogo, int ms) {
         return;
     }
 
-    // Descanso: +1 de vida por segundo e +1 PP em cada golpe a cada 5 segundos.
+    // Descanso: vida a cada segundo e +1 PP em cada golpe a cada 3 (ou 2) segundos.
     if (jogo.descansando) {
         Jogador& j = jogo.jogador;
         if (algumMonstroVisivel(jogo)) {
@@ -540,10 +549,11 @@ void avancarTempo(Jogo& jogo, int ms) {
             jogo.msDeDescanso -= 1000;
             jogo.segundosDeDescanso++;
             if (j.vida < j.vidaMaxima) {
-                j.vida++;
-                efeitoNoMapa(jogo, EFEITO_CURA, j.x, j.y, 1);
+                int cura = std::min(curaDoDescanso(j), j.vidaMaxima - j.vida);
+                j.vida += cura;
+                efeitoNoMapa(jogo, EFEITO_CURA, j.x, j.y, cura);
             }
-            if (jogo.segundosDeDescanso % 5 == 0) {
+            if (jogo.segundosDeDescanso % segundosPorPP(j) == 0) {
                 for (int s = 0; s < j.numGolpes; s++) {
                     if (j.pp[s] < GOLPES[j.golpes[s]].ppMaximo) j.pp[s]++;
                 }

@@ -182,7 +182,9 @@ relógio do jogo andar.
   Assim o atributo **velocidade** afeta a velocidade de movimento.
 - **Batalhas e menus** param o relógio do mapa.
 - **Descanso:** a vida **não volta andando**. Um toque em `Z` começa a
-  descansar: **+1 de vida por segundo** e +1 PP em cada golpe a cada 5 segundos.
+  descansar: **+1 de vida por segundo, +1 a cada 5 níveis** (`curaDoDescanso`:
+  nível 5 = 2, nível 10 = 3...) e +1 PP em cada golpe a cada 3 segundos (a cada
+  2 a partir do nível 15). Encher a vida leva uns 12 segundos em qualquer fase.
   Qualquer tecla, um monstro aparecendo ou uma batalha interrompem. Descansando,
   o jogador faz menos barulho (os monstros percebem a metade da distância).
 
@@ -293,7 +295,7 @@ linha de uma tabela; as regras leem `dificuldadeAtual()` em vez de números fixo
 | | Fácil | Médio | Difícil |
 |---|---|---|---|
 | Vida dos monstros | −15% | +10% | +30% |
-| Ataque dos monstros (≈ dano) | 75% | 100% (era 95% até a v1.7) | 125% |
+| Ataque dos monstros (≈ dano) | 75% | 110% (95% até a v1.7, 100% até a v1.13) | 125% |
 | Intervalo entre passos dos monstros | 130% (mais lentos) | 110% | 100% |
 | Dano das armadilhas | 6% da vida | 10% | 15% |
 | Experiência ganha | 150% | 125% | 100% |
@@ -536,3 +538,33 @@ uma sala: andar na direção deles usa (`usarEspecial`, chamado em `moverJogador
   37% baú, 19% arena, 25% viajante; nenhum objeto inalcançável, em cima de
   outra coisa ou no andar 10. Mímico simulado: o jogador vence 87-98% das
   vezes, perdendo de 13% a 63% da vida (andar 1 a 9).
+
+## Escudo que bloqueia e descanso pelo nível (v1.14)
+
+- **Golpe Escudo:** tem prioridade 2 (age antes de todos, até do Ataque
+  Rápido) e, além de +1 de defesa, **ergue o escudo** até o fim da rodada.
+  Cada ataque com dano contra o jogador nessa rodada pode ser bloqueado por
+  inteiro (dano 0). A chance vem de `chanceDeBloqueio` (itens.cpp):
+
+  | | Erguido (golpe Escudo) | Sozinho (só equipado) |
+  |---|---|---|
+  | Sem escudo | 30% | 0% |
+  | Escudo de Madeira | 45% | 5% |
+  | Escudo de Ferro | 60% | 8% |
+  | Escudo de Torre | 75% | 12% |
+
+  Erguer duas rodadas seguidas corta a chance pela metade
+  (`escudoNaRodadaAnterior` na `Batalha`), senão daria para intercalar
+  bloqueio e ataque e ficar quase imortal. Golpes sem dano (Rosnado, Hipnose)
+  não são bloqueados. Na tela, o escudo erguido aparece brilhando na frente do
+  herói, e o bloqueio tem animação (o monstro bate e é jogado para trás),
+  texto "BLOQUEOU!" e um som de metal (`SOM_BLOQUEIO`).
+- **Descanso:** ver "Tempo real e descanso" acima.
+- **Equilíbrio:** as duas mudanças deixam o jogo mais fácil, então o ataque dos
+  monstros no Médio subiu de 100% para 110%. Bots (800 partidas): quem só desce
+  chega ao andar 10 em 7,4% das partidas (era 7,1%); o explorador, em 100%. O
+  chefe (jogador nível 22 com escudo de ferro) é vencido em 69% das lutas pelo
+  bot que nunca usa o Escudo e em 90% quando ele ergue o escudo com pouca vida:
+  usar bem o golpe faz diferença.
+- **Como jogar** ficou com 2 páginas: uma linha `QUEBRA_DE_PAGINA` ("---") no
+  texto divide a página em `mostrarPagina` (pontuacao.cpp).

@@ -117,15 +117,16 @@ std::vector<std::string> textoComoJogar() {
         "",
         "Batalha: encoste num monstro. Escolha LUTAR (golpe e alvo), ITENS,",
         "STATUS ou FUGIR. Golpes têm PP e elemento: Fogo > Planta > Água > Fogo.",
-        "Até 3 monstros podem entrar na mesma batalha.",
+        "Até 3 monstros podem entrar na mesma batalha. O golpe Escudo age primeiro",
+        "e pode bloquear os ataques da rodada (mais chance com escudo melhor).",
         "",
+        "Z: descansar (cura mais a cada 5 níveis)    I: mochila    C: ficha",
+        "?: ajuda    M: mensagens    Esc: pausa",
+        "Sair salva a partida: use CONTINUAR no menu. Ao perder ou vencer, o save some.",
+        QUEBRA_DE_PAGINA,
         "Andares 4-6: poças d'água (passos lentos). Andares 7-9: lava (queima, desvie!).",
         "Surpresas: fonte (cura), altar (pacto), baú dourado (cuidado: pode morder!),",
         "gongo da arena (3 ondas de monstros por um prêmio) e o viajante perdido.",
-        "Sair salva a partida: use CONTINUAR no menu. Ao perder ou vencer, o save some.",
-        "",
-        "Z: descansar (+1 de vida por segundo)    I: mochila    C: ficha",
-        "?: ajuda    M: mensagens    Esc: pausa",
         "",
         "ATRIBUTOS (1 ponto a cada nível, tecla C):",
         "Força = dano   Constituição = vida e armadura",
@@ -153,8 +154,10 @@ std::vector<std::string> textoDosItens() {
         "  Adaga, Espada Curta, Machado, Espada Longa",
         "  Armas elementais: golpes do mesmo elemento causam +25% de dano",
         "",
-        "ESCUDOS (equipar: + defesa)",
+        "ESCUDOS (equipar: + defesa e chance de bloquear)",
         "  Madeira, Ferro e Torre (o de torre deixa você mais lento)",
+        "  Golpe Escudo: 30% sem escudo, 45% madeira, 60% ferro, 75% torre",
+        "  Sozinho (sem usar o golpe): 5% madeira, 8% ferro, 12% torre",
         "",
         "CRISTAIS (bônus permanente ao pegar)",
         "  Vida, Força, Ferro (defesa) e Pena do Vento (velocidade)",
@@ -194,9 +197,22 @@ std::vector<std::string> textoDaPontuacao() {
 }
 
 void mostrarPagina(const std::string& titulo, const std::vector<std::string>& linhas) {
-    int t;
-    do {
-        desenharPagina(titulo, linhas, "Aperte qualquer tecla para continuar");
-        t = lerTecla();
-    } while (t == TECLA_REDIMENSIONOU);
+    // Textos longos vêm divididos com QUEBRA_DE_PAGINA: uma página de cada vez.
+    std::vector<std::vector<std::string>> paginas(1);
+    for (const std::string& l : linhas) {
+        if (l == QUEBRA_DE_PAGINA) paginas.push_back({});
+        else paginas.back().push_back(l);
+    }
+    for (size_t p = 0; p < paginas.size(); p++) {
+        std::string rodape = "Aperte qualquer tecla para continuar";
+        if (paginas.size() > 1) {
+            rodape = "Página " + std::to_string(p + 1) + " de " + std::to_string(paginas.size()) +
+                     "  -  aperte qualquer tecla para " + (p + 1 < paginas.size() ? "a próxima" : "continuar");
+        }
+        int t;
+        do {
+            desenharPagina(titulo, paginas[p], rodape);
+            t = lerTecla();
+        } while (t == TECLA_REDIMENSIONOU);
+    }
 }

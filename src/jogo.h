@@ -239,6 +239,9 @@ int raioDaLuzDoJogador(int andar);
 // Mostra uma mensagem no topo da tela (e guarda no histórico).
 void adicionarMensagem(Jogo& jogo, const std::string& texto, TipoMensagem tipo = MSG_NORMAL);
 
+// Vida recuperada por segundo de descanso (tecla Z): 1 + nível / 5.
+int curaDoDescanso(const Jogador& j);
+
 // Recalcula ataque, defesa, velocidade e vida máxima a partir do nível,
 // somando os bônus da arma, do escudo e dos cristais.
 void recalcularAtributos(Jogador& jogador);
