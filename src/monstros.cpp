@@ -123,6 +123,20 @@ const TipoMonstro TIPOS_DE_MONSTRO[] = {
         "" },
       8, 10, 10, 0 },
 
+    // O MÍMICO: um baú dourado que morde. Nunca aparece por sorteio
+    // (frequência 0): só nasce quando o jogador abre o baú errado (salas.cpp).
+    { "mímico", "o", 'M', { 230, 190, 80 }, NORMAL,
+       85,  75, 75, 45, 150,
+      { G_MORDIDA, G_ESMAGAR, G_LINGUA_GRUDENTA }, 3,
+      { "   ____________",
+        "  /   _    _   \\",
+        " |   (o)  (o)   |",
+        " |\\/\\/\\/\\/\\/\\/\\|",
+        " |    ~~~~~~    |",
+        " |/\\/\\/\\/\\/\\/\\/|",
+        "  \\____________/" },
+      1, 10, 0, 0 },
+
     // O CHEFE FINAL: nunca aparece por sorteio (frequência 0); é colocado no
     // último andar por colocarChefe().
     { "Senhor das Profundezas", "o", 'S', { 200, 60, 70 }, NORMAL,
@@ -151,6 +165,11 @@ const CorRGB CORES_DOS_ELEMENTOS[NUM_ELEMENTOS] = {
 int tipoDoChefe() {
     return NUM_TIPOS_DE_MONSTRO - 1;
 }
+
+int tipoDoMimico() {
+    return NUM_TIPOS_DE_MONSTRO - 2;   // logo antes do chefe na tabela
+}
+
 
 // =============================================================================
 // ELEMENTOS SORTEADOS (Etapa 6)
@@ -354,6 +373,7 @@ static bool celulaLivre(const Jogo& jogo, int x, int y) {
     if (npcEm(andar, x, y) >= 0) return false;
     if (andar.zonaSegura[y][x]) return false;   // a lojinha do comerciante
     if (andar.mapa.celulas[y][x] == LAVA) return false;   // monstros não pisam na lava
+    if (especialEm(andar, x, y) >= 0) return false;       // fonte, altar, baú, gongo
     return monstroEm(andar, x, y) < 0;
 }
 
@@ -562,4 +582,31 @@ void agirMonstros(Jogo& jogo, int ms) {
             if (m.x != antesX || m.y != antesY) armadilhaPegaMonstro(jogo, m);
         }
     }
+}
+
+// =============================================================================
+// MONSTROS EXTRAS (mímico e ondas da arena, ver salas.cpp)
+// =============================================================================
+int criarMonstroExtra(Andar& andar, int tipo, int x, int y, int nivel, Elemento elemento) {
+    // Reaproveita a vaga de um monstro já derrotado, se a lista estiver cheia.
+    int vaga = -1;
+    if (andar.numMonstros >= MAX_MONSTROS) {
+        for (int i = 0; i < andar.numMonstros && vaga < 0; i++) {
+            if (!andar.monstros[i].vivo && !andar.monstros[i].carregaChave) vaga = i;
+        }
+        if (vaga < 0) return -1;
+        int total = andar.numMonstros;
+        andar.numMonstros = vaga;          // criarMonstro usa a posição numMonstros
+        criarMonstro(andar, tipo, x, y, nivel, CACANDO);
+        andar.numMonstros = total;
+    } else {
+        vaga = andar.numMonstros;
+        criarMonstro(andar, tipo, x, y, nivel, CACANDO);
+    }
+    andar.monstros[vaga].elemento = elemento;
+    return vaga;
+}
+
+int sortearTipoDoAndar(GeradorAleatorio& g, int numeroDoAndar) {
+    return sortearTipo(g, numeroDoAndar);
 }

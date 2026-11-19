@@ -16,6 +16,7 @@ enum TipoNpc {
     NPC_MINEIRO,       // andar 4: destranca a sala do tesouro
     NPC_ESPIRITO,      // andar 7: avisa sobre o chefe e cura o jogador
     NPC_COMERCIANTE,   // andares 3, 6 e 9: vende e compra itens (loja.cpp)
+    NPC_VIAJANTE,      // sorteado (salas.cpp): troca uma poção por um cristal
     NUM_TIPOS_DE_NPC
 };
 

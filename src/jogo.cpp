@@ -63,6 +63,9 @@ static Andar& prepararAndar(Jogo& jogo, int numero) {
         // Caixas, armadilhas e NPCs por último, nos lugares que sobraram.
         colocarCenario(a, numero, misturar(jogo.semente, (uint32_t)numero + 3000), chegadaX, chegadaY);
         colocarNpcs(a, numero, chegadaX, chegadaY);
+        // Surpresas do andar: fonte, altar, baú dourado, arena, viajante.
+        a.numEspeciais = 0;
+        if (jogo.comMonstros) colocarSalasEspeciais(a, numero, misturar(jogo.semente, (uint32_t)numero + 5000));
         a.gerado = true;
     }
     return a;
@@ -343,6 +346,8 @@ void desmaiar(Jogo& jogo, const std::string& causa) {
         tocarMusica(SEM_MUSICA);
         return;
     }
+    // Se estava numa arena, o desafio acaba (e a porta abre).
+    desistirDaArena(jogo);
     // Volta para a entrada do andar (ou a célula livre mais perto dela, se
     // houver um monstro parado ali).
     Andar& andar = andarAtual(jogo);
@@ -444,6 +449,7 @@ static void resolverBatalha(Jogo& jogo) {
                 adicionarMensagem(jogo, comMaiusculaInicial(nome) + " carregava uma chave! Agora ela é sua.", MSG_BOA);
                 revelarPortaDoTesouro(jogo);
             }
+            recompensaDoMimico(jogo, m);
         } else if (m.estado == FUGINDO) {
             adicionarMensagem(jogo, comMaiusculaInicial(nome) + " fugiu de você.");
         }
@@ -513,6 +519,7 @@ void avancarTempo(Jogo& jogo, int ms) {
     if (ms > 250) ms = 250;   // depois de um menu ou batalha, o relógio não "pula"
     jogo.tempoMs += ms;
     if (jogo.esperaDoJogadorMs > 0) jogo.esperaDoJogadorMs -= ms;
+    atualizarSalasEspeciais(jogo);   // arena: próxima onda ou prêmio
 
     // Monstros (se um alcançar o jogador, a batalha começa).
     if (jogo.comMonstros && jogo.batalhaPendente < 0) agirMonstros(jogo, ms);
@@ -590,6 +597,11 @@ static bool moverJogador(Jogo& jogo, int dx, int dy) {
     int novoX = j.x + dx;
     int novoY = j.y + dy;
 
+    // Porta da arena durante o desafio: nem a chave abre.
+    if (dentroDoMapa(novoX, novoY) && portaDaArenaFechada(andarAtual(jogo), novoX, novoY)) {
+        adicionarMensagem(jogo, "A porta da arena só abre quando o desafio terminar!");
+        return false;
+    }
     // Porta trancada: abre se o jogador tiver uma chave (só de frente).
     if (dentroDoMapa(novoX, novoY) && mapa.celulas[novoY][novoX] == PORTA_TRANCADA &&
         (dx == 0 || dy == 0)) {
@@ -607,6 +619,12 @@ static bool moverJogador(Jogo& jogo, int dx, int dy) {
     // Caixa: empurra (ou quebra, se ela estiver presa).
     if (dentroDoMapa(novoX, novoY) && mapa.celulas[novoY][novoX] == CAIXA) {
         return empurrarCaixa(jogo, dx, dy);
+    }
+
+    // Fonte, altar, baú ou gongo: andar na direção dele usa (salas.cpp).
+    int especial = especialEm(andarAtual(jogo), novoX, novoY);
+    if (especial >= 0) {
+        return usarEspecial(jogo, especial);
     }
 
     // NPC: andar na direção dele abre a conversa (não gasta tempo).

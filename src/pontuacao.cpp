@@ -120,6 +120,8 @@ std::vector<std::string> textoComoJogar() {
         "Até 3 monstros podem entrar na mesma batalha.",
         "",
         "Andares 4-6: poças d'água (passos lentos). Andares 7-9: lava (queima, desvie!).",
+        "Surpresas: fonte (cura), altar (pacto), baú dourado (cuidado: pode morder!),",
+        "gongo da arena (3 ondas de monstros por um prêmio) e o viajante perdido.",
         "Sair salva a partida: use CONTINUAR no menu. Ao perder ou vencer, o save some.",
         "",
         "Z: descansar (+1 de vida por segundo)    I: mochila    C: ficha",

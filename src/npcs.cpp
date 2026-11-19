@@ -11,6 +11,7 @@ const FichaNpc FICHAS_DOS_NPCS[NUM_TIPOS_DE_NPC] = {
     { "Borin, o velho mineiro", '&', { 230, 170,  90 }, 4, 0 },
     { "O espírito do guardião", '&', { 200, 200, 255 }, 7, 0 },
     { "Garro, o comerciante",   '$', { 255, 205,  70 }, 3, 3 },   // andares 3, 6 e 9
+    { "Tobias, o viajante perdido", '&', { 200, 160, 255 }, 0, 0 }, // sorteado em salas.cpp
 };
 
 // O NPC deste tipo aparece neste andar?
@@ -279,6 +280,47 @@ void conversarComNpc(Jogo& jogo, int indice) {
             if (!jogo.modoAutomatico) mostrarPagina(FICHAS_DOS_NPCS[npc.tipo].nome, falas);
         }
         abrirLoja(jogo, npc);
+        return;
+    }
+
+    // O viajante perdido: troca 1 Poção de Vida (ou 30 moedas) por um cristal.
+    if (npc.tipo == NPC_VIAJANTE) {
+        if (npc.conversou) {
+            adicionarMensagem(jogo, "Tobias: \"Obrigado de novo! Vou achar a saída... um dia.\"");
+            return;
+        }
+        if (jogo.modoAutomatico) return;
+        const int PRECO = 30;
+        std::vector<std::string> opcoes = { "Dar 1 Poção de Vida", "Pagar " + std::to_string(PRECO) + " moedas", "Agora não" };
+        std::vector<std::string> descricoes = {
+            "Você tem " + std::to_string(j.mochila[I_POCAO_DE_VIDA]) + " Poção(ões) de Vida.  |  Em troca: um cristal mágico (efeito permanente).",
+            "Você tem " + std::to_string(j.moedas) + " moedas.  |  Em troca: um cristal mágico (efeito permanente).",
+            "\"Tudo bem... eu espero aqui. Não tenho para onde ir mesmo.\"",
+        };
+        mostrarPagina(FICHAS_DOS_NPCS[npc.tipo].nome, {
+            "\"Ei! Você! Estou perdido aqui há dias e estou muito ferido.\"",
+            "",
+            "\"Se me arrumar uma Poção de Vida, ou umas moedas para",
+            "comprar uma do Garro, eu te dou o meu tesouro: um cristal",
+            "mágico que achei lá embaixo.\"",
+        });
+        int escolha = escolherEmCaixa(jogo, "TOBIAS, O VIAJANTE: o que você faz?", opcoes, descricoes, 0);
+        if (escolha == 0 && j.mochila[I_POCAO_DE_VIDA] <= 0) {
+            adicionarMensagem(jogo, "Você não tem nenhuma Poção de Vida.");
+            return;
+        }
+        if (escolha == 1 && j.moedas < PRECO) {
+            adicionarMensagem(jogo, "Você não tem moedas suficientes (" + std::to_string(j.moedas) + "/" + std::to_string(PRECO) + ").");
+            return;
+        }
+        if (escolha != 0 && escolha != 1) return;
+        if (escolha == 0) j.mochila[I_POCAO_DE_VIDA]--;
+        else j.moedas -= PRECO;
+        npc.conversou = true;
+        tocarSom(SOM_ITEM);
+        adicionarMensagem(jogo, "Tobias: \"Muito obrigado! Tome, é seu.\"", MSG_BOA);
+        int cristais[4] = { I_CRISTAL_DE_VIDA, I_CRISTAL_DE_FORCA, I_CRISTAL_DE_FERRO, I_PENA_DO_VENTO };
+        absorverCristal(jogo, cristais[sortear(jogo.sorte, 0, 3)]);
         return;
     }
 

@@ -81,6 +81,14 @@ extern const CorRGB CORES_DOS_ELEMENTOS[NUM_ELEMENTOS];
 
 // Índice do chefe final na tabela TIPOS_DE_MONSTRO.
 int tipoDoChefe();
+int tipoDoMimico();
+
+// Cria um monstro fora da geração do andar (mímico, ondas da arena). Ele já
+// nasce caçando o jogador. Devolve o índice dele (-1 se não coube).
+int criarMonstroExtra(Andar& andar, int tipo, int x, int y, int nivel, Elemento elemento);
+// Sorteia uma espécie que costuma aparecer neste andar.
+struct GeradorAleatorio;
+int sortearTipoDoAndar(GeradorAleatorio& g, int numeroDoAndar);
 
 // Sorteia o elemento de cada espécie nesta partida, de forma equilibrada:
 // os 6 elementos são embaralhados e distribuídos em ordem de andar, então as

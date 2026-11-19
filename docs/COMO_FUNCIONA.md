@@ -498,3 +498,41 @@ páginas de texto usam a maior letra (até 28) em que todas as linhas cabem.
   tema aparece grande no meio do mapa ao chegar.
 - **Equilíbrio (bots):** no Médio, quem só desce chega ao andar 10 em ~6% das
   partidas (era ~9%); quem explora, em ~85%.
+
+## Salas especiais (v1.13)
+
+`src/salas.h/.cpp`. Cada andar de 1 a 9 tem uma surpresa (metade das vezes,
+duas, nunca iguais), sorteada com pesos. Os objetos são obstáculos no meio de
+uma sala: andar na direção deles usa (`usarEspecial`, chamado em `moverJogador`).
+
+| Surpresa | O que faz |
+|---|---|
+| Fonte cristalina `{` | vida e PP no máximo, uma vez; depois seca |
+| Altar de sangue `\|` | pacto opcional: -5 de vida máxima e +2 de ataque, para sempre |
+| Baú dourado `%` | 40% das vezes é um **mímico** (monstro novo, nível 2×andar+1): vencendo, cristal e moedas. Senão: poção grande, éter, pergaminho ou arma/escudo do andar, e moedas |
+| Gongo da arena `0` | numa sala com uma porta só (mesma ideia da sala do tesouro). Aceitando, a porta tranca (nem a chave abre) e vêm 3 ondas (2, 2 e 3 monstros do andar). Vencendo: cristal e 20+5×andar moedas. Desmaiar cancela o desafio (dá para tentar de novo) |
+| Viajante perdido (Tobias) | NPC: troca 1 Poção de Vida ou 30 moedas por um cristal |
+
+- **Ambiente em volta:** cada surpresa tem um pedaço de chão decorado nas 3x3
+  casas em volta dela (não a sala toda): pátio de pedra com musgo e água na
+  fonte, círculo de runas com quatro velas no altar, moedas e pedrinhas
+  espalhadas em volta do baú, círculo de areia com pedras na arena (fica
+  vermelho durante o desafio) e o acampamento do viajante (saco de dormir e
+  fogueira). Na versão gráfica é `desenharAmbientes` (tela_grafica.cpp), que
+  desenha entre o chão (`tile`) e os objetos (`tileObjetos`); no console, o
+  chão das casas vizinhas ganha a cor da surpresa. Para os enfeites não se
+  misturarem, duas surpresas (ou uma surpresa e um NPC) ficam a pelo menos 4
+  casas de distância (`longeDasOutras`, salas.cpp).
+- **Ondas da arena:** `atualizarSalasEspeciais` roda a cada quadro em
+  `avancarTempo`: quando os monstros da onda (guardados no `Especial`) caem,
+  chama a próxima ou dá o prêmio e abre a porta.
+- **Monstros extras:** `criarMonstroExtra` (monstros.cpp) cria o mímico e os
+  monstros das ondas, reaproveitando a vaga de um monstro morto se a lista
+  estiver cheia. O mímico fica na tabela logo antes do chefe, com frequência 0
+  (nunca aparece por sorteio).
+- **Save versão 2:** grava os objetos de cada andar. Saves da versão 1 ainda são
+  lidos (o chefe, que mudou de posição na tabela, é corrigido ao carregar).
+- **Teste:** 300 sementes × 9 andares: ~36% dos andares com fonte, 29% altar,
+  37% baú, 19% arena, 25% viajante; nenhum objeto inalcançável, em cima de
+  outra coisa ou no andar 10. Mímico simulado: o jogador vence 87-98% das
+  vezes, perdendo de 13% a 63% da vida (andar 1 a 9).

@@ -252,6 +252,7 @@ bool empurrarCaixa(Jogo& jogo, int dx, int dy) {
                         andar.mapa.celulas[destinoY][destinoX] == CHAO &&
                         monstroEm(andar, destinoX, destinoY) < 0 &&
                         npcEm(andar, destinoX, destinoY) < 0 &&
+                        especialEm(andar, destinoX, destinoY) < 0 &&
                         itemEm(andar, destinoX, destinoY) < 0;
     andar.mapa.celulas[caixaY][caixaX] = CHAO;
     tocarSom(SOM_CAIXA);

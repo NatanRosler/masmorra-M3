@@ -15,7 +15,8 @@ const char* ARQUIVO_DO_SAVE = "save.dat";
 static const char* ARQUIVO_TEMPORARIO = "save.tmp";
 
 // Muda quando o formato do arquivo mudar: saves antigos deixam de ser aceitos.
-static const int VERSAO_DO_SAVE = 1;
+// Versão 2 (v1.13): salas especiais. Saves da versão 1 continuam sendo lidos.
+static const int VERSAO_DO_SAVE = 2;
 static const char ASSINATURA[8] = { 'M', 'A', 'S', 'M', 'O', 'R', 'R', 'A' };
 
 // =============================================================================
@@ -157,9 +158,12 @@ static void gravarAndar(Gravador& g, const Andar& a) {
     g.bruto(a.numNpcs);
     for (int i = 0; i < a.numNpcs; i++) g.bruto(a.npcs[i]);
     g.bruto(a.cheiro);
+    g.bruto(a.numEspeciais);
+    for (int i = 0; i < a.numEspeciais; i++) g.bruto(a.especiais[i]);
 }
 
-static void lerAndar(Leitor& l, Andar& a) {
+static void lerAndar(Leitor& l, Andar& a, int versao) {
+    a.numEspeciais = 0;
     l.bruto(a.gerado);
     if (!l.ok || !a.gerado) return;
     l.bruto(a.mapa);
@@ -179,6 +183,10 @@ static void lerAndar(Leitor& l, Andar& a) {
     a.numNpcs = l.numero(0, MAX_NPCS);
     for (int i = 0; i < a.numNpcs && l.ok; i++) l.bruto(a.npcs[i]);
     l.bruto(a.cheiro);
+    if (versao >= 2) {
+        a.numEspeciais = l.numero(0, MAX_ESPECIAIS);
+        for (int i = 0; i < a.numEspeciais && l.ok; i++) l.bruto(a.especiais[i]);
+    }
 }
 
 // =============================================================================
@@ -234,13 +242,13 @@ bool salvarPartida(const Jogo& jogo) {
 // CARREGAR
 // =============================================================================
 // Lê e confere o cabeçalho. Devolve false se não for um save desta versão.
-static bool lerCabecalho(Leitor& l, std::string& nome, int& andar, int& nivel, int& dificuldade) {
+static bool lerCabecalho(Leitor& l, std::string& nome, int& andar, int& nivel, int& dificuldade, int& versao) {
     char assinatura[8];
     if (!l.arquivo.read(assinatura, sizeof(assinatura))) return false;
     for (int i = 0; i < 8; i++) if (assinatura[i] != ASSINATURA[i]) return false;
-    int versao = 0;
+    versao = 0;
     l.bruto(versao);
-    if (!l.ok || versao != VERSAO_DO_SAVE) return false;
+    if (!l.ok || versao < 1 || versao > VERSAO_DO_SAVE) return false;
     int lidos[12], esperados[12];
     l.bruto(lidos);
     tamanhos(esperados);
@@ -257,8 +265,8 @@ bool existePartidaSalva(std::string* resumo) {
     l.arquivo.open(ARQUIVO_DO_SAVE, std::ios::binary);
     if (!l.arquivo) return false;
     std::string nome;
-    int andar, nivel, dificuldade;
-    if (!lerCabecalho(l, nome, andar, nivel, dificuldade)) return false;
+    int andar, nivel, dificuldade, versao;
+    if (!lerCabecalho(l, nome, andar, nivel, dificuldade, versao)) return false;
     if (resumo) {
         *resumo = nome + "  ·  Andar " + std::to_string(andar) + "  ·  Nível " + std::to_string(nivel) +
                   "  ·  " + DIFICULDADES[dificuldade].nome;
@@ -271,15 +279,15 @@ bool carregarPartida(Jogo& jogo) {
     l.arquivo.open(ARQUIVO_DO_SAVE, std::ios::binary);
     if (!l.arquivo) return false;
     std::string nome;
-    int andar, nivel, dificuldade;
-    if (!lerCabecalho(l, nome, andar, nivel, dificuldade)) return false;
+    int andar, nivel, dificuldade, versao;
+    if (!lerCabecalho(l, nome, andar, nivel, dificuldade, versao)) return false;
 
     definirDificuldade(dificuldade);
     jogo.andar = andar;
     l.bruto(jogo.semente);
     l.bruto(jogo.sorte);
     l.bruto(jogo.elementoDaEspecie);
-    for (int i = 0; i < NUM_ANDARES && l.ok; i++) lerAndar(l, jogo.andares[i]);
+    for (int i = 0; i < NUM_ANDARES && l.ok; i++) lerAndar(l, jogo.andares[i], versao);
     if (l.ok) lerJogador(l, jogo.jogador);
     l.bruto(jogo.tempoMs);
     l.bruto(jogo.passos);
@@ -301,6 +309,18 @@ bool carregarPartida(Jogo& jogo) {
     if (!l.ok || !l.arquivo.read(fim, sizeof(fim))) return false;
     for (int i = 0; i < 8; i++) if (fim[i] != ASSINATURA[i]) return false;
     if (!jogo.andares[jogo.andar - 1].gerado) return false;
+    if (versao == 1) {
+        // Na versão 1 não existia o mímico, que entrou na tabela logo antes do
+        // chefe: o chefe (e o elemento dele) mudou de posição.
+        int chefe = tipoDoChefe(), mimico = tipoDoMimico();
+        jogo.elementoDaEspecie[chefe] = jogo.elementoDaEspecie[mimico];
+        jogo.elementoDaEspecie[mimico] = NORMAL;
+        for (int i = 0; i < NUM_ANDARES; i++) {
+            Andar& a = jogo.andares[i];
+            if (!a.gerado) continue;
+            for (int k = 0; k < a.numMonstros; k++) if (a.monstros[k].tipo == mimico) a.monstros[k].tipo = chefe;
+        }
+    }
 
     // O que não vai para o arquivo volta ao normal.
     jogo.comMonstros = true;

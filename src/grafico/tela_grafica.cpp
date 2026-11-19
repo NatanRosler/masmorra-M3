@@ -13,6 +13,7 @@
 #include "sprites.h"
 #include "extra_sprites.h"
 #include "itens_sprites.h"
+#include "salas_sprites.h"
 #include "tema.h"
 #include "efeitos.h"
 #include <algorithm>
@@ -88,6 +89,7 @@ const Sprite& imagemMonstro(int tipo) {
         case 'O':return OGRO;
         case 'N':return NAGA;
         case 'S':return SENHOR;
+        case 'M':return MIMICO;
     }
     return GOBLIN;
 }
@@ -95,6 +97,7 @@ const Sprite& imagemNpc(int tipo) {
     if (tipo==NPC_MINEIRO) return MINEIRO;
     if (tipo==NPC_ESPIRITO) return ESPIRITO;
     if (tipo==NPC_COMERCIANTE) return COMERCIANTE;
+    if (tipo==NPC_VIAJANTE) return VIAJANTE;
     return EXPLORADORA;
 }
 void desenharSprite(const Sprite& sp,float x,float y,float pixel,float iluminacao=1.0f,float alfa=1.0f) {
@@ -305,6 +308,13 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
         DrawLine(px+4,py+4,px+20,py+20,multiplicar({96,62,30,255},f));
         DrawLine(px+20,py+4,px+4,py+20,multiplicar({96,62,30,255},f));
     }
+}
+// Segunda camada da casa: armadilhas, salas especiais, NPCs e itens. Fica
+// separada do chão para o "ambiente" das salas especiais caber no meio.
+void tileObjetos(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
+    if(!dentroDoMapa(x,y) || !a.descoberto[y][x]) return;
+    bool agora=jogo.visivel[y][x];
+    float claridade=agora?std::clamp(brilho(jogo.luz[y][x]),0.27f,1.0f):0.29f;
     // Armadilha já descoberta: espinhos vermelhos.
     int armadilha = armadilhaEm(a,x,y);
     if (armadilha>=0 && a.armadilhas[armadilha].descoberta) {
@@ -313,6 +323,27 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
             float bx=(float)px+4+i*6;
             DrawTriangle({bx,(float)py+19},{bx+6,(float)py+19},{bx+3,(float)py+7},c);
         }
+    }
+    // Fonte, altar, baú dourado e gongo da arena (salas.cpp).
+    int esp = especialEm(a,x,y);
+    if(esp>=0 && (agora || a.descoberto[y][x])) {
+        const Especial& e=a.especiais[esp];
+        float t=(float)GetTime();
+        if(agora && !e.usado) {
+            // Um brilho chama a atenção: azul na fonte, vermelho no altar,
+            // dourado no baú; no gongo, vermelho pulsando durante o desafio.
+            Color b = e.tipo==ESP_FONTE ? Color{120,200,255,0} : e.tipo==ESP_ALTAR ? Color{255,60,70,0}
+                    : e.tipo==ESP_BAU ? Color{255,215,90,0} : Color{255,170,80,0};
+            if(e.tipo==ESP_GONGO && e.onda>0) b={255,50,50,0};
+            Color dentro=b; dentro.a=(unsigned char)(60+40*std::sin(t*3+x));
+            DrawCircleGradient(px+12,py+12,15,dentro,b);
+        }
+        const Sprite* arte = e.tipo==ESP_FONTE ? (e.usado?&FONTE_SECA:&FONTE)
+                           : e.tipo==ESP_ALTAR ? (e.usado?&ALTAR_USADO:&ALTAR)
+                           : e.tipo==ESP_BAU   ? (e.usado?&BAU_ABERTO:&BAU_DOURADO)
+                           : (e.usado?&GONGO_RACHADO:&GONGO);
+        if(agora) desenharSprite(*arte,px+2,py+1,1.25f,claridade);
+        else icone(arte->data(),px+2,py+1,1.25f,0.35f,0.8f);
     }
     if (agora) {
         int npc = npcEm(a,x,y);
@@ -543,6 +574,203 @@ void tituloDoTema() {
     textoCentro(f.nome,meioX,y,40,ouro);
     textoCentro(f.frase,meioX,y+54,20,texto);
 }
+// ---- Ambiente das salas especiais -------------------------------------------
+// Um pedaço de chão decorado em volta de cada surpresa (só o círculo de 3x3
+// casas em volta dela, não a sala toda): pátio de pedra com musgo na fonte,
+// círculo de runas com velas no altar, moedas espalhadas em volta do baú,
+// arena de areia no gongo e o acampamento do viajante.
+static float acaso(int x,int y,int k) {           // 0..1, sempre igual para a mesma casa
+    unsigned h=(unsigned)x*73856093u^(unsigned)y*19349663u^(unsigned)k*83492791u;
+    h^=h>>13; h*=0x5bd1e995u; h^=h>>15;
+    return (h%1000)/1000.0f;
+}
+// Raio do ambiente: o círculo de 3x3 casas se tudo em volta for chão;
+// se encostar numa parede (arena em sala estreita), fica só embaixo do objeto.
+static float raioDoAmbiente(const Andar& a,int x,int y) {
+    for(int d=0;d<8;d++) {
+        int nx=x+DIRECOES_DX[d], ny=y+DIRECOES_DY[d];
+        if(!dentroDoMapa(nx,ny) || a.mapa.celulas[ny][nx]!=CHAO) return 15;
+    }
+    return 34;
+}
+static void ambienteDaFonte(Vector2 c,float R,bool seca,float f,bool vivo,float t,int x,int y) {
+    Color pedra=multiplicar(seca?Color{92,92,96,255}:Color{86,106,122,255},f);
+    Color borda=multiplicar(seca?Color{120,118,116,255}:Color{146,166,182,255},f);
+    Color rejunte=multiplicar({58,70,82,255},f);
+    DrawCircleV(c,R,pedra);
+    // Mosaico: um anel no meio e linhas saindo da fonte.
+    DrawRing(c,R*0.55f,R*0.55f+2,0,360,32,borda);
+    for(int k=0;k<8;k++) {
+        float ang=k*0.785f+0.39f;
+        DrawLineEx({c.x+std::cos(ang)*R*0.58f,c.y+std::sin(ang)*R*0.58f},
+                   {c.x+std::cos(ang)*(R-3),c.y+std::sin(ang)*(R-3)},1.2f,rejunte);
+    }
+    DrawRing(c,R-3,R,0,360,40,borda);
+    if(!seca) {
+        // A água transborda: uma poça em volta da fonte e ondinhas saindo.
+        DrawRing(c,11,15,0,360,32,multiplicar({60,140,205,255},f));
+        if(vivo) {
+            float fase=std::fmod(t*0.6f,1.0f);
+            Color onda=multiplicar({150,210,255,255},f); onda.a=(unsigned char)(150*(1-fase));
+            DrawRing(c,14+fase*(R*0.5f-14),15+fase*(R*0.5f-14),0,360,32,onda);
+            for(int k=0;k<3;k++) {         // brilhos na água
+                float b=std::sin(t*3+k*2.1f+x);
+                if(b>0.6f) DrawCircleV({c.x+std::cos(k*2.1f+y)*13,c.y+std::sin(k*2.1f+y)*13},1.5f,{230,250,255,255});
+            }
+        }
+    } else {
+        // Seca: só rachaduras.
+        DrawLineEx({c.x-R*0.7f,c.y+4},{c.x-R*0.4f,c.y+9},1.2f,rejunte);
+        DrawLineEx({c.x-R*0.4f,c.y+9},{c.x-R*0.2f,c.y+R*0.5f},1.2f,rejunte);
+    }
+    // Musgo e florzinhas na borda do pátio.
+    for(int k=0;k<7;k++) {
+        float ang=acaso(x,y,k)*6.283f, r=R-1-acaso(x,y,k+20)*4;
+        Vector2 p={c.x+std::cos(ang)*r,c.y+std::sin(ang)*r};
+        Color musgo=multiplicar(seca?Color{110,100,70,255}:Color{70,150,90,255},f);
+        DrawLineEx({p.x,p.y},{p.x-2,p.y-4},1.4f,musgo);
+        DrawLineEx({p.x,p.y},{p.x+1,p.y-5},1.4f,musgo);
+        DrawLineEx({p.x,p.y},{p.x+3,p.y-3},1.4f,musgo);
+        if(!seca && k%3==0) DrawCircleV({p.x+1,p.y-5},1.6f,multiplicar({235,225,250,255},f));
+    }
+}
+static void ambienteDoAltar(Vector2 c,float R,bool usado,float f,bool vivo,float t,int x,int y) {
+    float pulso = (vivo && !usado) ? 0.75f+0.25f*std::sin(t*2.2f) : 1.0f;
+    Color fundo=multiplicar({44,24,28,255},f);
+    Color runa=multiplicar(usado?Color{90,58,60,255}:Color{190,40,52,255},f*pulso);
+    DrawCircleV(c,R,fundo);
+    DrawRing(c,R-3,R,0,360,40,runa);
+    DrawRing(c,R-12,R-10.5f,0,360,40,runa);
+    // Runas entre os dois anéis.
+    for(int k=0;k<8;k++) {
+        float ang=k*0.785f+0.39f, r=R-6.5f;
+        Vector2 p={c.x+std::cos(ang)*r,c.y+std::sin(ang)*r};
+        switch(k%4) {
+            case 0: DrawLineEx({p.x-2,p.y-2},{p.x+2,p.y+2},1.2f,runa); DrawLineEx({p.x+2,p.y-2},{p.x-2,p.y+2},1.2f,runa); break;
+            case 1: DrawLineEx({p.x-2,p.y-2},{p.x,p.y+2},1.2f,runa); DrawLineEx({p.x,p.y+2},{p.x+2,p.y-2},1.2f,runa); break;
+            case 2: DrawLineEx({p.x,p.y-3},{p.x,p.y+3},1.2f,runa); DrawLineEx({p.x-2,p.y},{p.x+2,p.y},1.2f,runa); break;
+            default: DrawRing(p,1.2f,2.4f,0,360,10,runa);
+        }
+    }
+    // Manchas de sangue no chão.
+    for(int k=0;k<3;k++) {
+        float ang=acaso(x,y,k)*6.283f, r=R*0.35f+acaso(x,y,k+9)*R*0.25f;
+        DrawEllipse((int)(c.x+std::cos(ang)*r),(int)(c.y+std::sin(ang)*r),3+k,2,multiplicar({110,18,26,255},f));
+    }
+    // Quatro velas nos cantos (apagadas depois do pacto).
+    for(int k=0;k<4;k++) {
+        float ang=k*1.571f+0.785f;
+        float vx=c.x+std::cos(ang)*(R+5), vy=c.y+std::sin(ang)*(R+5);
+        DrawRectangle((int)vx-2,(int)vy-3,4,7,multiplicar({228,214,180,255},f));
+        if(!usado && vivo) {
+            float tremula=std::sin(t*13+k*1.7f)*0.6f;
+            Color luz={255,170,60,90}; Color fora=luz; fora.a=0;
+            DrawCircleGradient((int)vx,(int)vy-6,7,luz,fora);
+            DrawCircleV({vx,vy-6+tremula*0.5f},2.0f+tremula*0.3f,{255,205,90,255});
+        } else if(usado && vivo) {
+            float sobe=std::fmod(t*0.8f+k*0.3f,1.0f);
+            DrawCircleV({vx+std::sin(t*2+k)*1.5f,vy-5-sobe*8},1.2f,{150,150,160,(unsigned char)(140*(1-sobe))});
+        }
+    }
+}
+static void ambienteDoBau(Vector2 c,float R,bool aberto,float f,int x,int y) {
+    Color brilho=multiplicar({150,118,48,255},f); brilho.a=90; Color fora=brilho; fora.a=0;
+    DrawCircleGradient((int)c.x,(int)c.y,R,brilho,fora);
+    // Moedas espalhadas (e umas pedrinhas preciosas). Aberto, sobram poucas.
+    int quantas = aberto ? 4 : 11;
+    for(int k=0;k<quantas;k++) {
+        float ang=acaso(x,y,k)*6.283f, r=14+acaso(x,y,k+30)*(R-16);
+        Vector2 p={c.x+std::cos(ang)*r,c.y+std::sin(ang)*r};
+        if(k%5==4) {
+            const Color GEMAS[3]={{230,70,90,255},{90,170,255,255},{110,220,130,255}};
+            DrawPoly(p,4,2.6f,45,multiplicar(GEMAS[k%3],f));
+        } else {
+            DrawEllipse((int)p.x,(int)p.y+1,3.2f,2.0f,multiplicar({150,110,30,255},f));
+            DrawEllipse((int)p.x,(int)p.y,3.2f,2.0f,multiplicar({240,198,72,255},f));
+            if(k%3==0) DrawEllipse((int)p.x+1,(int)p.y-2,3.2f,2.0f,multiplicar({255,220,110,255},f));   // pilha
+        }
+    }
+}
+static void ambienteDaArena(Vector2 c,float R,bool emLuta,float f,float t,int x,int y) {
+    DrawCircleV(c,R,multiplicar({132,110,78,255},f));                 // areia
+    DrawRing(c,R*0.6f,R*0.6f+1,0,360,32,multiplicar({112,92,64,255},f));
+    // Riscos de batalha e ossinhos na areia.
+    for(int k=0;k<2;k++) {
+        float ang=acaso(x,y,k)*6.283f, r=std::max(R*0.5f,18.0f)+acaso(x,y,k+5)*std::max(R-26,0.0f);
+        Vector2 p={c.x+std::cos(ang)*r,c.y+std::sin(ang)*r};
+        DrawLineEx({p.x-4,p.y-1},{p.x+4,p.y+1},1.6f,multiplicar({225,215,192,255},f));
+        DrawCircleV({p.x-4,p.y-1},1.6f,multiplicar({225,215,192,255},f));
+        DrawCircleV({p.x+4,p.y+1},1.6f,multiplicar({225,215,192,255},f));
+    }
+    DrawLineEx({c.x-R*0.7f,c.y-R*0.3f},{c.x-R*0.35f,c.y-R*0.5f},1.0f,multiplicar({96,78,52,255},f));
+    DrawLineEx({c.x+R*0.3f,c.y+R*0.55f},{c.x+R*0.7f,c.y+R*0.25f},1.0f,multiplicar({96,78,52,255},f));
+    // Borda de pedras. Durante o desafio, ela brilha vermelha.
+    if(emLuta) {
+        Color v={255,50,50,(unsigned char)(110+70*std::sin(t*5))};
+        DrawRing(c,R-3,R+3,0,360,48,v);
+    }
+    int pedras=(int)(R/2.4f);
+    for(int k=0;k<pedras;k++) {
+        float ang=k*6.283f/pedras;
+        DrawCircleV({c.x+std::cos(ang)*(R-1),c.y+std::sin(ang)*(R-1)},2.6f,
+                    multiplicar(k%2?Color{120,112,104,255}:Color{98,92,86,255},f));
+    }
+}
+static void ambienteDoViajante(Vector2 c,float R,float f,bool vivo,float t,int x,int y) {
+    Color terra=multiplicar({98,80,60,255},f); terra.a=110; Color fora=terra; fora.a=0;
+    DrawCircleGradient((int)c.x,(int)c.y,R,terra,fora);
+    // Saco de dormir de um lado do viajante e a fogueira do outro.
+    if(R<30) return;
+    int d=(int)(acaso(x,y,1)*4);                    // cima, direita, baixo ou esquerda
+    Vector2 cama={c.x+DIRECOES_DX[d]*TAM,c.y+DIRECOES_DY[d]*TAM};
+    Vector2 fogo={c.x-DIRECOES_DX[d]*TAM,c.y-DIRECOES_DY[d]*TAM};
+    // Saco de dormir roxo com um travesseiro.
+    DrawRectangleRounded({cama.x-10,cama.y-6,20,12},0.5f,6,multiplicar({104,66,138,255},f));
+    DrawRectangleRounded({cama.x-10,cama.y-6,7,12},0.5f,6,multiplicar({206,196,176,255},f));
+    DrawLineEx({cama.x-2,cama.y-5},{cama.x-2,cama.y+5},1.0f,multiplicar({70,44,96,255},f));
+    // Fogueira: pedras em roda, lenha cruzada e brasas.
+    for(int k=0;k<7;k++) {
+        float ang=k*0.898f;
+        DrawCircleV({fogo.x+std::cos(ang)*8,fogo.y+std::sin(ang)*6},2.2f,multiplicar({118,112,106,255},f));
+    }
+    DrawLineEx({fogo.x-5,fogo.y+3},{fogo.x+5,fogo.y-3},2.4f,multiplicar({110,72,40,255},f));
+    DrawLineEx({fogo.x-5,fogo.y-3},{fogo.x+5,fogo.y+3},2.4f,multiplicar({96,62,34,255},f));
+    if(vivo) {
+        float tremula=std::sin(t*11+x)*1.2f+std::sin(t*17+y)*0.8f;
+        Color luz={255,150,50,110}; Color semLuz=luz; semLuz.a=0;
+        DrawCircleGradient((int)fogo.x,(int)fogo.y,16+tremula,luz,semLuz);
+        DrawCircleV({fogo.x,fogo.y-2-tremula*0.3f},3.5f+tremula*0.4f,{255,140,40,255});
+        DrawCircleV({fogo.x,fogo.y-3-tremula*0.3f},1.8f,{255,225,120,255});
+    } else {
+        DrawCircleV(fogo,2.0f,multiplicar({150,70,40,255},f));
+    }
+}
+void desenharAmbientes(const Jogo& jogo,const Andar& a,float origemX,float origemY) {
+    float t=(float)GetTime();
+    auto preparar=[&](int x,int y,Vector2& c,float& f,bool& vivo) {
+        c={std::round(origemX+x*TAM)+TAM/2.0f,std::round(origemY+y*TAM)+TAM/2.0f};
+        vivo=jogo.visivel[y][x];
+        f = vivo ? std::clamp(brilho(jogo.luz[y][x]),0.27f,1.0f) : 0.32f;
+    };
+    for(int i=0;i<a.numEspeciais;i++) {
+        const Especial& e=a.especiais[i];
+        if(!a.descoberto[e.y][e.x]) continue;
+        Vector2 c; float f; bool vivo; preparar(e.x,e.y,c,f,vivo);
+        float R=raioDoAmbiente(a,e.x,e.y);
+        switch(e.tipo) {
+            case ESP_FONTE: ambienteDaFonte(c,R,e.usado,f,vivo,t,e.x,e.y); break;
+            case ESP_ALTAR: ambienteDoAltar(c,R,e.usado,f,vivo,t,e.x,e.y); break;
+            case ESP_BAU:   ambienteDoBau(c,R,e.usado,f,e.x,e.y); break;
+            default:        ambienteDaArena(c,R,vivo && e.onda>0 && !e.usado,f,t,e.x,e.y); break;
+        }
+    }
+    for(int i=0;i<a.numNpcs;i++) {
+        const Npc& n=a.npcs[i];
+        if(n.tipo!=NPC_VIAJANTE || !a.descoberto[n.y][n.x]) continue;
+        Vector2 c; float f; bool vivo; preparar(n.x,n.y,c,f,vivo);
+        ambienteDoViajante(c,raioDoAmbiente(a,n.x,n.y),f,vivo,t,n.x,n.y);
+    }
+}
 void mapa(const Jogo& jogo) {
     titulo("EXPLORAÇÃO   |   O mapa se revela conforme você caminha");
     painel({33,115,948,516}, {16,22,36,255});
@@ -558,6 +786,10 @@ void mapa(const Jogo& jogo) {
     recortar(janela);
     for(int iy=0;iy<=CH;iy++)for(int ix=0;ix<=CW;ix++)
         tile(jogo,a,cx+ix,cy+iy,MX+ix*TAM-sobraX,MY+iy*TAM-sobraY);
+    // O chão em volta da fonte, do altar, do baú, do gongo e do viajante.
+    desenharAmbientes(jogo,a,MX-camX*TAM,MY-camY*TAM);
+    for(int iy=0;iy<=CH;iy++)for(int ix=0;ix<=CW;ix++)
+        tileObjetos(jogo,a,cx+ix,cy+iy,MX+ix*TAM-sobraX,MY+iy*TAM-sobraY);
     // Placa "LOJA" em cima da porta da lojinha.
     if(a.loja.existe && a.descoberto[a.loja.portaY][a.loja.portaX]) {
         float px=std::round(MX+(a.loja.portaX-camX)*TAM), py=std::round(MY+(a.loja.portaY-camY)*TAM);

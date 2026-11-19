@@ -16,6 +16,7 @@
 #include "cenario.h"
 #include "npcs.h"
 #include "dificuldade.h"
+#include "salas.h"
 
 // Quantos andares a masmorra tem. O chefe final ficará no último.
 const int NUM_ANDARES = 10;
@@ -108,6 +109,8 @@ struct Andar {
     int chavesGuardadas;       // a chave é de um andar só: fica aqui quando o jogador sai
     SalaDaLoja loja;           // andares 3, 6 e 9 (ver npcs.h)
     bool zonaSegura[MAPA_ALTURA][MAPA_LARGURA];   // lojinha: monstro não entra
+    Especial especiais[MAX_ESPECIAIS];   // fonte, altar, baú, gongo (salas.h)
+    int numEspeciais;
 
     Armadilha armadilhas[MAX_ARMADILHAS];   // Etapa 7
     // Item escondido em cada caixa (-1 = vazia). Acompanha a caixa quando

@@ -33,6 +33,37 @@ struct Aparencia {
     bool brilhaSozinho; // tochas não dependem da luz para aparecer
 };
 
+// Fonte {, altar |, baú dourado %, gongo da arena 0 (apagados depois de usados).
+static void aparenciaDoEspecial(const Especial& e, char& simbolo, CorRGB& cor) {
+    const char SIMBOLOS[NUM_TIPOS_ESPECIAIS] = { '{', '|', '%', '0' };
+    const CorRGB CORES[NUM_TIPOS_ESPECIAIS] = { { 120, 220, 255 }, { 230, 60, 70 }, { 255, 205, 60 }, { 215, 150, 70 } };
+    simbolo = SIMBOLOS[e.tipo];
+    cor = e.usado ? CorRGB{ 120, 120, 130 } : CORES[e.tipo];
+}
+
+// Chão decorado em volta das surpresas (as 8 casas vizinhas): pedra azulada na
+// fonte, vermelho no altar, dourado no baú, areia na arena e roxo no
+// acampamento do viajante. Devolve false se a casa não fica perto de nenhuma.
+static bool chaoDoAmbiente(const Andar& andar, int x, int y, CorRGB& frente, CorRGB& fundo) {
+    if (andar.mapa.celulas[y][x] != CHAO || andar.zonaSegura[y][x]) return false;
+    const CorRGB FRENTE[5] = { { 150, 200, 230 }, { 220, 70, 80 }, { 240, 200, 90 }, { 220, 190, 140 }, { 200, 150, 100 } };
+    const CorRGB FUNDO[5]  = { { 0, 95, 110 },    { 120, 0, 10 },  { 140, 95, 0 },  { 175, 135, 90 },  { 70, 0, 95 } };
+    for (int d = 0; d < 8; d++) {
+        int nx = x + DIRECOES_DX[d], ny = y + DIRECOES_DY[d];
+        if (!dentroDoMapa(nx, ny)) continue;
+        int tipo = -1;
+        int esp = especialEm(andar, nx, ny);
+        if (esp >= 0) tipo = andar.especiais[esp].tipo;
+        int npc = npcEm(andar, nx, ny);
+        if (npc >= 0 && andar.npcs[npc].tipo == NPC_VIAJANTE) tipo = 4;
+        if (tipo < 0) continue;
+        frente = FRENTE[tipo];
+        fundo = FUNDO[tipo];
+        return true;
+    }
+    return false;
+}
+
 // Cores do chão e da parede de cada tema (minas, caverna, vulcão, trono).
 static const CorRGB PAREDE_FRENTE[NUM_TEMAS] = { { 170, 155, 140 }, { 120, 165, 175 }, { 150, 95, 85 }, { 170, 175, 205 } };
 static const CorRGB PAREDE_FUNDO[NUM_TEMAS]  = { { 105, 95, 85 },   { 50, 80, 95 },    { 70, 35, 35 }, { 75, 80, 110 } };
@@ -354,6 +385,7 @@ void desenharJogo(const Jogo& jogo) {
                     a.frente = { 200, 150, 70 };
                     a.fundo = { 90, 25, 35 };
                 }
+                chaoDoAmbiente(andar, x, y, a.frente, a.fundo);
                 if (jogo.visivel[y][x]) {
                     // Visível agora: cor do objeto multiplicada pela luz.
                     CorRGB frente = a.frente, fundo = a.fundo;
@@ -378,6 +410,8 @@ void desenharJogo(const Jogo& jogo) {
                     } else if (npc >= 0) {
                         a.simbolo = FICHAS_DOS_NPCS[andar.npcs[npc].tipo].simbolo;
                         frente = FICHAS_DOS_NPCS[andar.npcs[npc].tipo].cor;
+                    } else if (especialEm(andar, x, y) >= 0) {
+                        aparenciaDoEspecial(andar.especiais[especialEm(andar, x, y)], a.simbolo, frente);
                     } else if (armadilha >= 0 && andar.armadilhas[armadilha].descoberta) {
                         a.simbolo = '^';
                         frente = { 255, 90, 90 };
@@ -392,7 +426,9 @@ void desenharJogo(const Jogo& jogo) {
                     // Já visto antes: aparece pela memória, escuro e azulado
                     // (com os itens que o jogador viu ali).
                     int item = itemNaCelula[y][x];
-                    if (item >= 0 && andar.itens[item].visto) {
+                    if (especialEm(andar, x, y) >= 0) {
+                        aparenciaDoEspecial(andar.especiais[especialEm(andar, x, y)], a.simbolo, a.frente);
+                    } else if (item >= 0 && andar.itens[item].visto) {
                         a.simbolo = TIPOS_DE_ITEM[andar.itens[item].tipo].simbolo;
                         a.frente = TIPOS_DE_ITEM[andar.itens[item].tipo].cor;
                     }

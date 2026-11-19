@@ -70,6 +70,7 @@ src/
 | `src/personagem.cpp` | Criação do personagem (nome, elemento, cor, atributos) e ficha (tecla C) |
 | `src/cenario.h/.cpp` | Armadilhas escondidas e caixas que se empurram (mapa que muda) |
 | `src/npcs.h/.cpp` | Personagens que conversam, ajudam e mudam o mapa |
+| `src/salas.h/.cpp` | Salas especiais: fonte, altar de sangue, baú dourado (mímico), arena e o viajante perdido |
 | `src/tema.h/.cpp` | Temas dos andares: minas, caverna alagada (poças), vulcão (lava) e sala do trono |
 | `src/salvar.h/.cpp` | Salvar e continuar a partida (arquivo binário `save.dat`) |
 | `src/loja.h/.cpp` | Moedas e a loja do Garro, o comerciante (comprar e vender) |
