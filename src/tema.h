@@ -5,7 +5,7 @@
 //   andares 1-3  MINAS                 pedra marrom e tochas (como sempre)
 //   andares 4-6  CAVERNA ALAGADA       poças d'água: andar nelas é 2x mais lento;
 //                                      monstros de Água batem 20% mais forte
-//   andares 7-9  PROFUNDEZAS VULCÂNICAS rachaduras de lava que queimam (e
+//   andares 7-9  PROFUNDEZAS VULCÂNICAS poças de lava que queimam (e
 //                                      iluminam); monstros de Fogo +20%
 //   andar 10     SALA DO TRONO         onde o Senhor das Profundezas espera
 // -----------------------------------------------------------------------------
@@ -32,7 +32,7 @@ int temaDoAndar(int numeroDoAndar);
 // % do ataque de um monstro deste elemento neste andar (100 ou 120).
 int bonusDoAmbiente(int numeroDoAndar, int elemento);
 
-// Poças d'água (caverna) ou rachaduras de lava (vulcão), logo depois de gerar
+// Poças d'água (caverna) ou poças de lava (vulcão), logo depois de gerar
 // o mapa. A lava nunca fecha um caminho: dá sempre para desviar dela.
 void decorarAndar(Andar& andar, int numeroDoAndar, uint32_t semente);
 

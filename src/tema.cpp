@@ -73,8 +73,10 @@ static int alcancaveisSemLava(Mapa& mapa, const Escadas& e) {
     return total;
 }
 
-// Poça: cresce a partir de uma célula, pegando vizinhas ao acaso.
-static void criarPoca(Andar& a, GeradorAleatorio& g, int tamanho) {
+// Poça (de água ou de lava): cresce a partir de uma célula, pegando vizinhas
+// ao acaso. Para a lava, "alcancaveis" não é nulo: se a poça fechar alguma
+// passagem (obrigando a pisar na lava), ela é desfeita.
+static void criarPoca(Andar& a, GeradorAleatorio& g, int tamanho, TipoCelula tipo, int* alcancaveis) {
     int x = 0, y = 0;
     bool achou = false;
     for (int t = 0; t < 200 && !achou; t++) {
@@ -84,10 +86,10 @@ static void criarPoca(Andar& a, GeradorAleatorio& g, int tamanho) {
     }
     if (!achou) return;
     int fx[64], fy[64], n = 0;
-    a.mapa.celulas[y][x] = POCA;
+    a.mapa.celulas[y][x] = tipo;
     fx[n] = x; fy[n] = y; n++;
     for (int colocadas = 1, t = 0; colocadas < tamanho && t < tamanho * 12; t++) {
-        // Testa 3 vizinhas e fica com a que tem mais água em volta: a poça
+        // Testa 3 vizinhas e fica com a que tem mais poça em volta: ela
         // cresce "redonda" em vez de virar um canal comprido.
         int nx = -1, ny = -1, melhor = -1;
         for (int tentativa = 0; tentativa < 3; tentativa++) {
@@ -95,47 +97,22 @@ static void criarPoca(Andar& a, GeradorAleatorio& g, int tamanho) {
             int d = sortear(g, 0, 3);
             int cx = fx[k] + DIRECOES_DX[d], cy = fy[k] + DIRECOES_DY[d];
             if (!podeDecorar(a, cx, cy)) continue;
-            int agua = 0;
-            for (int v = 0; v < 8; v++) agua += a.mapa.celulas[cy + DIRECOES_DY[v]][cx + DIRECOES_DX[v]] == POCA;
-            if (agua > melhor) { melhor = agua; nx = cx; ny = cy; }
+            int iguais = 0;
+            for (int v = 0; v < 8; v++) iguais += a.mapa.celulas[cy + DIRECOES_DY[v]][cx + DIRECOES_DX[v]] == tipo;
+            if (iguais > melhor) { melhor = iguais; nx = cx; ny = cy; }
         }
         if (nx < 0) continue;
-        a.mapa.celulas[ny][nx] = POCA;
+        a.mapa.celulas[ny][nx] = tipo;
         colocadas++;
         if (n < 64) { fx[n] = nx; fy[n] = ny; n++; }
     }
-}
-
-// Rachadura: um caminho fino e torto. Se ela fechar alguma passagem, é desfeita.
-// "alcancaveis" = quantas casas dá para alcançar sem pisar na lava (atualizado).
-static void criarRachadura(Andar& a, GeradorAleatorio& g, int comprimento, int& alcancaveis) {
-    // Começa no meio de uma sala (as 8 vizinhas são chão), não num corredor.
-    int x = 0, y = 0;
-    bool achou = false;
-    for (int t = 0; t < 300 && !achou; t++) {
-        x = sortear(g, 1, MAPA_LARGURA - 2);
-        y = sortear(g, 1, MAPA_ALTURA - 2);
-        achou = podeDecorar(a, x, y);
-        for (int d = 0; d < 8 && achou; d++)
-            if (a.mapa.celulas[y + DIRECOES_DY[d]][x + DIRECOES_DX[d]] != CHAO) achou = false;
-    }
-    if (!achou) return;
-    int cx[16], cy[16], n = 0;
-    int direcao = sortear(g, 0, 7);
-    for (int passo = 0; passo < comprimento && n < 16; passo++) {
-        if (!podeDecorar(a, x, y)) break;
-        a.mapa.celulas[y][x] = LAVA;
-        cx[n] = x; cy[n] = y; n++;
-        if (chance(g, 35)) direcao = (direcao + (chance(g, 50) ? 1 : 7)) % 8;   // entorta um pouco
-        x += DIRECOES_DX[direcao];
-        y += DIRECOES_DY[direcao];
-    }
-    // Sem caminho fechado, só as próprias casas de lava deixam de contar.
+    if (alcancaveis == nullptr) return;
+    // Lava: sem caminho fechado, só as próprias casas de lava deixam de contar.
     int agora = alcancaveisSemLava(a.mapa, a.escadas);
-    if (agora < alcancaveis - n) {
-        for (int i = 0; i < n; i++) a.mapa.celulas[cy[i]][cx[i]] = CHAO;   // fechava um caminho: desfaz
+    if (agora < *alcancaveis - n) {
+        for (int i = 0; i < n; i++) a.mapa.celulas[fy[i]][fx[i]] = CHAO;   // fechava um caminho: desfaz
     } else {
-        alcancaveis = agora;
+        *alcancaveis = agora;
     }
 }
 
@@ -146,10 +123,11 @@ void decorarAndar(Andar& andar, int numeroDoAndar, uint32_t semente) {
     if (tema == TEMA_CAVERNA) {
         // Várias poças pequenas (e não um rio): de 1 a 6 casas cada.
         int pocas = 11 + sortear(g, 0, 4);
-        for (int i = 0; i < pocas; i++) criarPoca(andar, g, sortear(g, 1, 6));
+        for (int i = 0; i < pocas; i++) criarPoca(andar, g, sortear(g, 1, 6), POCA, nullptr);
     } else if (tema == TEMA_VULCAO) {
+        // Poças de lava: menores, e nunca fecham um caminho.
         int alcancaveis = alcancaveisSemLava(andar.mapa, andar.escadas);
-        int rachaduras = 7 + sortear(g, 0, 3);
-        for (int i = 0; i < rachaduras; i++) criarRachadura(andar, g, sortear(g, 4, 10), alcancaveis);
+        int pocas = 9 + sortear(g, 0, 3);
+        for (int i = 0; i < pocas; i++) criarPoca(andar, g, sortear(g, 1, 5), LAVA, &alcancaveis);
     }
 }

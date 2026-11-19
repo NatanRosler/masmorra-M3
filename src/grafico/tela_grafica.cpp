@@ -201,59 +201,52 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
         // Caverna: musgo verde-azulado em algumas paredes.
         if(tema==TEMA_CAVERNA && agora && (x*11+y*5)%4==0)
             DrawRectangle(px+2,py+TAM-5,TAM-6,3,multiplicar({70,140,120,255},claridade));
-    } else if(tipo==POCA) {
-        // Poça d'água: só uma parte da casa, com bordas arredondadas. Se a
-        // vizinha também é água, as duas se emendam (poças maiores ficam inteiras).
+    } else if(tipo==POCA || tipo==LAVA) {
+        // Poça (de água ou de lava): só uma parte da casa, com borda irregular.
+        // Se a vizinha é do mesmo tipo, as duas se emendam numa poça só.
+        bool lava=(tipo==LAVA);
         float t=(float)GetTime();
-        float f = agora ? claridade : 0.4f;
-        DrawRectangleLines(px,py,TAM,TAM,multiplicar({39,43,56,255},f));
-        Color agua=multiplicar({34,92,140,255},f);
+        // A lava brilha sozinha (mesmo no escuro) e pulsa devagar.
+        float pulso=0.8f+0.2f*std::sin(t*2.5f+x*0.9f+y*1.4f);
+        float f = lava ? (agora ? pulso : 0.45f) : (agora ? claridade : 0.4f);
+        DrawRectangleLines(px,py,TAM,TAM,multiplicar({39,43,56,255},agora?claridade:0.4f));
+        Color liquido=multiplicar(lava?Color{205,62,22,255}:Color{34,92,140,255},f);
         int jx=(x*7+y*3)%3-1, jy=(x*3+y*5)%3-1;   // cada poça um pouco torta
         float cxp=px+12.0f+jx, cyp=py+12.0f+jy;
-        auto ehAgua=[&](int dx,int dy){ return dentroDoMapa(x+dx,y+dy) && a.mapa.celulas[y+dy][x+dx]==POCA; };
-        bool l=ehAgua(1,0), o=ehAgua(-1,0), s=ehAgua(0,1), n=ehAgua(0,-1);
+        if(lava && agora) {
+            Color quente={255,120,40,110}; Color fora=quente; fora.a=0;
+            DrawCircleGradient((int)cxp,(int)cyp,17,quente,fora);   // calor em volta
+        }
+        auto igual=[&](int dx,int dy){ return dentroDoMapa(x+dx,y+dy) && a.mapa.celulas[y+dy][x+dx]==tipo; };
+        bool l=igual(1,0), o=igual(-1,0), s=igual(0,1), n=igual(0,-1);
         // Raio diferente em cada casa: a borda da poça fica irregular.
         float r=7.5f+(float)((x*13+y*7)%4);
         int ri=(int)r;
-        DrawCircleV({cxp,cyp},r,agua);
-        if(l) DrawRectangle((int)cxp,(int)cyp-ri,px+TAM-(int)cxp,2*ri+1,agua);
-        if(o) DrawRectangle(px,(int)cyp-ri,(int)cxp-px,2*ri+1,agua);
-        if(s) DrawRectangle((int)cxp-ri,(int)cyp,2*ri+1,py+TAM-(int)cyp,agua);
-        if(n) DrawRectangle((int)cxp-ri,py,2*ri+1,(int)cyp-py,agua);
-        // Cantos: com água dos dois lados e na diagonal, a poça fica cheia ali.
-        if(l&&s&&ehAgua(1,1)) DrawRectangle((int)cxp,(int)cyp,px+TAM-(int)cxp,py+TAM-(int)cyp,agua);
-        if(o&&s&&ehAgua(-1,1)) DrawRectangle(px,(int)cyp,(int)cxp-px,py+TAM-(int)cyp,agua);
-        if(l&&n&&ehAgua(1,-1)) DrawRectangle((int)cxp,py,px+TAM-(int)cxp,(int)cyp-py,agua);
-        if(o&&n&&ehAgua(-1,-1)) DrawRectangle(px,py,(int)cxp-px,(int)cyp-py,agua);
-        // Ondinhas que se mexem.
-        for(int k=0;k<2;k++) {
-            float onda=std::sin(t*2.2f+x*1.3f+y*0.7f+k*2.1f);
-            int oy=(int)cyp-3+k*6+(int)(onda*1.2f);
-            DrawLine((int)cxp-5+k*2,oy,(int)cxp+3+k*2,oy,multiplicar({120,190,240,255},f*(0.7f+0.3f*onda)));
+        DrawCircleV({cxp,cyp},r,liquido);
+        if(l) DrawRectangle((int)cxp,(int)cyp-ri,px+TAM-(int)cxp,2*ri+1,liquido);
+        if(o) DrawRectangle(px,(int)cyp-ri,(int)cxp-px,2*ri+1,liquido);
+        if(s) DrawRectangle((int)cxp-ri,(int)cyp,2*ri+1,py+TAM-(int)cyp,liquido);
+        if(n) DrawRectangle((int)cxp-ri,py,2*ri+1,(int)cyp-py,liquido);
+        // Cantos: com poça dos dois lados e na diagonal, ela fica cheia ali.
+        if(l&&s&&igual(1,1)) DrawRectangle((int)cxp,(int)cyp,px+TAM-(int)cxp,py+TAM-(int)cyp,liquido);
+        if(o&&s&&igual(-1,1)) DrawRectangle(px,(int)cyp,(int)cxp-px,py+TAM-(int)cyp,liquido);
+        if(l&&n&&igual(1,-1)) DrawRectangle((int)cxp,py,px+TAM-(int)cxp,(int)cyp-py,liquido);
+        if(o&&n&&igual(-1,-1)) DrawRectangle(px,py,(int)cxp-px,(int)cyp-py,liquido);
+        if(lava) {
+            // Bolhas amarelas que aparecem e somem.
+            for(int k=0;k<2;k++) {
+                float fase=std::fmod(t*0.7f+(x*0.37f+y*0.53f)+k*0.5f,1.0f);
+                float raio=1.5f+2.5f*std::sin(fase*3.14159f);
+                DrawCircleV({cxp-4+k*7.0f,cyp-2+k*4.0f},raio,multiplicar({255,200,80,255},f));
+            }
+        } else {
+            // Ondinhas que se mexem.
+            for(int k=0;k<2;k++) {
+                float onda=std::sin(t*2.2f+x*1.3f+y*0.7f+k*2.1f);
+                int oy=(int)cyp-3+k*6+(int)(onda*1.2f);
+                DrawLine((int)cxp-5+k*2,oy,(int)cxp+3+k*2,oy,multiplicar({120,190,240,255},f*(0.7f+0.3f*onda)));
+            }
         }
-    } else if(tipo==LAVA) {
-        // Lava: uma rachadura no chão que liga as casas de lava vizinhas
-        // (também na diagonal). Brilha sozinha, mesmo no escuro, e pulsa.
-        float t=(float)GetTime();
-        float pulso=0.8f+0.2f*std::sin(t*2.5f+x*0.9f+y*1.4f);
-        float f = agora ? pulso : 0.45f;
-        DrawRectangleLines(px,py,TAM,TAM,multiplicar({39,43,56,255},agora?claridade:0.45f));
-        Vector2 c={px+12.0f+(x*5+y*3)%5-2,py+12.0f+(x*3+y*7)%5-2};
-        Color quente=multiplicar({255,140,40,255},f); quente.a=150;
-        Color fora=quente; fora.a=0;
-        DrawCircleGradient((int)c.x,(int)c.y,14,quente,fora);
-        Color borda=multiplicar({150,35,15,255},f), miolo=multiplicar({255,190,70,255},f);
-        int vizinhos=0;
-        for(int d=0;d<8;d++) {
-            int nx=x+DIRECOES_DX[d], ny=y+DIRECOES_DY[d];
-            if(!dentroDoMapa(nx,ny) || a.mapa.celulas[ny][nx]!=LAVA) continue;
-            vizinhos++;
-            Vector2 fim={px+12.0f+DIRECOES_DX[d]*12.5f,py+12.0f+DIRECOES_DY[d]*12.5f};
-            DrawLineEx(c,fim,7,borda);
-            DrawLineEx(c,fim,3,miolo);
-        }
-        DrawCircleV(c,vizinhos?4.5f:6.0f,borda);
-        DrawCircleV(c,vizinhos?2.5f:3.5f,miolo);
     } else if(tema==TEMA_TRONO && tipo==CHAO && agora) {
         // Sala do trono: chão polido em xadrez, com o tapete até o chefe.
         if((x+y)%2==0) DrawRectangle(px,py,TAM,TAM,multiplicar({86,90,112,255},claridade));

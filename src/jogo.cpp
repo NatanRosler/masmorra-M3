@@ -43,7 +43,7 @@ static Andar& prepararAndar(Jogo& jogo, int numero) {
         a.numNpcs = 0;
         a.chavesGuardadas = 0;
         prepararSalaDaLoja(a, numero);   // antes dos monstros: lá dentro ninguém nasce
-        // Tema do andar: poças d'água (4-6) ou rachaduras de lava (7-9).
+        // Tema do andar: poças d'água (4-6) ou poças de lava (7-9).
         decorarAndar(a, numero, misturar(jogo.semente, (uint32_t)numero + 4000));
         int chegadaX = a.escadas.chegadaSobeX, chegadaY = a.escadas.chegadaSobeY;
         if (jogo.comMonstros) {

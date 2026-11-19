@@ -482,18 +482,19 @@ páginas de texto usam a maior letra (até 28) em que todas as linhas cabem.
 
 - **Geração** (`decorarAndar`): roda logo depois do mapa, com semente própria,
   longe das escadas e das portas. Poças pequenas (1 a 6 casas) crescem a partir
-  de uma casa sorteada, preferindo as vizinhas com mais água (ficam redondas);
-  rachaduras de lava são caminhos finos e tortos que começam no meio de uma
-  sala. Depois de cada rachadura, uma busca em largura (BFS) que trata a lava
-  como parede confere se todo o andar continua alcançável **sem pisar na lava**;
-  se não, a rachadura é desfeita. Teste com 300 sementes: ~45 casas de água nos
-  andares 4-6, ~25 de lava nos 7-9, nenhum lugar só alcançável pela lava.
+  de uma casa sorteada, preferindo as vizinhas com mais água (ficam redondas).
+  A lava é feita do mesmo jeito (poças de 1 a 5 casas), mas depois de cada poça
+  de lava uma busca em largura (BFS) que trata a lava como parede confere se
+  todo o andar continua alcançável **sem pisar na lava**; se não, a poça é
+  desfeita. Assim sempre existe outro caminho. Teste com 300 sementes: ~45
+  casas de água nos andares 4-6, ~28 de lava nos 7-9, nenhum lugar só
+  alcançável pela lava.
 - **Visual:** a água e a lava ocupam só parte da casa: a poça é uma mancha de
-  borda irregular que se emenda com as poças vizinhas, e a lava é uma rachadura
-  brilhante que liga as casas de lava (também na diagonal). Cores de chão e
+  borda irregular que se emenda com as poças vizinhas (a lava é igual, em
+  laranja, com bolhas amarelas e um brilho de calor em volta). Cores de chão e
   parede por tema, a luz tinge as células com a cor
   dela (vermelho perto da lava, azul nas tochas do trono), ondas na água, lava
   pulsando, gotas pingando na caverna, brasas subindo do vulcão, e o nome do
   tema aparece grande no meio do mapa ao chegar.
-- **Equilíbrio (bots):** no Médio, quem só desce chega ao andar 10 em ~6-7% das
-  partidas (era ~9%); quem explora, em ~84%.
+- **Equilíbrio (bots):** no Médio, quem só desce chega ao andar 10 em ~6% das
+  partidas (era ~9%); quem explora, em ~85%.
