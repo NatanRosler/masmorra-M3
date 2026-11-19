@@ -98,6 +98,12 @@ void sortearElementosDasEspecies(Jogo& jogo, uint32_t semente);
 // Coloca o chefe final no ponto do andar mais longe da chegada do jogador.
 void colocarChefe(Andar& andar, int chegadaX, int chegadaY, Elemento elemento);
 
+// O chefe acompanha o jogador: no começo de cada batalha ele fica com o nível
+// do jogador + 1 (nunca abaixo de NIVEL_MINIMO_DO_CHEFE). A vida que ele já
+// perdeu continua perdida (a fração da vida é mantida).
+const int NIVEL_MINIMO_DO_CHEFE = 22;
+void ajustarNivelDoChefe(Monstro& chefe, int nivelDoJogador);
+
 // Golpes que o monstro usa na batalha: os da espécie, com um deles trocado
 // pelo golpe do elemento sorteado.
 void golpesDoMonstro(const Monstro& m, int golpes[MAX_GOLPES], int& numGolpes);

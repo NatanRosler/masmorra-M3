@@ -963,6 +963,21 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
     spriteDoLutador(b,0,HEROI);
     if(b.escudoErguido) escudoErguidoNaBatalha(b);
     painelDoLutador(b.jogador,b.vidaMostrada[0],{55,140,430,107},CIANO,CIANO,false);
+    // Chefe furioso (segunda fase): aura vermelha pulsando atrás dele.
+    if(b.chefeFurioso) {
+        for(int i=0;i<b.numInimigos;i++) {
+            if(!b.naLuta[i] || !b.inimigos[i].ehChefe || desmaiado[i+1]) continue;
+            Vector2 c=centroDoSprite(b,i+1);
+            float t=(float)GetTime();
+            Color aura={255,40,40,(unsigned char)(130+50*std::sin(t*5))}; Color fora=aura; fora.a=0;
+            DrawCircleGradient((int)(c.x+animacao[i+1].dx),(int)(c.y+animacao[i+1].dy),130+8*std::sin(t*5),aura,fora);
+            for(int k=0;k<6;k++) {   // brasas subindo
+                float fase=std::fmod(t*0.6f+k/6.0f,1.0f);
+                float bx=c.x-70+k*28+std::sin(t*2+k)*8, by=c.y+60-fase*170;
+                DrawCircleV({bx,by},3*(1-fase)+1,{255,(unsigned char)(120+100*(1-fase)),60,(unsigned char)(220*(1-fase))});
+            }
+        }
+    }
     if(b.numInimigos==1) {
         const Monstro& m=*b.monstros[0];
         spriteDoLutador(b,1,imagemMonstro(m.tipo));
@@ -1091,6 +1106,7 @@ void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,
         case ANIM_ENTRADA: duracao=0.65; break;
         case ANIM_GOLPE:   duracao=0.55; break;
         case ANIM_BLOQUEIO: duracao=0.6; break;
+        case ANIM_FURIA:   duracao=1.1;  break;
         case ANIM_DESMAIO: duracao=0.6;  break;
         case ANIM_NIVEL:   duracao=0.8;  break;
     }
@@ -1163,6 +1179,18 @@ void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,
             }
             break;
         }
+        case ANIM_FURIA:
+            // O chefe treme, fica vermelho e solta faíscas; a tela pisca.
+            if(!disparou) {
+                disparou=true;
+                Efeitos::piscar({200,20,30,255},0.15);
+                Efeitos::tremer(12,0.7);
+                Efeitos::brilhoSubindo(centroQuem.x,centroQuem.y,{255,60,50,255},40,Efeitos::CAMADA_TELA);
+                Efeitos::textoFlutuante("FÚRIA!",centroQuem.x,centroQuem.y-110,{255,90,80,255},48,Efeitos::CAMADA_TELA,1.3);
+            }
+            animacao[quem].dx=std::sin(t*70)*7*(1-t);
+            animacao[quem].dy=-10*std::sin(3.14159f*t);
+            break;
         case ANIM_EFEITO_PROPRIO:
             if(!disparou) {
                 disparou=true;

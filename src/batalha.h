@@ -188,6 +188,9 @@ struct Batalha {
     bool escudoNaRodadaAnterior; // duas rodadas seguidas: a chance cai pela metade
     int chanceDoBloqueio;        // chance (%) enquanto está erguido
 
+    // Segunda fase do chefe: com metade da vida ele fica furioso.
+    bool chefeFurioso;
+
     // Itens que podem ser usados na batalha (lista montada ao abrir ITENS).
     int itensUsaveis[16];
     int numItensUsaveis;

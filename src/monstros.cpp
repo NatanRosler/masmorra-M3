@@ -357,8 +357,18 @@ void colocarChefe(Andar& andar, int chegadaX, int chegadaY, Elemento elemento) {
         }
     }
     if (melhorX < 0 || andar.numMonstros >= MAX_MONSTROS) return;
-    criarMonstro(andar, tipoDoChefe(), melhorX, melhorY, 24, DORMINDO);
+    criarMonstro(andar, tipoDoChefe(), melhorX, melhorY, NIVEL_MINIMO_DO_CHEFE, DORMINDO);
     andar.monstros[andar.numMonstros - 1].elemento = elemento;
+}
+
+void ajustarNivelDoChefe(Monstro& chefe, int nivelDoJogador) {
+    int novo = nivelDoJogador + 1;
+    if (novo < NIVEL_MINIMO_DO_CHEFE) novo = NIVEL_MINIMO_DO_CHEFE;
+    if (novo <= chefe.nivel) return;   // só sobe
+    int maximaAntes = vidaMaximaDoMonstro(chefe);
+    chefe.nivel = novo;
+    chefe.vida = (int)((long long)chefe.vida * vidaMaximaDoMonstro(chefe) / maximaAntes);
+    if (chefe.vida < 1) chefe.vida = 1;
 }
 
 // =============================================================================

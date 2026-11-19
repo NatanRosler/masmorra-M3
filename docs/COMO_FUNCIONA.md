@@ -568,3 +568,34 @@ uma sala: andar na direção deles usa (`usarEspecial`, chamado em `moverJogador
   usar bem o golpe faz diferença.
 - **Como jogar** ficou com 2 páginas: uma linha `QUEBRA_DE_PAGINA` ("---") no
   texto divide a página em `mostrarPagina` (pontuacao.cpp).
+
+## Chefe que acompanha o jogador e segunda fase (v1.15)
+
+Até a v1.14 o chefe era sempre nível 24, mas quem explora os andares chega
+nele entre os níveis 25 e 30 (o bot explorador termina no 26-27), e aí a luta
+ficava fácil demais (97% de vitórias no nível 26, 99% no 30).
+
+- **Nível do chefe:** no começo de cada batalha, `ajustarNivelDoChefe`
+  (monstros.cpp) deixa o chefe com o **nível do jogador + 1**, nunca abaixo de
+  `NIVEL_MINIMO_DO_CHEFE` (22). O nível só sobe, e a fração de vida que ele já
+  perdeu é mantida (fugir e voltar não cura o chefe).
+- **Segunda fase (fúria):** quando a vida do chefe chega à metade,
+  `conferirFuriaDoChefe` (batalha.cpp) roda uma vez por batalha: ele acorda, as
+  quedas de ataque somem, ganha **+1 de ataque** e não cai mais no sono
+  (Pó do Sono e Hipnose param de funcionar nele). Na tela: tela piscando
+  vermelha, tremor, "FÚRIA!" e uma aura vermelha com brasas atrás dele até o
+  fim da luta (`ANIM_FURIA`, `chefeFurioso` na `Batalha`).
+- **Equilíbrio** (300 lutas por linha, espada longa, escudo de ferro, 3 poções
+  de vida e 1 grande; pontos de atributo do nível):
+
+  | Nível do jogador | Chefe | Vence (bot que não usa Escudo) | Vence (bot que ergue o escudo com pouca vida) |
+  |---|---|---|---|
+  | 18 | 22 | 14% | 50% |
+  | 20 | 22 | 42% | 70% |
+  | 22 | 23 | 51% | 77% |
+  | 26 | 27 | 61% | 83% |
+  | 30 | 31 | 65% | 86% |
+
+  Explorar mais ainda ajuda (os pontos de atributo e o equipamento continuam
+  contando), mas o chefe nunca vira um passeio. E como o jogador tem 3 vidas,
+  quem perde tem outras chances.

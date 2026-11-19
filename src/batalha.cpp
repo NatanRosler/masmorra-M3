@@ -275,6 +275,10 @@ static void aplicarStatus(Jogo& jogo, Batalha& b, Lutador& alvo, Status status, 
         if (avisarFalha) narrar(jogo, b, "Não teve efeito em " + alvo.nome + ".");
         return;
     }
+    if (status == ADORMECIDO && alvo.ehChefe && b.chefeFurioso) {
+        narrar(jogo, b, "A fúria não deixa " + alvo.nome + " dormir!");
+        return;
+    }
     alvo.status = status;
     // Status no jogador é perigo; no inimigo, é uma boa notícia.
     TipoMensagem tipo = alvo.ehJogador ? MSG_PERIGO : MSG_BOA;
@@ -774,6 +778,25 @@ static void danoDoVeneno(Jogo& jogo, Batalha& b, Lutador& l) {
 
 // Um inimigo desmaiou? Tira da luta e dá a experiência. Devolve true se
 // a batalha acabou (não sobrou inimigo).
+// Segunda fase: com metade da vida (ou menos), o chefe fica furioso uma vez
+// por batalha: acorda, perde as quedas de ataque, ganha +1 de ataque e não
+// cai mais no sono.
+static void conferirFuriaDoChefe(Jogo& jogo, Batalha& b) {
+    if (b.chefeFurioso) return;
+    for (int i = 0; i < b.numInimigos; i++) {
+        Lutador& l = b.inimigos[i];
+        if (!b.naLuta[i] || !l.ehChefe || *l.vida <= 0 || *l.vida * 2 > l.vidaMaxima) continue;
+        b.chefeFurioso = true;
+        if (l.status == ADORMECIDO) l.status = SEM_STATUS;
+        if (l.estagioAtaque < 0) l.estagioAtaque = 0;
+        if (l.estagioAtaque < 6) l.estagioAtaque++;
+        tocarSom(SOM_CRITICO);
+        animarBatalha(jogo, b, ANIM_FURIA, i + 1, i + 1, 0, 0, false);
+        narrar(jogo, b, comMaiuscula(l.nome) + " fica FURIOSO! O ataque dele aumenta e ele não dorme mais.",
+               MSG_PERIGO);
+    }
+}
+
 static bool conferirDesmaios(Jogo& jogo, Batalha& b) {
     for (int i = 0; i < b.numInimigos; i++) {
         if (!b.naLuta[i] || *b.inimigos[i].vida > 0) continue;
@@ -825,6 +848,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
     b.numInimigos = quantos;
     for (int i = 0; i < quantos; i++) {
         b.monstros[i] = participantes[i];
+        if (tipoDe(*participantes[i]).especial & CHEFE) ajustarNivelDoChefe(*participantes[i], jogo.jogador.nivel);
         b.inimigos[i] = montarLutadorDoMonstro(*participantes[i]);
         // O ambiente fortalece um elemento (Água na caverna, Fogo no vulcão).
         b.inimigos[i].ataque = b.inimigos[i].ataque * bonusDoAmbiente(jogo.andar, b.inimigos[i].elemento) / 100;
@@ -860,6 +884,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
     b.escudoErguido = false;
     b.escudoNaRodadaAnterior = false;
     b.chanceDoBloqueio = 0;
+    b.chefeFurioso = false;
     b.numAlvos = 0;
 
     animarBatalha(jogo, b, ANIM_ENTRADA, 0, 0, 0, 0, false);
@@ -1008,6 +1033,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
                 return DERROTA;
             }
             if (conferirDesmaios(jogo, b)) return VITORIA;
+            conferirFuriaDoChefe(jogo, b);
         }
 
         // ---- 4. Fim da rodada: veneno ---------------------------------------------------
@@ -1021,5 +1047,6 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
             return DERROTA;
         }
         if (conferirDesmaios(jogo, b)) return VITORIA;
+        conferirFuriaDoChefe(jogo, b);
     }
 }
