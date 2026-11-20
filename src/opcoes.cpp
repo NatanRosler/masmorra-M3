@@ -6,6 +6,7 @@
 //   tela_cheia=0
 //   animacao_rapida=0
 //   zoom=1                    (zoom do mapa: 0 longe, 1 médio, 2 perto)
+//   texto=1                   (falas e história: 0 lenta, 1 normal, 2 rápida, 3 na hora)
 //   dicas=1
 //   dicas_vistas=0110000...   (um 0 ou 1 para cada dica, na ordem do enum)
 // Linhas desconhecidas são ignoradas e valores fora da faixa são corrigidos,
@@ -27,6 +28,7 @@ static Opcoes padrao() {
     o.telaCheia = false;
     o.animacaoRapida = false;
     o.zoomDoMapa = 1;
+    o.velocidadeDoTexto = 1;
     o.mostrarDicas = true;
     for (int i = 0; i < NUM_DICAS; i++) o.dicaVista[i] = false;
     return o;
@@ -70,6 +72,7 @@ void carregarOpcoes() {
         if (chave == "tela_cheia")      o.telaCheia = (valor == "1");
         if (chave == "animacao_rapida") o.animacaoRapida = (valor == "1");
         if (chave == "zoom")            o.zoomDoMapa = limitar(numero(valor, 1), 0, 2);
+        if (chave == "texto")           o.velocidadeDoTexto = limitar(numero(valor, 1), 0, 3);
         if (chave == "dicas")           o.mostrarDicas = (valor != "0");
         if (chave == "dicas_vistas") {
             for (int i = 0; i < NUM_DICAS && i < (int)valor.size(); i++) o.dicaVista[i] = (valor[i] == '1');
@@ -88,6 +91,7 @@ void salvarOpcoes() {
     arquivo << "tela_cheia=" << (o.telaCheia ? 1 : 0) << "\n";
     arquivo << "animacao_rapida=" << (o.animacaoRapida ? 1 : 0) << "\n";
     arquivo << "zoom=" << o.zoomDoMapa << "\n";
+    arquivo << "texto=" << o.velocidadeDoTexto << "\n";
     arquivo << "dicas=" << (o.mostrarDicas ? 1 : 0) << "\n";
     arquivo << "dicas_vistas=";
     for (int i = 0; i < NUM_DICAS; i++) arquivo << (o.dicaVista[i] ? '1' : '0');

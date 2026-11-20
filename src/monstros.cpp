@@ -672,16 +672,22 @@ static int tocarCorneta(Jogo& jogo, Monstro& gnomo) {
         chamados++;
     }
     gnomo.cornetas++;
-    tocarSom(SOM_CORNETA);
-    efeitoNoMapa(jogo, EFEITO_CORNETA, gnomo.x, gnomo.y, chamados);
-    std::string quem = monstroAVista(jogo, gnomo) ? "O gnomo vigia" : "Um gnomo vigia, em algum lugar,";
+    // À vista: a cena (câmera nele, corneta, risada). Longe: só o som.
+    bool aVista = monstroAVista(jogo, gnomo);
+    if (aVista && !jogo.modoAutomatico) {
+        cenaDaCorneta(jogo, (int)(&gnomo - andar.monstros), gnomo.cornetas == 1);
+    } else {
+        tocarSom(SOM_CORNETA);
+        efeitoNoMapa(jogo, EFEITO_CORNETA, gnomo.x, gnomo.y, chamados);
+    }
+    std::string quem = aVista ? "O gnomo vigia" : "Um gnomo vigia, em algum lugar,";
     std::string resultado = chamados == 0 ? " Ninguém respondeu... desta vez."
                           : chamados == 1 ? " Você ouve passos vindo atrás de você!"
                           : " Você ouve " + std::to_string(chamados) + " monstros vindo atrás de você!";
     if (gnomo.cornetas == 1) {
         adicionarMensagem(jogo, quem + " sopra a corneta!" + resultado, MSG_PERIGO);
     } else {
-        adicionarMensagem(jogo, quem + " sopra a corneta de novo e não foge mais: \"Chega de correr!\"" + resultado,
+        adicionarMensagem(jogo, quem + " sopra a corneta de novo e não foge mais: \"Agora você não escapa!\"" + resultado,
                           MSG_PERIGO);
     }
     return chamados;

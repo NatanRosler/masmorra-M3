@@ -3,6 +3,8 @@
 #include "som.h"
 
 void tocarSom(Som) {}
+void tocarSomComTom(Som, float) {}
+void tocarVoz(Voz, int) {}
 void tocarMusica(Musica) {}
 bool alternarSom() { return false; }
 bool somLigado() { return false; }

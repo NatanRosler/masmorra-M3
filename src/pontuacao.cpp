@@ -106,6 +106,60 @@ std::vector<std::string> textoDaHistoria(const std::string& nome) {
     };
 }
 
+// Já falou com alguém deste tipo em algum andar?
+static bool encontrou(const Jogo& jogo, int tipoDeNpc) {
+    for (int a = 0; a < NUM_ANDARES; a++)
+        for (int i = 0; i < jogo.andares[a].numNpcs; i++)
+            if (jogo.andares[a].npcs[i].tipo == tipoDeNpc && jogo.andares[a].npcs[i].conversou) return true;
+    return false;
+}
+
+std::vector<std::string> textoDoFinal(const Jogo& jogo) {
+    const std::string nome = jogo.jogador.nome;
+    std::vector<std::string> t = {
+        "O Senhor das Profundezas cai de joelhos. A escuridão que enchia a mina se desfaz como fumaça.",
+        "",
+    };
+    if (encontrou(jogo, NPC_ESPIRITO))
+        t.push_back("Lá no sétimo andar, uma luz azulada se apaga devagar. Aldric, enfim, pode descansar.");
+    else
+        t.push_back("Em algum lugar lá em cima, uma luz azulada se apaga devagar. O último guardião, enfim, pode "
+                    "descansar.");
+    t.push_back("");
+    t.push_back("As portas da entrada se abrem sozinhas. Pela primeira vez em cem anos, a luz do sol entra na mina.");
+    t.push_back("");
+    // Quem esperava na saída: quem você encontrou (e o Tobias, só se você ajudou).
+    std::vector<std::string> quem;
+    if (encontrou(jogo, NPC_EXPLORADORA)) quem.push_back("Eldra");
+    if (encontrou(jogo, NPC_MINEIRO)) quem.push_back("Borin");
+    if (encontrou(jogo, NPC_VIAJANTE)) quem.push_back("Tobias");
+    std::string saida;
+    if (quem.empty()) {
+        saida = "Na saída, só o vento esperava por você. Mas lá embaixo, na vila, as janelas já se acendiam.";
+    } else {
+        std::string lista = quem[0];
+        for (size_t i = 1; i < quem.size(); i++) lista += (i + 1 == quem.size() ? " e " : ", ") + quem[i];
+        saida = "Na saída, " + lista + (quem.size() == 1 ? " esperava" : " esperavam") + " por você.";
+        if (encontrou(jogo, NPC_VIAJANTE)) saida += " Tobias até chorou um pouquinho.";
+    }
+    if (encontrou(jogo, NPC_COMERCIANTE)) saida += " E Garro, claro, já tinha montado uma banca ali do lado.";
+    t.push_back(saida);
+    t.push_back("");
+    t.push_back("Valdoria está livre. E a história de " + nome + ", que desceu os dez andares e voltou, vai ser "
+                "contada por mais cem anos.");
+    return t;
+}
+
+std::vector<std::string> falasDoChefe(const Jogo& jogo, bool primeiraVez) {
+    if (primeiraVez) return {
+        "\"Mais um... que desce para morrer.\"",
+        "",
+        "\"Cem anos eu espero aqui embaixo. Venha, " + jogo.jogador.nome + ". Mostre o que a superfície tem de "
+        "melhor.\"",
+    };
+    return { "\"Voltou? Ótimo. Eu ainda estou com fome.\"" };
+}
+
 std::vector<std::string> textoComoJogar() {
     return {
         "OBJETIVO: chegar ao 10o andar e derrotar o Senhor das Profundezas.",

@@ -248,7 +248,7 @@ dano simples de cada espécie vira o golpe daquele elemento (`golpesDoMonstro`).
 
 A história aparece depois da criação (`textoDaHistoria`). Três NPCs: Eldra
 (andar 1, dá uma poção e dicas), Borin (andar 4, abre a sala do tesouro) e o
-espírito do guardião (andar 7, cura vida e PP). O **Senhor das Profundezas**
+espírito guardião Aldric (andar 7, cura vida e PP). O **Senhor das Profundezas**
 fica no ponto mais distante da entrada do andar 10; não dá para fugir dele.
 Derrotá-lo vence o jogo.
 
@@ -759,3 +759,47 @@ ficava fácil demais (97% de vitórias no nível 26, 99% no 30).
 - **compilar_windows.bat**: o `masmorra.exe` agora sai na pasta principal
   (antes ficava em `build\`), e na primeira vez é criado um atalho "Masmorra"
   na Área de Trabalho (`build\atalho.ok` marca que já foi criado).
+
+## Falas, vozes e cenas (v1.20)
+
+- **Balões de fala** (`mostrarFala` e `conversar`, tela_grafica.cpp): a fala
+  aparece num balão em cima de quem fala, com retrato e nome, letra por letra
+  (`letrasReveladas`: depois de . ! ? a voz respira um pouco). Enter mostra o
+  resto; com tudo à mostra, passa para o próximo balão; Esc pula a conversa.
+  - Três tipos de trecho: a pessoa (balão de papel), o herói respondendo (balão
+    azulado, linhas com `> ` na frente) e a narração (caixa escura no alto).
+  - Velocidade do texto em Opções: lenta, normal, rápida ou na hora.
+- **Falas novas** (`conversarComNpc`, npcs.cpp): cada pessoa se apresenta e
+  conta um pouco da história antes de ajudar. As pessoas se conhecem
+  (`conversouCom`): Eldra manda você procurar o Borin, o Borin pergunta dela,
+  Aldric (o espírito guardião, que agora tem nome) sabe de quem você
+  encontrou. Na segunda conversa, uma frase curta (`umaDelas`, escolhida pelos
+  passos dados, sem usar o sorteio do jogo).
+- **Vozes** (`tocarVoz`, audio.cpp): cada letra toca um "bip" na voz de quem
+  fala. São 20 vozes geradas no código (narrador, herói, as 5 pessoas, as 12
+  espécies e o chefe), cada uma com o seu tom, onda, vibrato, tremido, ruído
+  (voz rouca), segunda onda desafinada (voz grossa) e eco. Cada voz tem 3
+  cópias (`LoadSoundAlias`), para um eco não ser cortado pelo próximo bip.
+- **Gritos dos monstros** (`atualizarGritos`): quando um monstro à vista passa
+  a caçar o jogador, aparece um balãozinho com um grito na voz dele ("Hehehe!",
+  "GRUAAAR!"...). No bestiário, a espécie escolhida também "fala" o grito.
+- **Cena do gnomo vigia** (`cenaDaCorneta`, chamada por `tocarCorneta` em
+  monstros.cpp quando o gnomo está à vista): o jogo congela, entram faixas de
+  cinema e a câmera vai até ele (`cameraDaCena`), "!", corneta, "!" nos
+  monstros que ouviram, risada (`SOM_RISADA_GNOMO`) e a fala. A 1a vez ele
+  foge; a 2a ("Agora você não escapa!"), fica.
+- **Cena do chefe** (`cenaDoChefe`): quando o chefe aparece na sua visão
+  (`conferirEncontroComOChefe`, jogo.cpp), a música para, a câmera desce
+  devagar até ele, as luzes se apagam, os olhos acendem, ele cresce e ruge
+  (`SOM_RUGIDO`), fala num balão vermelho e a tela racha: começa a batalha
+  (ele não espera você chegar perto). Depois de perder para ele, o reencontro
+  tem uma cena curta. `Jogo::encontrosComOChefe` vai no save (versão 5).
+- **Falas do chefe na batalha** (`falaDoChefeNaBatalha`): na fúria e ao cair.
+- **Final** (`mostrarFinal` e `textoDoFinal`): depois de vencer, uma história
+  como a do começo, com cinco cenas (o chefe vira fumaça, a luz de Aldric se
+  apaga, as portas se abrem, quem esperava por você e o nascer do sol). Quem
+  aparece na saída depende de quem você encontrou (e o Tobias, só se você
+  ajudou).
+- Os bots (`modoAutomatico`) não veem nenhuma cena nem balão. No terminal, as
+  falas, as falas do chefe e o final aparecem como texto.
+

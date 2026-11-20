@@ -1,5 +1,6 @@
 // npcs.cpp
 #include "npcs.h"
+#include "tela.h"
 #include "jogo.h"
 #include "pontuacao.h"
 #include "som.h"
@@ -9,7 +10,7 @@
 const FichaNpc FICHAS_DOS_NPCS[NUM_TIPOS_DE_NPC] = {
     { "Eldra, a exploradora",   '&', { 120, 210, 230 }, 1, 0 },
     { "Borin, o velho mineiro", '&', { 230, 170,  90 }, 4, 0 },
-    { "O espírito do guardião", '&', { 200, 200, 255 }, 7, 0 },
+    { "Aldric, o espírito guardião", '&', { 200, 200, 255 }, 7, 0 },
     { "Garro, o comerciante",   '$', { 255, 205,  70 }, 3, 3 },   // andares 3, 6 e 9
     { "Tobias, o viajante perdido", '&', { 200, 160, 255 }, 0, 0 }, // sorteado em salas.cpp
 };
@@ -244,6 +245,27 @@ static bool abrirSalaDoTesouro(Andar& andar) {
     return true;
 }
 
+// Já falou com alguém deste tipo em algum andar? (As pessoas se conhecem:
+// o Borin pergunta da Eldra, o Aldric sabe de quem você ajudou...)
+static bool conversouCom(const Jogo& jogo, int tipo) {
+    for (int a = 0; a < NUM_ANDARES; a++) {
+        const Andar& andar = jogo.andares[a];
+        for (int i = 0; i < andar.numNpcs; i++)
+            if (andar.npcs[i].tipo == tipo && andar.npcs[i].conversou) return true;
+    }
+    return false;
+}
+
+// Uma frase entre várias, sem usar o sorteio do jogo (que decide o mapa e as
+// batalhas): muda com os passos dados.
+static std::string umaDelas(const Jogo& jogo, const std::vector<std::string>& frases) {
+    return frases[(size_t)jogo.passos % frases.size()];
+}
+
+// AS FALAS
+// Cada linha vazia separa um balão. Linhas entre aspas são da pessoa; com
+// "> " na frente, é o herói respondendo; sem aspas, é a narração da cena.
+// "(+1 Poção de Vida)" no fim de um balão aparece em verde, como prêmio.
 void conversarComNpc(Jogo& jogo, int indice) {
     Andar& andar = andarAtual(jogo);
     Npc& npc = andar.npcs[indice];
@@ -251,46 +273,64 @@ void conversarComNpc(Jogo& jogo, int indice) {
     const std::string nome = j.nome;
     std::vector<std::string> falas;
 
-    // O comerciante: na primeira vez ele se apresenta; depois, abre direto a loja.
+    // O comerciante: na primeira vez em cada andar ele conversa; depois, abre direto a loja.
     if (npc.tipo == NPC_COMERCIANTE) {
         if (!npc.conversou) {
             prepararEstoque(jogo, npc);
-            if (jogo.andar <= 3) {
+            bool jaConhece = conversouCom(jogo, NPC_COMERCIANTE);
+            if (!jaConhece) {
                 falas = {
-                    "\"Um cliente! Faz semanas que ninguém passa por aqui... vivo.\"",
-                    "\"Sou Garro. Vendo de tudo um pouco: poções, armas, escudos.\"",
+                    "Um homem baixinho arruma garrafas numa banca improvisada, assobiando como se estivesse "
+                    "numa feira.",
                     "",
-                    "\"Os monstros carregam moedas, sabia? Algumas caixas também.",
-                    "E quem fica mais forte sempre acha umas moedinhas no bolso.\"",
+                    "\"Um cliente! E vivo! Faz semanas que só aparece goblin por aqui... e goblin não paga nada.\"",
                     "",
-                    "\"Vou descendo junto com você. Procure por mim mais abaixo!\"",
+                    "> \"Uma loja... aqui dentro da masmorra?\"",
+                    "",
+                    "\"Garro, ao seu dispor! Onde tem aventureiro desesperado, tem bom negócio. Poções, armas, "
+                    "escudos e umas bugigangas muito úteis.\"",
+                    "",
+                    "\"Dica de graça, porque gostei da sua cara: os monstros carregam moedas. Algumas caixas "
+                    "também. Junte tudo!\"",
+                    "",
+                    "\"Vou descendo junto com você. Me procure no sexto e no nono andar... se eu ainda estiver "
+                    "inteiro, claro!\"",
                 };
             } else if (jogo.andar < NUM_ANDARES - 1) {
                 falas = {
-                    "\"" + nome + "! Eu disse que a gente se via de novo.\"",
+                    "\"" + nome + "! Eu disse que a gente se via de novo!\"",
                     "",
-                    "\"Trouxe mercadoria nova. Lá embaixo o ar é pesado, então",
-                    "não economize nas poções.\"",
+                    "\"Trouxe mercadoria nova... e preços novos. A descida também não é de graça para mim, "
+                    "sabia?\"",
+                    "",
+                    "\"Daqui para baixo o ar fica pesado. Não economize nas poções.\"",
                 };
             } else {
                 falas = {
-                    "\"Psiu! " + nome + "! O Senhor das Profundezas está logo abaixo.\"",
+                    "Garro olha para os lados e fala baixinho.",
                     "",
-                    "\"Moeda não serve de nada no estômago de um monstro.",
-                    "Melhor gastar tudo agora, não acha?\"",
+                    "\"Psiu! " + nome + "! O Senhor das Profundezas está logo abaixo. Dá para sentir o chão "
+                    "tremendo.\"",
+                    "",
+                    "\"Moeda não serve de nada na barriga de um monstro. Gaste tudo, gaste tudo!\"",
                 };
             }
             npc.conversou = true;
-            if (!jogo.modoAutomatico) mostrarPagina(FICHAS_DOS_NPCS[npc.tipo].nome, falas);
+            if (!jogo.modoAutomatico) mostrarFala(jogo, indice, falas);
         }
         abrirLoja(jogo, npc);
         return;
     }
 
     // O viajante perdido: troca 1 Poção de Vida (ou 30 moedas) por um cristal.
+    // (npc.estoque[0] == 1 marca que ele já se apresentou.)
     if (npc.tipo == NPC_VIAJANTE) {
         if (npc.conversou) {
-            adicionarMensagem(jogo, "Tobias: \"Obrigado de novo! Vou achar a saída... um dia.\"");
+            if (!jogo.modoAutomatico)
+                mostrarFala(jogo, indice, { umaDelas(jogo, {
+                    "\"Obrigado de novo, " + nome + "! O braço já nem dói tanto.\"",
+                    "\"Se achar a saída... volta para me buscar? Promete?\"",
+                    "\"Eu fico aqui, quietinho. Os monstros nem me notam mais.\"" }) });
             return;
         }
         if (jogo.modoAutomatico) return;
@@ -299,15 +339,29 @@ void conversarComNpc(Jogo& jogo, int indice) {
         std::vector<std::string> descricoes = {
             "Você tem " + std::to_string(j.mochila[I_POCAO_DE_VIDA]) + " Poção(ões) de Vida.  |  Em troca: um cristal mágico (efeito permanente).",
             "Você tem " + std::to_string(j.moedas) + " moedas.  |  Em troca: um cristal mágico (efeito permanente).",
-            "\"Tudo bem... eu espero aqui. Não tenho para onde ir mesmo.\"",
+            "Deixar para depois.",
         };
-        mostrarPagina(FICHAS_DOS_NPCS[npc.tipo].nome, {
-            "\"Ei! Você! Estou perdido aqui há dias e estou muito ferido.\"",
-            "",
-            "\"Se me arrumar uma Poção de Vida, ou umas moedas para",
-            "comprar uma do Garro, eu te dou o meu tesouro: um cristal",
-            "mágico que achei lá embaixo.\"",
-        });
+        if (npc.estoque[0] != 1) {
+            npc.estoque[0] = 1;
+            mostrarFala(jogo, indice, {
+                "Encostado num canto, um rapaz de capa rasgada aperta o próprio braço ferido.",
+                "",
+                "\"Ei... ei! Você é de verdade? Não é mais uma sombra? Que alívio! Meu nome é Tobias. "
+                "Estou perdido aqui faz dias.\"",
+                "",
+                "> \"Eu sou " + nome + ". O que aconteceu com você?\"",
+                "",
+                "\"Entrei atrás de um tesouro, acredita? E achei! Só que também achei um ogro. "
+                "Adivinha quem ganhou.\"",
+                "",
+                "\"Se você me arrumar uma Poção de Vida, ou umas moedas para comprar uma do Garro, "
+                "o tesouro é seu: um cristal mágico de verdade.\"",
+            });
+        } else {
+            mostrarFala(jogo, indice, {
+                "\"" + nome + "! Pensou na minha proposta? Uma Poção de Vida, ou umas moedas, pelo meu cristal.\"",
+            });
+        }
         int escolha = escolherEmCaixa(jogo, "TOBIAS, O VIAJANTE: o que você faz?", opcoes, descricoes, 0);
         if (escolha == 0 && j.mochila[I_POCAO_DE_VIDA] <= 0) {
             adicionarMensagem(jogo, "Você não tem nenhuma Poção de Vida.");
@@ -317,12 +371,20 @@ void conversarComNpc(Jogo& jogo, int indice) {
             adicionarMensagem(jogo, "Você não tem moedas suficientes (" + std::to_string(j.moedas) + "/" + std::to_string(PRECO) + ").");
             return;
         }
-        if (escolha != 0 && escolha != 1) return;
+        if (escolha != 0 && escolha != 1) {
+            mostrarFala(jogo, indice, { "\"Tudo bem... eu espero aqui. Não tenho para onde ir mesmo.\"" });
+            return;
+        }
         if (escolha == 0) j.mochila[I_POCAO_DE_VIDA]--;
         else j.moedas -= PRECO;
         npc.conversou = true;
         tocarSom(SOM_ITEM);
-        adicionarMensagem(jogo, "Tobias: \"Muito obrigado! Tome, é seu.\"", MSG_BOA);
+        mostrarFala(jogo, indice, {
+            "\"Muito obrigado, " + nome + "! Tome, é seu. Brilha bonito, não é?\"",
+            "",
+            "\"E se um dia você achar a saída... volta para me buscar?\"",
+        });
+        adicionarMensagem(jogo, "Tobias te deu um cristal mágico!", MSG_BOA);
         int cristais[4] = { I_CRISTAL_DE_VIDA, I_CRISTAL_DE_FORCA, I_CRISTAL_DE_FERRO, I_PENA_DO_VENTO };
         absorverCristal(jogo, cristais[sortear(jogo.sorte, 0, 3)]);
         return;
@@ -330,59 +392,123 @@ void conversarComNpc(Jogo& jogo, int indice) {
 
     switch (npc.tipo) {
         case NPC_EXPLORADORA:
-            falas = {
-                "\"" + nome + "? Então você também caiu na armadilha das portas.\"",
-                "\"Eu sou Eldra. Desci até o quarto andar antes de voltar ferida.\"",
-                "",
-                "\"Os monstros mudam a cada vez que alguém entra aqui: o rato de",
-                "fogo de hoje pode ser de água amanhã. Olhe o elemento deles!\"",
-                "",
-                "\"Está vendo essas caixas? Empurre uma contra um monstro e ele",
-                "fica tonto. E quebradas, às vezes elas escondem poções e armas!\"",
-            };
-            if (!npc.conversou) {
-                guardarOuLargar(jogo, I_POCAO_DE_VIDA);
-                falas.push_back("");
-                falas.push_back("\"Leve esta poção. Vai precisar mais do que eu.\"  (+1 Poção de Vida)");
+            if (npc.conversou) {
+                falas = { umaDelas(jogo, {
+                    "\"Ainda por aqui, " + nome + "? Desça! E olhe o elemento antes de atacar.\"",
+                    "\"Minha perna está melhorando... devagar. Vai, que o Senhor das Profundezas não vai cair "
+                    "sozinho.\"",
+                    "\"Se encontrar o Borin, diga que eu mandei um abraço. Ele vai fingir que não gostou.\"" }) };
+                break;
             }
+            falas = {
+                "Uma mulher está sentada, encostada na parede, com a perna enfaixada e um mapa amassado no colo.",
+                "",
+                "\"Passos... e não são de rato. Calma, eu não mordo! Meu nome é Eldra. Sou exploradora... "
+                "ou era, até esta perna resolver me trair.\"",
+                "",
+                "> \"Eu sou " + nome + ". Vim acabar com o Senhor das Profundezas.\"",
+                "",
+                "\"Acabar com ele? Gostei de você, " + nome + "! Então as portas também se fecharam atrás de você. "
+                "Elas fazem isso com todo mundo que entra.\"",
+                "",
+                "\"Cheguei até o quarto andar antes de voltar assim. Aprendi umas coisas: os monstros mudam de "
+                "elemento a cada vez que alguém entra. Olhe sempre antes de atacar.\"",
+                "",
+                "\"E está vendo essas caixas? Empurre uma contra um monstro e ele fica tonto. Quebradas, às vezes "
+                "escondem poções e armas.\"",
+                "",
+                "\"Tome. Eu guardei esta poção para a volta, mas não vou a lugar nenhum tão cedo. Nas suas mãos "
+                "ela serve mais.\"  (+1 Poção de Vida)",
+                "",
+                "\"Se chegar no quarto andar, procure o Borin, um velho mineiro. Diga que fui eu que mandei. "
+                "Ele vai resmungar, mas ajuda.\"",
+            };
+            guardarOuLargar(jogo, I_POCAO_DE_VIDA);
             break;
 
         case NPC_MINEIRO:
+            if (npc.conversou) {
+                falas = { umaDelas(jogo, {
+                    "\"Lá embaixo os ogros quebram tudo o que veem pela frente. Até as minhas caixas!\"",
+                    "\"Ainda aqui? Vai, vai! E se vir um gnomo com uma corneta, acabe com ele antes que ele "
+                    "assopre.\"",
+                    "\"Quarenta anos cavando estes túneis... e agora estão cheios de goblin. Que desaforo.\"" }) };
+                break;
+            }
             falas = {
-                "\"Ei, cuidado onde pisa! Esta mina era minha, antes do Senhor",
-                "das Profundezas transformá-la nesta masmorra.\"",
+                "Um velho de capacete amassado bate com uma picareta na parede, resmungando sozinho.",
+                "",
+                "\"Ei! Cuidado onde pisa, que essa pedra aí é mais velha que você! ...Hm. Você não é um monstro. "
+                "Já é alguma coisa.\"",
                 "",
             };
-            if (!npc.conversou && abrirSalaDoTesouro(andar)) {
-                falas.push_back("\"Ainda tenho a chave mestra. Vou destrancar a sala do tesouro");
-                falas.push_back("deste andar para você. Faça bom uso do que estiver lá!\"");
+            if (conversouCom(jogo, NPC_EXPLORADORA)) {
+                falas.push_back("> \"Sou " + nome + ". A Eldra disse que você podia ajudar.\"");
                 falas.push_back("");
-                falas.push_back("(Você ouve uma fechadura se abrir em algum lugar do andar.)");
+                falas.push_back("\"A Eldra! Aquela teimosa ainda está viva? Boa notícia. Eu sou Borin. Esta mina era "
+                                "minha, sabia? Quarenta anos cavando estes túneis.\"");
+            } else {
+                falas.push_back("> \"Sou " + nome + ". Estou descendo até o fim da masmorra.\"");
+                falas.push_back("");
+                falas.push_back("\"Até o fim? Coragem não falta. Eu sou Borin. Esta mina era minha, sabia? Quarenta "
+                                "anos cavando estes túneis.\"");
+            }
+            falas.push_back("");
+            falas.push_back("\"Até o Senhor das Profundezas aparecer e encher tudo de goblin. Os meus túneis!\"");
+            falas.push_back("");
+            if (abrirSalaDoTesouro(andar)) {
+                falas.push_back("\"Mas uma coisa ele não me tirou: a chave mestra. Abre qualquer porta destas minas, "
+                                "inclusive a da sala do tesouro deste andar.\"");
+                falas.push_back("");
+                falas.push_back("Borin some no corredor com uma chave enorme. Pouco depois, você ouve uma fechadura "
+                                "se abrir em algum lugar do andar.");
+                falas.push_back("");
+                falas.push_back("\"Pronto! O que tiver lá dentro é seu. Só não conte para os goblins.\"");
                 adicionarMensagem(jogo, "Borin destrancou a sala do tesouro deste andar!", MSG_BOA);
                 tocarSom(SOM_PORTA);
-            } else if (!npc.conversou) {
-                guardarOuLargar(jogo, I_ETER);
-                falas.push_back("\"Não tenho mais portas para abrir, mas leve este Éter.\"  (+1 Éter)");
             } else {
-                falas.push_back("\"Lá embaixo os ogros quebram tudo o que veem pela frente.\"");
+                guardarOuLargar(jogo, I_ETER);
+                falas.push_back("\"Não sobrou porta para abrir neste andar... mas leve este Éter. Eu usava para não "
+                                "dormir no turno da noite.\"  (+1 Éter)");
             }
             break;
 
         case NPC_ESPIRITO:
-            falas = {
-                "Uma luz fria toma a forma de um velho guerreiro.",
-                "",
-                "\"Fui o último guardião desta mina. O Senhor das Profundezas",
-                "espera no décimo andar. Dele não há como fugir: só vencer.\"",
-            };
-            if (!npc.conversou) {
-                j.vida = j.vidaMaxima;
-                for (int s = 0; s < j.numGolpes; s++) j.pp[s] = GOLPES[j.golpes[s]].ppMaximo;
-                falas.push_back("");
-                falas.push_back("\"Deixe-me curar suas feridas uma última vez.\"  (vida e PP cheios)");
+            if (npc.conversou) {
+                falas = { umaDelas(jogo, {
+                    "\"Ele está acordado lá embaixo. Eu sinto.\"",
+                    "\"Não olhe para trás, " + nome + ". Daqui, o único caminho é para baixo.\"",
+                    "\"Quando ele ficar furioso, não se assuste. É sinal de que está doendo.\"" }) };
+                break;
             }
+            falas = {
+                "O ar esfria. Uma luz azulada se junta no meio da sala e toma a forma de um velho guerreiro "
+                "de armadura.",
+                "",
+                "\"Não tenha medo, " + nome + ". Eu sou... eu era... Aldric, o último guardião desta mina.\"",
+                "",
+            };
+            if (conversouCom(jogo, NPC_EXPLORADORA) || conversouCom(jogo, NPC_MINEIRO))
+                falas.push_back("\"Eu vi você pelo caminho. A exploradora, o velho mineiro... Faz tempo que alguém "
+                                "não chegava tão fundo.\"");
+            else
+                falas.push_back("\"Faz tempo que alguém não chegava tão fundo. Muito tempo.\"");
+            falas.push_back("");
+            falas.push_back("\"Quando o Senhor das Profundezas subiu, eu fiquei para segurá-lo aqui embaixo. "
+                            "Segurei por cem anos. Mas não consigo mais.\"");
+            falas.push_back("");
+            falas.push_back("\"Ele espera no décimo andar. Dele não se foge: só se vence. E, quando estiver "
+                            "ferido, vai ficar furioso. Não se assuste.\"");
+            falas.push_back("");
+            falas.push_back("\"Ainda tenho força para uma última coisa. Fique parado.\"");
+            falas.push_back("");
+            falas.push_back("A luz te envolve, morna. Suas feridas se fecham.  (vida e PP cheios)");
+            falas.push_back("");
+            falas.push_back("\"Vá. Quando ele cair, a minha guarda também termina.\"");
+            j.vida = j.vidaMaxima;
+            for (int s = 0; s < j.numGolpes; s++) j.pp[s] = GOLPES[j.golpes[s]].ppMaximo;
             break;
     }
     npc.conversou = true;
-    if (!jogo.modoAutomatico) mostrarPagina(FICHAS_DOS_NPCS[npc.tipo].nome, falas);
+    if (!jogo.modoAutomatico) mostrarFala(jogo, indice, falas);
 }

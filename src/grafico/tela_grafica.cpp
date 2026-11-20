@@ -19,13 +19,23 @@
 #include "efeitos.h"
 #include "opcoes.h"
 #include "bestiario.h"
+#include <functional>
 #include <algorithm>
 #include <cmath>
 #include <string>
 #include <vector>
 
 namespace {
-double zoomMudouEm=-10;   // quando o zoom do mapa mudou (aviso "Zoom: PERTO")
+// Câmera do último mapa desenhado (para pôr o balão de fala perto da pessoa)
+// e se os cartões do canto ficam escondidos (durante as falas).
+float cameraX=0, cameraY=0, cameraZoom=1;
+bool esconderCartoes=false;
+// Nas cenas, a câmera não segue o herói: vai para (cenaX, cenaY) com o zoom
+// cenaZoom (em casas; o centro da tela fica nesse ponto).
+bool cameraDaCena=false;
+float cenaX=0, cenaY=0, cenaZoom=1;
+double zoomMudouEm=-10;
+   // quando o zoom do mapa mudou (aviso "Zoom: PERTO")
 constexpr int TAM = 24;
 constexpr int MX = 39;
 constexpr int MY = 122;
@@ -966,6 +976,79 @@ float zoomDoMapa() {
     ultimo=agora;
     return atual;
 }
+// (Definidas mais abaixo, junto com as falas.)
+size_t letrasReveladas(const std::string& s,double t,float porSegundo,bool& completo);
+void vozDasLetras(const std::string& s,size_t antes,size_t agora,Voz voz,int& contador);
+Vector2 casaNaTela(float x,float y);
+
+// ---- Gritos dos monstros -----------------------------------------------------
+// Quando um monstro à vista percebe o jogador (passa a caçar), aparece um
+// balãozinho em cima dele com um grito, na voz da espécie. (Só desenho: a
+// lógica do jogo não sabe disso, e os bots não veem.)
+std::vector<std::string> gritosDaEspecie(char simbolo) {
+    switch(simbolo) {
+        case 'r': return {"Squiii!","Squi squi!"};
+        case 'k': return {"Yip yip!","Brasa! Brasa!"};
+        case 'j': return {"Grrr...","Au! Au!"};
+        case 'm': return {"Uuh uuh!","Aah aah!"};
+        case 't': return {"Croac!","Croooac..."};
+        case 'g': return {"Hehehe!","Ouro! Ouro!","Pega ele!"};
+        case 'v': return {"Iii iii!","Skriii!"};
+        case 'O': return {"GRUAAAR!","ESMAGAR!"};
+        case 'N': return {"Sssss...","Ssssiim..."};
+        case 'G': return {"Hihihi! TUUU!"};
+        case 'W': return {"...shhh...","...aqui..."};
+        case 'M': return {"NHAC!","Nhac nhac!"};
+        case 'S': return {"Venha... eu espero."};
+    }
+    return {"!"};
+}
+struct Grito { int monstro; std::string texto; double inicio; Voz voz; size_t tocados; int contador; };
+std::vector<Grito> gritos;
+int estadoAntes[MAX_MONSTROS];
+int andarDosGritos=-1, monstrosDosGritos=-1;
+double ultimoGrito=0;
+const double DURACAO_DO_GRITO=1.8;
+
+void atualizarGritos(const Jogo& jogo) {
+    const Andar& a=andarAtual(jogo);
+    double agora=GetTime();
+    // Andar novo (ou partida nova): começa do estado atual, sem gritaria.
+    if(jogo.andar!=andarDosGritos || a.numMonstros!=monstrosDosGritos) {
+        andarDosGritos=jogo.andar; monstrosDosGritos=a.numMonstros;
+        for(int i=0;i<a.numMonstros;i++) estadoAntes[i]=a.monstros[i].estado;
+        gritos.clear();
+        return;
+    }
+    for(int i=0;i<a.numMonstros;i++) {
+        const Monstro& m=a.monstros[i];
+        bool comecouACacar = m.estado==CACANDO && estadoAntes[i]!=CACANDO;
+        // Muitos de uma vez: os outros gritam logo depois (não perdem a vez).
+        if(comecouACacar && (gritos.size()>=3 || agora-ultimoGrito<0.25) && m.vivo && monstroAVista(jogo,m)) continue;
+        estadoAntes[i]=m.estado;
+        if(!comecouACacar || !m.vivo || !monstroAVista(jogo,m) || cameraDaCena) continue;   // na cena, só o "!"
+        char simbolo=tipoDe(m).simbolo;
+        if(simbolo=='G' || simbolo=='S') continue;          // esses dois têm cena própria
+        std::vector<std::string> opcoes=gritosDaEspecie(simbolo);
+        gritos.push_back({i,opcoes[(size_t)(i+jogo.passos)%opcoes.size()],agora,vozDoMonstro(simbolo),0,0});
+        ultimoGrito=agora;
+    }
+    gritos.erase(std::remove_if(gritos.begin(),gritos.end(),[&](const Grito& g){
+        return agora-g.inicio>DURACAO_DO_GRITO || g.monstro>=a.numMonstros || !a.monstros[g.monstro].vivo; }),gritos.end());
+}
+// Balãozinho de grito (também usado pelo gnomo nas cenas). "x" e "y": ponto
+// da tela onde a ponta encosta (em cima da cabeça de quem grita).
+void balaozinho(const std::string& s,float x,float y,float alfa,Color tinta={46,36,30,255}) {
+    float w=larguraDoTexto(s,17)+24, h=30;
+    Rectangle r={x-w/2,y-h-12,w,h};
+    unsigned char A=(unsigned char)(255*alfa);
+    trianguloCheio({x-7,r.y+h-2},{x+7,r.y+h-2},{x,y-2},{58,44,34,A});
+    DrawRectangleRounded(r,0.45f,8,{242,234,212,A});
+    DrawRectangleRoundedLinesEx(r,0.45f,8,2.0f,{58,44,34,A});
+    trianguloCheio({x-4,r.y+h-4},{x+4,r.y+h-4},{x,y-5},{242,234,212,A});
+    tinta.a=A;
+    texto(s,r.x+12,r.y+5,17,tinta);
+}
 // A câmera em um eixo: o herói fica sempre no meio da tela (assim ele nunca
 // fica embaixo dos cartões dos cantos). Perto da borda do mapa, aparece o
 // escuro de fora, mas no máximo meia tela.
@@ -979,12 +1062,13 @@ void mapa(const Jogo& jogo) {
     definirCorDoHeroi(paraCor(CORES_DO_JOGADOR[jogo.jogador.cor]));
     // O mapa ocupa a tela toda: tudo é desenhado em "pixels do mundo" (casa
     // x fica em x*TAM) e o zoom da câmera aumenta na tela.
-    float z=zoomDoMapa(), tam=TAM*z;
+    float z = cameraDaCena ? cenaZoom : zoomDoMapa(), tam=TAM*z;
     float vistaW=Ui::LARGURA/tam, vistaH=Ui::ALTURA/tam;   // em casas
-    float camX=eixoDaCamera(jogadorSuave.x,vistaW,MAPA_LARGURA);
-    float camY=eixoDaCamera(jogadorSuave.y,vistaH,MAPA_ALTURA);
+    float camX=eixoDaCamera(cameraDaCena?cenaX:jogadorSuave.x,vistaW,MAPA_LARGURA);
+    float camY=eixoDaCamera(cameraDaCena?cenaY:jogadorSuave.y,vistaH,MAPA_ALTURA);
     int cx=(int)std::floor(camX), cy=(int)std::floor(camY);
     int nx=(int)std::ceil(vistaW)+1, ny=(int)std::ceil(vistaH)+1;
+    cameraX=camX; cameraY=camY; cameraZoom=z;
     Ui::comecarZoom(-camX*tam,-camY*tam,z);
     for(int iy=0;iy<=ny;iy++)for(int ix=0;ix<=nx;ix++)
         tile(jogo,a,cx+ix,cy+iy,(cx+ix)*TAM,(cy+iy)*TAM);
@@ -1030,6 +1114,19 @@ void mapa(const Jogo& jogo) {
     Efeitos::desenharParticulas(Efeitos::CAMADA_MAPA,0,0);
     Efeitos::desenharTextosFlutuantes(Efeitos::CAMADA_MAPA,0,0);
     Ui::terminarZoom();
+    // Gritos dos monstros que acabaram de te perceber.
+    atualizarGritos(jogo);
+    for(Grito& g:gritos) {
+        double idade=GetTime()-g.inicio;
+        bool completo;
+        size_t bytes=letrasReveladas(g.texto,idade,26*ritmoDaVoz(g.voz),completo);
+        if(bytes>g.tocados) { vozDasLetras(g.texto,g.tocados,bytes,g.voz,g.contador); g.tocados=bytes; }
+        float alfa = idade>DURACAO_DO_GRITO-0.4 ? (float)((DURACAO_DO_GRITO-idade)/0.4) : 1.0f;
+        float subida=(float)std::min(idade,0.25)*24;
+        Vector2 p=casaNaTela(monstrosSuaves[g.monstro].x+0.5f,monstrosSuaves[g.monstro].y);
+        balaozinho(g.texto.substr(0,bytes),p.x,p.y+4-subida,alfa);
+    }
+    if(esconderCartoes) return;
     tituloDoTema();
     faixaDeDestaque(jogo);
     hud(jogo);
@@ -1809,12 +1906,13 @@ const Personagem PERSONAGENS[] = {
      "Você escolhe o elemento, a cor e os atributos na criação. Vencendo monstros, sobe de nível e "
      "ganha pontos para distribuir (tecla C)."},
     {&EXPLORADORA,"Eldra, a exploradora","andar 1",
-     "Já desceu até o quarto andar antes de voltar ferida. Conta como a masmorra funciona e dá uma "
-     "poção para começar."},
+     "Chegou até o quarto andar e voltou com a perna ferida. Ensina como a masmorra funciona, dá uma "
+     "poção e manda você procurar o Borin."},
     {&MINEIRO,"Borin, o velho mineiro","andar 4",
-     "Conhece cada túnel das minas. Destranca a sala do tesouro do andar dele."},
-    {&ESPIRITO,"O espírito do guardião","andar 7",
-     "Avisa sobre o senhor das profundezas e cura as suas feridas antes da descida final."},
+     "Cavou estes túneis por quarenta anos. Resmunga muito, mas destranca a sala do tesouro do andar dele."},
+    {&ESPIRITO,"Aldric, o espírito guardião","andar 7",
+     "O último guardião da mina: segurou o Senhor das Profundezas por cem anos. Cura as suas feridas "
+     "antes da descida final."},
     {&COMERCIANTE,"Garro, o comerciante","andares 3, 6 e 9",
      "Vende poções, armas, escudos e itens de suporte, e compra o que você não quer mais."},
     {&VIAJANTE,"Tobias, o viajante perdido","aparece por sorte",
@@ -1848,6 +1946,10 @@ void barraDoAtributo(const char* nome,int valor,float x,float y) {
     texto(std::to_string(valor),x+372,y,17,TEXTO);
 }
 
+// A espécie escolhida "fala" o grito dela (com a voz) ao aparecer na ficha.
+double especieEscolhidaEm=0;
+size_t letrasDoGritoTocadas=0;
+int contadorDoGrito=0;
 void fichaDoMonstro(const Jogo* jogo,int tipo) {
     Rectangle p={800,110,590,700};
     painel(p,PAINEL);
@@ -1865,6 +1967,14 @@ void fichaDoMonstro(const Jogo* jogo,int tipo) {
         return;
     }
     sprite(imagemMonstro(tipo).data(),x+13,y+8,9.0f);
+    {
+        std::string grito=gritosDaEspecie(t.simbolo)[0];
+        Voz voz=vozDoMonstro(t.simbolo);
+        bool completo;
+        size_t bytes=letrasReveladas(grito,GetTime()-especieEscolhidaEm-0.25,26*ritmoDaVoz(voz),completo);
+        if(bytes>letrasDoGritoTocadas) { vozDasLetras(grito,letrasDoGritoTocadas,bytes,voz,contadorDoGrito); letrasDoGritoTocadas=bytes; }
+        if(bytes>0) balaozinho(grito.substr(0,bytes),x+120,y+34,1.0f);
+    }
     texto(comMaiusculaInicial(t.nome),x+200,y+8,30,OURO);
     texto(andaresDaEspecie(tipo),x+200,y+48,17,CIANO);
     textoQuebrado(descricaoDaEspecie(tipo),x+200,y+76,16,330,22,TEXTO);
@@ -1984,6 +2094,7 @@ void desenharBestiario(const Jogo* jogo,int aba,int escolhido) {
 void mostrarBestiario(const Jogo* jogo) {
     int aba=0, escolhido=0;
     tocarSom(SOM_MENU);
+    especieEscolhidaEm=GetTime(); letrasDoGritoTocadas=0; contadorDoGrito=0;
     auto clicou=[](Rectangle r){ return IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouseVirtual(),r); };
     while(!WindowShouldClose()) {
         Efeitos::trocarDeTela(55);
@@ -2002,10 +2113,691 @@ void mostrarBestiario(const Jogo* jogo) {
             escolhido=std::max(0,escolhido-COLUNAS_DO_BESTIARIO);
         for(int i=0;i<total;i++) if(clicou(cartaDoBestiario(i))) escolhido=i;
         if(aba!=abaAntes) escolhido=0;
-        if(escolhido!=antes || aba!=abaAntes) tocarSom(SOM_MENU);
+        if(escolhido!=antes || aba!=abaAntes) {
+            tocarSom(SOM_MENU);
+            especieEscolhidaEm=GetTime(); letrasDoGritoTocadas=0; contadorDoGrito=0;
+        }
     }
     // Mais um quadro: a tecla que fechou (Esc, E) não chega ao jogo.
     Ui::iniciarQuadro(); desenharBestiario(jogo,aba,escolhido); Ui::terminarQuadro();
     while(GetCharPressed()!=0) {}
     tocarSom(SOM_MENU);
+}
+
+// ---------------------------------------------------------------------------
+// FALAS E HISTÓRIA: o texto aparece letra por letra, como alguém falando.
+// Enter (ou espaço, ou clique) mostra o resto de uma vez; com tudo à mostra,
+// passa para o próximo balão. Esc pula a conversa (ou a história) inteira.
+// Cada letra toca um "bip" na voz de quem fala (som.h: tocarVoz).
+// ---------------------------------------------------------------------------
+namespace {
+// Letras por segundo em cada velocidade das Opções (0 = aparece tudo na hora).
+float letrasPorSegundo(float multiplicador=1.0f) {
+    static const float VELOCIDADES[4]={22,38,75,0};
+    return VELOCIDADES[std::clamp(opcoes().velocidadeDoTexto,0,3)]*multiplicador;
+}
+// Quantos bytes do texto já apareceram depois de "t" segundos (sem cortar
+// uma letra acentuada no meio). Depois de . ! ? a "voz" respira um pouco, e
+// depois de vírgula, menos.
+size_t letrasReveladas(const std::string& s,double t,float porSegundo,bool& completo) {
+    completo=true;
+    if(porSegundo<=0) return s.size();
+    double tempo=0;
+    size_t i=0;
+    while(i<s.size()) {
+        unsigned char c=(unsigned char)s[i];
+        size_t tam = c<0x80 ? 1 : (c>>5)==6 ? 2 : (c>>4)==14 ? 3 : 4;
+        tempo+=1.0/porSegundo;
+        if(tempo>t) { completo=false; return i; }
+        i+=tam;
+        if(c=='.'||c=='!'||c=='?') tempo+=0.30;
+        else if(c==','||c==';'||c==':') tempo+=0.12;
+    }
+    return s.size();
+}
+// Junta as linhas em parágrafos (as linhas vazias separam um do outro).
+std::vector<std::string> emParagrafos(const std::vector<std::string>& linhas) {
+    std::vector<std::string> pars;
+    std::string atual;
+    for(const std::string& l:linhas) {
+        if(l.empty() || l==QUEBRA_DE_PAGINA) { if(!atual.empty()) pars.push_back(atual); atual.clear(); continue; }
+        atual += atual.empty() ? l : " "+l;
+    }
+    if(!atual.empty()) pars.push_back(atual);
+    return pars;
+}
+// Desenha só os primeiros "bytes" do texto, já quebrado em linhas.
+// "tremor" > 0: cada linha balança um pouco (a voz do chefe).
+void textoRevelado(const std::vector<std::string>& linhas,size_t bytes,float x,float y,float tam,float entrelinha,
+                   Color cor,bool centralizado=false,float tremor=0) {
+    size_t usados=0;
+    for(size_t i=0;i<linhas.size();i++) {
+        if(usados>=bytes) break;
+        size_t aqui=std::min(linhas[i].size(),bytes-usados);
+        std::string parte=linhas[i].substr(0,aqui);
+        float dx=0, dy=0;
+        if(tremor>0) { dx=GetRandomValue(-100,100)/100.0f*tremor; dy=GetRandomValue(-100,100)/100.0f*tremor; }
+        if(centralizado) {
+            // Centraliza pela linha inteira: as letras não "andam" enquanto aparecem.
+            float w=larguraDoTexto(linhas[i],tam);
+            texto(parte,x-w/2+dx,y+i*entrelinha+dy,tam,cor);
+        } else texto(parte,x+dx,y+i*entrelinha+dy,tam,cor);
+        usados+=linhas[i].size()+1;   // +1: o espaço que virou quebra de linha
+    }
+}
+bool teclaDeAvancar() {
+    return IsKeyPressed(KEY_ENTER)||IsKeyPressed(KEY_KP_ENTER)||IsKeyPressed(KEY_SPACE)||IsKeyPressed(KEY_Z)||
+           IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+}
+Voz vozDoNpc(int tipo) {
+    switch(tipo) {
+        case NPC_EXPLORADORA: return VOZ_ELDRA;
+        case NPC_MINEIRO:     return VOZ_BORIN;
+        case NPC_ESPIRITO:    return VOZ_ALDRIC;
+        case NPC_COMERCIANTE: return VOZ_GARRO;
+        case NPC_VIAJANTE:    return VOZ_TOBIAS;
+    }
+    return VOZ_NARRADOR;
+}
+// Toca a voz para as letras novas (espaços e pontuação não fazem som).
+void vozDasLetras(const std::string& s,size_t antes,size_t agora,Voz voz,int& contador) {
+    for(size_t i=antes;i<agora && i<s.size();i++) {
+        unsigned char c=(unsigned char)s[i];
+        if(c==' '||c=='.'||c==','||c=='!'||c=='?'||c=='"'||c==';'||c==':'||(c>=0x80&&c<0xC0)) continue;
+        tocarVoz(voz,contador++);
+    }
+}
+
+// Quem fala numa conversa: onde está no mapa, o desenho, o nome e a voz.
+enum EstiloDoBalao { BALAO_PAPEL, BALAO_HEROI, BALAO_CHEFE };
+struct Falante {
+    float x, y;                 // casa no mapa
+    const Sprite* arte;
+    std::string nome;
+    Color corDoNome;
+    Voz voz;
+    EstiloDoBalao estilo;
+    // Fora do mapa (na batalha): onde fica, na tela, o meio, o alto da
+    // cabeça e o pé de quem fala.
+    bool naTela=false;
+    float telaX=0, telaTopo=0, telaPe=0;
+};
+// Um balão: quem fala (-1 = narração), o texto e o prêmio (linha verde).
+struct Trecho { int falante; std::string texto, premio; };
+
+// As linhas das falas (npcs.cpp) viram trechos: entre aspas = a pessoa
+// (falante 0); "> " na frente = o herói (falante 1); sem aspas = narração.
+std::vector<Trecho> emTrechos(const std::vector<std::string>& linhas) {
+    std::vector<Trecho> trechos;
+    for(std::string par:emParagrafos(linhas)) {
+        Trecho t={0,"",""};
+        if(par.rfind("> ",0)==0) { t.falante=1; par=par.substr(2); }
+        else if(par[0]!='"') t.falante=-1;
+        size_t abre=par.rfind("  (");
+        if(abre!=std::string::npos && par.back()==')') { t.premio=par.substr(abre+2); par=par.substr(0,abre); }
+        for(char c:par) if(c!='"') t.texto+=c;   // sem aspas: o balão já mostra que é fala
+        trechos.push_back(t);
+    }
+    return trechos;
+}
+
+// Canto de cima à esquerda de uma casa, na tela (a mesma conta da câmera do mapa).
+Vector2 casaNaTela(float x,float y) {
+    return {(x*TAM-cameraX*TAM)*cameraZoom,(y*TAM-cameraY*TAM)*cameraZoom};
+}
+
+// O balão, com a "ponta" apontando para quem fala.
+void balaoDeFala(const Falante& f,const Trecho& t,size_t bytes,bool completo,int pagina,int paginas) {
+    const float W=640, TAM_TEXTO=22, LINHA=31;
+    Color papel={242,234,212,255}, contorno={58,44,34,255}, tinta={46,36,30,255}, fundoDaFoto={226,214,184,255};
+    if(f.estilo==BALAO_HEROI) { papel={232,237,246,255}; contorno={44,52,78,255}; tinta={30,36,56,255}; fundoDaFoto={208,216,232,255}; }
+    if(f.estilo==BALAO_CHEFE) { papel={34,8,12,245}; contorno={190,40,50,255}; tinta={255,204,196,255}; fundoDaFoto={70,14,20,255}; }
+    std::vector<std::string> linhas=quebrarLinhas(t.texto,TAM_TEXTO,W-150);
+    float h=std::max(118.0f,46+linhas.size()*LINHA+(t.premio.empty()?0:LINHA)+30);
+    Vector2 topo=casaNaTela(f.x,f.y), pe=casaNaTela(f.x,f.y+1);
+    float sx=casaNaTela(f.x+0.5f,f.y).x;
+    if(f.naTela) { topo.y=f.telaTopo; pe.y=f.telaPe; sx=f.telaX; }
+    bool emCima = topo.y-22-h >= 24;
+    float by = emCima ? topo.y-22-h : pe.y+22;
+    float bx = std::clamp(sx-W*0.32f,24.0f,Ui::LARGURA-24.0f-W);
+    Rectangle r={bx,by,W,h};
+    if(f.estilo==BALAO_CHEFE) DrawCircleGradient((int)(r.x+r.width/2),(int)(r.y+r.height/2),r.width*0.62f,{150,20,30,70},{0,0,0,0});
+    DrawRectangleRounded({r.x+5,r.y+7,r.width,r.height},0.18f,10,{0,0,0,110});
+    float px=std::clamp(sx,r.x+40,r.x+r.width-40);
+    Vector2 a={px-16,emCima?r.y+r.height-2:r.y+2}, b={px+16,a.y}, c={sx,emCima?topo.y-4:pe.y+4};
+    trianguloCheio(a,b,c,contorno);
+    DrawRectangleRounded(r,0.18f,10,papel);
+    DrawRectangleRoundedLinesEx(r,0.18f,10,3.0f,contorno);
+    Vector2 a2={a.x+4,emCima?a.y-3:a.y+3}, b2={b.x-4,b.y+(emCima?-3:3)}, c2={c.x,c.y+(emCima?-6:6)};
+    trianguloCheio(a2,b2,c2,papel);
+    // Retrato e nome.
+    Rectangle foto={r.x+16,r.y+18,96,96};
+    DrawRectangleRounded(foto,0.15f,6,fundoDaFoto);
+    sprite(f.arte->data(),foto.x+8,foto.y+6,5.0f);
+    float wn=larguraDoTexto(f.nome,19)+28;
+    Rectangle etiqueta={r.x+122,r.y-15,wn,30};
+    DrawRectangleRounded(etiqueta,0.5f,8,f.estilo==BALAO_CHEFE?Color{20,4,6,255}:contorno);
+    DrawRectangleRoundedLinesEx(etiqueta,0.5f,8,2.0f,f.corDoNome);
+    texto(f.nome,etiqueta.x+14,etiqueta.y+5,19,f.corDoNome);
+    // O texto, aparecendo aos poucos.
+    float tx=r.x+128, ty=r.y+28;
+    textoRevelado(linhas,bytes,tx,ty,TAM_TEXTO,LINHA,tinta,false,f.estilo==BALAO_CHEFE?1.2f:0.0f);
+    if(completo && !t.premio.empty()) texto(t.premio,tx,ty+linhas.size()*LINHA+4,TAM_TEXTO-1,{36,120,62,255});
+    if(paginas>1) texto(std::to_string(pagina+1)+"/"+std::to_string(paginas),r.x+r.width-62,r.y+r.height-28,15,
+                        f.estilo==BALAO_CHEFE?Color{170,90,90,255}:Color{150,128,100,255});
+    if(completo) {
+        float pulo=std::fabs(std::sin((float)GetTime()*5.0f))*5;
+        float cx=r.x+r.width-24, cy=r.y+r.height-22+pulo;
+        trianguloCheio({cx-8,cy-6},{cx+8,cy-6},{cx,cy+4},f.estilo==BALAO_CHEFE?Color{230,60,60,255}:Color{170,110,40,255});
+    }
+}
+
+// Narração: uma caixa escura no alto da tela, na voz do narrador.
+void caixaDeNarracao(const Trecho& t,size_t bytes,bool completo) {
+    const float W=780, TAM_TEXTO=21, LINHA=30;
+    std::vector<std::string> linhas=quebrarLinhas(t.texto,TAM_TEXTO,W-60);
+    float h=34+linhas.size()*LINHA+(t.premio.empty()?0:LINHA)+16;
+    Rectangle r={(Ui::LARGURA-W)/2,56,W,h};
+    DrawRectangleRounded({r.x+4,r.y+6,r.width,r.height},0.2f,10,{0,0,0,120});
+    DrawRectangleRounded(r,0.2f,10,{14,18,30,238});
+    DrawRectangleRoundedLinesEx(r,0.2f,10,2.0f,{120,108,86,255});
+    textoRevelado(linhas,bytes,r.x+30,r.y+18,TAM_TEXTO,LINHA,{220,210,186,255});
+    if(completo && !t.premio.empty()) texto(t.premio,r.x+30,r.y+18+linhas.size()*LINHA+2,TAM_TEXTO-1,{120,220,140,255});
+    if(completo) {
+        float pulo=std::fabs(std::sin((float)GetTime()*5.0f))*4;
+        float cx=r.x+r.width-24, cy=r.y+r.height-18+pulo;
+        trianguloCheio({cx-7,cy-5},{cx+7,cy-5},{cx,cy+4},{200,160,90,255});
+    }
+}
+
+// Uma conversa inteira. "fundo" desenha o que fica atrás (normalmente o
+// mapa); recebe os segundos desde o começo do balão.
+void conversar(const std::vector<Falante>& falantes,const std::vector<Trecho>& trechos,
+               const std::function<void(double)>& fundo,float velocidade=1.0f) {
+    bool pular=false;
+    for(size_t p=0;p<trechos.size() && !pular && !WindowShouldClose();p++) {
+        const Trecho& t=trechos[p];
+        bool narracao = t.falante<0 || t.falante>=(int)falantes.size();
+        Voz voz = narracao ? VOZ_NARRADOR : falantes[t.falante].voz;
+        double inicio=GetTime();
+        bool tudo=false;
+        size_t antes=0;
+        int contador=0;
+        while(!WindowShouldClose()) {
+            bool completo;
+            size_t bytes = tudo ? t.texto.size()
+                         : letrasReveladas(t.texto,GetTime()-inicio,letrasPorSegundo(velocidade*ritmoDaVoz(voz)),completo);
+            if(tudo) completo=true;
+            if(bytes>antes) { vozDasLetras(t.texto,antes,bytes,voz,contador); antes=bytes; }
+            Ui::iniciarQuadro();
+            fundo(GetTime()-inicio);
+            if(narracao) caixaDeNarracao(t,bytes,completo);
+            else balaoDeFala(falantes[t.falante],t,bytes,completo,(int)p,(int)trechos.size());
+            texto("Enter: continuar    Esc: pular",24,Ui::ALTURA-36.0f,15,{150,165,185,200});
+            Ui::terminarQuadro();
+            while(GetCharPressed()!=0) {}
+            if(IsKeyPressed(KEY_ESCAPE)) { pular=true; break; }
+            if(teclaDeAvancar()) {
+                if(!completo) tudo=true;
+                else { tocarSom(SOM_MENU); break; }
+            }
+        }
+    }
+}
+// O herói como falante (balão azulado, nome em dourado).
+Falante falanteHeroi(const Jogo& jogo) {
+    return {jogadorSuave.x,jogadorSuave.y,&HEROI,jogo.jogador.nome,OURO,VOZ_HEROI,BALAO_HEROI};
+}
+// Depois de uma conversa: mais um quadro, para a tecla que fechou não chegar
+// ao jogo (o Esc abriria a pausa).
+void engolirTeclas(const Jogo& jogo) {
+    Ui::iniciarQuadro(); mapa(jogo); Ui::terminarQuadro();
+    while(GetCharPressed()!=0) {}
+}
+}
+
+void mostrarFala(const Jogo& jogo,int indice,const std::vector<std::string>& linhas) {
+    const Andar& andar=andarAtual(jogo);
+    if(indice<0 || indice>=andar.numNpcs) return;
+    const Npc& npc=andar.npcs[indice];
+    std::string nome=FICHAS_DOS_NPCS[npc.tipo].nome;
+    nome=nome.substr(0,nome.find(','));
+    std::vector<Falante> falantes={
+        {(float)npc.x,(float)npc.y,&imagemNpc(npc.tipo),nome,paraCor(FICHAS_DOS_NPCS[npc.tipo].cor),vozDoNpc(npc.tipo),BALAO_PAPEL},
+        falanteHeroi(jogo),
+    };
+    esconderCartoes=true;
+    conversar(falantes,emTrechos(linhas),[&](double){
+        mapa(jogo);
+        DrawRectangle(0,0,Ui::LARGURA,Ui::ALTURA,{4,6,14,70});
+    });
+    engolirTeclas(jogo);
+    esconderCartoes=false;
+}
+
+// ---- Cenas: o gnomo vigia e o Senhor das Profundezas -----------------------
+namespace {
+float suave(float t) { t=std::clamp(t,0.0f,1.0f); return t*t*(3-2*t); }
+// Faixas pretas de cinema (0 = sem faixas, 1 = faixas inteiras).
+void faixasDeCinema(float quanto) {
+    float h=92*suave(quanto);
+    if(h<1) return;
+    DrawRectangle(-200,-200,Ui::LARGURA+400,(int)h+200,BLACK);
+    DrawRectangle(-200,Ui::ALTURA-(int)h,Ui::LARGURA+400,(int)h+200,BLACK);
+}
+// "!" sobre a cabeça de um monstro (perceberam o jogador).
+void exclamacao(float x,float y,float tempo,Color cor) {
+    float pulo=std::max(0.0f,1.0f-tempo*4)*10;
+    textoCentro("!",x,y-40-pulo,36,cor);
+}
+// Junta a câmera da cena com a câmera normal (t: 0 = no herói, 1 = no alvo).
+void camera(float alvoX,float alvoY,float zoomNoAlvo,float t) {
+    float s=suave(t);
+    float z0=zoomDoMapa();
+    cameraDaCena=true;
+    cenaX=jogadorSuave.x+(alvoX-jogadorSuave.x)*s;
+    cenaY=jogadorSuave.y+(alvoY-jogadorSuave.y)*s;
+    cenaZoom=z0+(zoomNoAlvo-z0)*s;
+}
+bool pulouACena() {
+    return IsKeyPressed(KEY_ESCAPE)||IsKeyPressed(KEY_ENTER)||IsKeyPressed(KEY_KP_ENTER)||IsKeyPressed(KEY_SPACE);
+}
+}
+
+void cenaDaCorneta(const Jogo& jogo,int indice,bool primeira) {
+    const Andar& a=andarAtual(jogo);
+    if(indice<0 || indice>=a.numMonstros) return;
+    const Monstro& g=a.monstros[indice];
+    esconderCartoes=true;
+    // Linha do tempo (segundos).
+    const double CORNETA=1.0, FIM=primeira?5.0:5.4, VOLTA=FIM-0.8;
+    double inicio=GetTime();
+    bool tocou=false, riu=false, riu2=false;
+    std::string fala = primeira ? "Peguem ele!" : "Agora você não escapa!";
+    double tFala = primeira ? 2.9 : 1.9;
+    size_t vozTocada=0; int contador=0;
+    float zoomNoGnomo=std::min(3.0f,zoomEscolhido()*1.8f);
+    while(!WindowShouldClose()) {
+        double t=GetTime()-inicio;
+        bool pular=pulouACena();
+        if(t>=CORNETA && !tocou) {
+            tocou=true;
+            tocarSom(SOM_CORNETA);
+            efeitoNoMapa(jogo,EFEITO_CORNETA,g.x,g.y,0);
+            Efeitos::tremer(5.0f,0.4);
+        }
+        if(primeira && t>=2.0 && !riu) { riu=true; tocarSom(SOM_RISADA_GNOMO); }
+        if(!primeira && t>=3.3 && !riu) { riu=true; tocarSom(SOM_RISADA_GNOMO); }
+        if(!primeira && t>=3.8 && !riu2) { riu2=true; tocarSomComTom(SOM_RISADA_GNOMO,0.92f); }
+        if(pular || t>=FIM) break;
+        float ida=(float)(t/0.9), volta=(float)((t-VOLTA)/0.8);
+        camera(monstrosSuaves[indice].x,monstrosSuaves[indice].y,zoomNoGnomo,t<VOLTA?ida:1-volta);
+        Ui::iniciarQuadro();
+        mapa(jogo);
+        Vector2 cabeca=casaNaTela(monstrosSuaves[indice].x+0.5f,monstrosSuaves[indice].y);
+        // O gnomo percebe você.
+        if(t>=0.6 && t<CORNETA+0.3) exclamacao(cabeca.x,cabeca.y,(float)(t-0.6),OURO);
+        // Os monstros que ouviram e estão à vista também ganham um "!".
+        if(t>=CORNETA+0.25) {
+            for(int i=0;i<a.numMonstros;i++) {
+                const Monstro& m=a.monstros[i];
+                if(i==indice || !m.vivo || m.estado!=CACANDO || m.turnosSemVerJogador>=0 || !monstroAVista(jogo,m)) continue;
+                Vector2 c=casaNaTela(monstrosSuaves[i].x+0.5f,monstrosSuaves[i].y);
+                exclamacao(c.x,c.y,(float)(t-CORNETA-0.25),PERIGO);
+            }
+        }
+        // Risada e fala em balõezinhos.
+        bool mostraRisada = primeira ? (t>=2.0 && t<tFala) : (t>=3.3 && t<VOLTA);
+        if(mostraRisada) balaozinho(primeira?"Hihihi!":"Hihihihi!",cabeca.x,cabeca.y,1.0f);
+        if(t>=tFala && t<(primeira?VOLTA:3.3)) {
+            bool completo;
+            size_t bytes=letrasReveladas(fala,t-tFala,30,completo);
+            if(bytes>vozTocada) { vozDasLetras(fala,vozTocada,bytes,VOZ_GNOMO,contador); vozTocada=bytes; }
+            if(bytes>0) balaozinho(fala.substr(0,bytes),cabeca.x,cabeca.y,1.0f);
+        }
+        faixasDeCinema(t<VOLTA ? (float)(t/0.4) : (float)((FIM-t)/0.5));
+        if(t>0.3) texto("Enter: pular",Ui::LARGURA-150.0f,Ui::ALTURA-34.0f,15,{150,150,160,220});
+        Ui::terminarQuadro();
+        while(GetCharPressed()!=0) {}
+    }
+    if(!tocou) { tocarSom(SOM_CORNETA); efeitoNoMapa(jogo,EFEITO_CORNETA,g.x,g.y,0); }
+    cameraDaCena=false;
+    engolirTeclas(jogo);
+    esconderCartoes=false;
+}
+
+void cenaDoChefe(const Jogo& jogo,int indice,const std::vector<std::string>& falas,bool primeira) {
+    const Andar& a=andarAtual(jogo);
+    if(indice<0 || indice>=a.numMonstros) return;
+    esconderCartoes=true;
+    tocarMusica(SEM_MUSICA);
+    float bx=monstrosSuaves[indice].x, by=monstrosSuaves[indice].y;
+    float zoomNoChefe=std::min(3.2f,zoomEscolhido()*2.0f);
+    // Linha do tempo da primeira vez (segundos): a câmera vai devagar, as
+    // luzes se apagam, silêncio, os olhos acendem e ele ruge.
+    const double CHEGA = primeira ? 1.8 : 0.8;
+    const double OLHOS = primeira ? 3.4 : 0.9, RUGIDO = primeira ? 3.6 : 99, FALA = primeira ? 4.8 : 1.2;
+    double apagou[3]={1.8,2.25,2.7};
+    bool tocouApagar[3]={false,false,false}, rugiu=false;
+    double inicio=GetTime();
+    auto escuro=[&](double t){
+        if(!primeira) return 150.0f;
+        float e=(float)std::clamp(t/1.6,0.0,1.0)*50;
+        for(int k=0;k<3;k++) if(t>=apagou[k]) e+=35;
+        return e;
+    };
+    // O que fica na tela (o mapa escuro e o chefe crescendo, com os olhos acesos).
+    auto desenharCena=[&](double t){
+        float ida=(float)(t/CHEGA);
+        camera(bx,by,zoomNoChefe,ida);
+        mapa(jogo);
+        DrawRectangle(-200,-200,Ui::LARGURA+400,Ui::ALTURA+400,{0,0,0,(unsigned char)escuro(t)});
+        Vector2 centro=casaNaTela(bx+0.5f,by+0.5f);
+        float cresce = t<RUGIDO ? 1.0f : 1.0f+0.8f*suave((float)((t-RUGIDO)/0.6));
+        if(!primeira) cresce=1.6f;
+        float pulso=0.5f+0.5f*std::sin((float)GetTime()*4);
+        if(t>=OLHOS) {
+            DrawCircleGradient((int)centro.x,(int)centro.y,(int)(110*cameraZoom*cresce/1.5f),
+                               {170,20,30,(unsigned char)(90+50*pulso)},{0,0,0,0});
+            float p=1.25f*cameraZoom*cresce;
+            float sx=centro.x-8*p, sy=centro.y-8*p-2*cameraZoom;
+            sprite(SENHOR.data(),sx,sy,p);
+            for(int olho=0;olho<2;olho++) {   // os olhos (pixels amarelos do desenho)
+                Vector2 c={sx+(olho==0?5.5f:10.5f)*p,sy+5.5f*p};
+                DrawCircleGradient((int)c.x,(int)c.y,(int)(p*3.2f),{255,60,40,(unsigned char)(200+55*pulso)},{255,0,0,0});
+                DrawCircleV(c,p*0.75f,{255,240,170,255});
+            }
+        }
+        faixasDeCinema((float)(t/0.5));
+    };
+    // 1) A câmera chega, as luzes se apagam, ele acorda e ruge.
+    while(!WindowShouldClose()) {
+        double t=GetTime()-inicio;
+        for(int k=0;k<3;k++) if(primeira && t>=apagou[k] && !tocouApagar[k]) { tocouApagar[k]=true; tocarSom(SOM_TOCHA_APAGA); }
+        if(t>=RUGIDO && !rugiu) { rugiu=true; tocarSom(SOM_RUGIDO); Efeitos::tremer(12.0f,1.1); }
+        if(t>=FALA || pulouACena()) break;
+        Ui::iniciarQuadro();
+        desenharCena(t);
+        if(t>0.3) texto("Enter: pular",Ui::LARGURA-150.0f,Ui::ALTURA-34.0f,15,{150,150,160,220});
+        Ui::terminarQuadro();
+        while(GetCharPressed()!=0) {}
+    }
+    // 2) As falas, com a voz dele.
+    double tFixo=std::max(GetTime()-inicio,FALA+0.7);
+    std::vector<Falante> falantes={{bx,by,&SENHOR,"Senhor das Profundezas",{255,90,90,255},VOZ_CHEFE,BALAO_CHEFE}};
+    conversar(falantes,emTrechos(falas),[&](double){ desenharCena(tFixo); });
+    // 3) A tela racha em vermelho e a batalha começa.
+    tocarSom(SOM_RACHADURA);
+    Efeitos::tremer(8.0f,0.4);
+    double racha=GetTime();
+    while(!WindowShouldClose() && GetTime()-racha<0.6) {
+        float f=(float)((GetTime()-racha)/0.6);
+        Ui::iniciarQuadro();
+        desenharCena(tFixo);
+        Vector2 c={Ui::LARGURA/2.0f,Ui::ALTURA/2.0f};
+        for(int k=0;k<9;k++) {   // rachaduras saindo do meio
+            float ang=k*0.7f+0.3f, comp=900*suave(f*1.6f);
+            Vector2 p1=c, p2={c.x+std::cos(ang)*comp*0.5f+std::sin(k*3.1f)*40,c.y+std::sin(ang)*comp*0.5f};
+            Vector2 p3={c.x+std::cos(ang)*comp,c.y+std::sin(ang)*comp};
+            DrawLineEx(p1,p2,4,{255,70,60,255}); DrawLineEx(p2,p3,3,{255,120,90,220});
+        }
+        DrawRectangle(-200,-200,Ui::LARGURA+400,Ui::ALTURA+400,{180,10,20,(unsigned char)(200*f)});
+        Ui::terminarQuadro();
+        while(GetCharPressed()!=0) {}
+    }
+    cameraDaCena=false;
+    engolirTeclas(jogo);
+    esconderCartoes=false;
+}
+
+void falaDoChefeNaBatalha(const Jogo& jogo,const Batalha& b,int inimigo,const std::string& fala) {
+    if(inimigo<0 || inimigo>=b.numInimigos) return;
+    float x,y,p; posicaoDoSprite(b,inimigo+1,x,y,p);
+    Falante chefe={0,0,&SENHOR,"Senhor das Profundezas",{255,90,90,255},VOZ_CHEFE,BALAO_CHEFE};
+    chefe.naTela=true; chefe.telaX=x+8*p; chefe.telaTopo=y+2*p; chefe.telaPe=y+16*p;
+    conversar({chefe},emTrechos({"\""+fala+"\""}),[&](double){ telaBatalha(jogo,b); });
+    Ui::iniciarQuadro(); telaBatalha(jogo,b); Ui::terminarQuadro();
+    while(GetCharPressed()!=0) {}
+}
+
+// ---- A história do começo ---------------------------------------------------
+namespace {
+// Uma cena para cada parágrafo. "t" = segundos desde que a cena começou.
+void cenaDaHistoria(int cena,double t,bool& bateuAPorta) {
+    float cx=Ui::LARGURA/2.0f, cy=290;
+    float tf=(float)t;
+    switch(cena) {
+    case 0: {   // O Senhor das Profundezas, em brasa.
+        float pulso=0.5f+0.5f*std::sin(tf*2.2f);
+        DrawCircleGradient((int)cx,(int)cy,250,{170,30,40,(unsigned char)(70+50*pulso)},{0,0,0,0});
+        for(int k=0;k<46;k++) {
+            float x=cx+std::sin(k*12.9898f)*300+std::sin(tf*0.8f+k)*12;
+            float subida=std::fmod(tf*(35+k%5*9)+k*53.0f,420.0f);
+            float y=cy+200-subida;
+            unsigned char alfa=(unsigned char)(220*(1-subida/420.0f));
+            DrawCircleV({x,y},1.5f+(k%3),{255,(unsigned char)(120+k%4*25),40,alfa});
+        }
+        sprite(SENHOR.data(),cx-8*14,cy-8*14-10,14.0f);
+        break;
+    }
+    case 1: {   // Três aventureiros descem... e somem, um de cada vez.
+        DrawCircleGradient((int)cx,(int)cy+40,260,{60,80,120,40},{0,0,0,0});
+        for(int k=0;k<3;k++) {
+            float some=std::clamp((tf-1.0f-k*1.1f)/0.9f,0.0f,1.0f);
+            unsigned char alfa=(unsigned char)(255*(1-some));
+            if(!alfa) continue;
+            float x=cx-230+k*230-8*8, y=cy-8*8-20+some*30;
+            silhueta(HEROI.data(),x,y,8.0f,{70,82,110,alfa});
+        }
+        break;
+    }
+    case 2: {   // Você, com a tocha.
+        float balanco=std::sin(tf*2.0f)*4;
+        DrawCircleGradient((int)cx,(int)cy+10,240,{250,190,91,(unsigned char)(55+15*std::sin(tf*7.0f))},{0,0,0,0});
+        sprite(HEROI.data(),cx-8*13,cy-8*13+balanco,13.0f);
+        break;
+    }
+    default: {  // As portas da entrada se fecham.
+        Rectangle arco={cx-170,cy-180,340,360};
+        Rectangle muro={arco.x-60,arco.y-46,arco.width+120,arco.height+46};
+        DrawRectangleRec(muro,{46,48,58,255});   // muro de pedra
+        for(float y=muro.y;y<muro.y+muro.height;y+=46) {
+            DrawLineEx({muro.x,y},{muro.x+muro.width,y},2,{30,32,40,255});
+            int linha=(int)((y-muro.y)/46);
+            for(float x=muro.x+(linha%2)*35+35;x<muro.x+muro.width;x+=70)
+                DrawLineEx({x,y},{x,std::min(y+46,muro.y+muro.height)},2,{30,32,40,255});
+        }
+        DrawRectangleRec(arco,{6,8,14,255});
+        DrawCircleGradient((int)cx,(int)(arco.y+arco.height-60),150,{250,190,91,45},{0,0,0,0});
+        sprite(HEROI.data(),cx-8*7,arco.y+arco.height-8*7*2-10,7.0f);
+        // As duas folhas da porta, fechando de fora para dentro.
+        float p=std::clamp((tf-0.8f)/1.8f,0.0f,1.0f);
+        p=p*p*(3-2*p);
+        float meia=arco.width/2;
+        for(int lado=0;lado<2;lado++) {
+            float w=meia*p;
+            Rectangle f = lado==0 ? Rectangle{arco.x,arco.y,w,arco.height} : Rectangle{arco.x+arco.width-w,arco.y,w,arco.height};
+            if(w<1) continue;
+            DrawRectangleRec(f,{92,58,32,255});
+            for(float tabua=f.x+18;tabua<f.x+f.width;tabua+=36) DrawLineEx({tabua,f.y},{tabua,f.y+f.height},2,{62,38,20,255});
+            DrawRectangleRec({f.x,f.y+60,f.width,14},{52,54,64,255});
+            DrawRectangleRec({f.x,f.y+f.height-80,f.width,14},{52,54,64,255});
+        }
+        DrawRectangleLinesEx(arco,5,{26,28,36,255});
+        if(p>=1.0f && !bateuAPorta) {
+            bateuAPorta=true;
+            tocarSom(SOM_PORTA_FECHANDO);
+            Efeitos::tremer(9.0f,0.45);
+        }
+        break;
+    }
+    }
+}
+}
+
+namespace {
+// Conta uma história em tela escura: cada parágrafo com a sua cena
+// ("cena(indice, segundos, marca)"; a marca serve para um som tocar só uma vez).
+void contarHistoria(const std::vector<std::string>& pars,const std::function<void(int,double,bool&)>& cena,
+                    const char* dicaDoEsc) {
+    const float TAM_TEXTO=30, LINHA=46, LARGURA_TEXTO=1000, Y_TEXTO=560;
+    bool pular=false;
+    for(size_t p=0;p<pars.size() && !pular && !WindowShouldClose();p++) {
+        std::vector<std::string> quebradas=quebrarLinhas(pars[p],TAM_TEXTO,LARGURA_TEXTO);
+        double inicio=GetTime(), saindo=-1;
+        bool tudo=false, marca=false;
+        size_t antes=0;
+        int contador=0;
+        while(!WindowShouldClose()) {
+            double t=GetTime()-inicio;
+            // O texto começa depois de um respiro (a cena aparece primeiro).
+            bool completo;
+            double tTexto=std::max(0.0,t-0.7);
+            size_t bytes = tudo ? pars[p].size()
+                         : letrasReveladas(pars[p],tTexto,letrasPorSegundo(ritmoDaVoz(VOZ_NARRADOR)),completo);
+            if(tudo) completo=true;
+            if(bytes>antes) { vozDasLetras(pars[p],antes,bytes,VOZ_NARRADOR,contador); antes=bytes; }
+            float entrada=std::clamp((float)t/0.7f,0.0f,1.0f);
+            float saida = saindo<0 ? 1.0f : std::clamp(1.0f-(float)(GetTime()-saindo)/0.5f,0.0f,1.0f);
+            Ui::iniciarQuadro();
+            DrawRectangle(-200,-200,Ui::LARGURA+400,Ui::ALTURA+400,{3,4,9,255});
+            cena((int)p,t,marca);
+            textoRevelado(quebradas,bytes,Ui::LARGURA/2.0f,Y_TEXTO,TAM_TEXTO,LINHA,{226,220,206,255},true);
+            if(completo && saindo<0) {
+                float pisca=0.5f+0.5f*std::sin((float)GetTime()*4);
+                textoCentro("Enter",Ui::LARGURA/2.0f,Y_TEXTO+quebradas.size()*LINHA+26,18,
+                            {250,190,91,(unsigned char)(120+120*pisca)});
+            }
+            texto(dicaDoEsc,Ui::LARGURA-larguraDoTexto(dicaDoEsc,16)-30,Ui::ALTURA-40.0f,16,{110,120,140,255});
+            // Escurece na entrada e na saída de cada parágrafo.
+            float claro=std::min(entrada,saida);
+            if(claro<1) DrawRectangle(-200,-200,Ui::LARGURA+400,Ui::ALTURA+400,{3,4,9,(unsigned char)(255*(1-claro))});
+            Ui::terminarQuadro();
+            while(GetCharPressed()!=0) {}
+            if(saindo>=0) { if(saida<=0) break; continue; }
+            if(IsKeyPressed(KEY_ESCAPE)) { pular=true; saindo=GetTime(); continue; }
+            if(teclaDeAvancar()) {
+                if(!completo) tudo=true;
+                else { tocarSom(SOM_MENU); saindo=GetTime(); }
+            }
+        }
+    }
+    Ui::iniciarQuadro(); DrawRectangle(-200,-200,Ui::LARGURA+400,Ui::ALTURA+400,{3,4,9,255}); Ui::terminarQuadro();
+    while(GetCharPressed()!=0) {}
+}
+
+// As cenas do final: o chefe se desfaz, a luz de Aldric se apaga, as portas
+// se abrem, quem esperava por você, e o nascer do sol.
+void cenaDoFinal(const Jogo& jogo,int cena,double t,bool& marca) {
+    float cx=Ui::LARGURA/2.0f, cy=290, tf=(float)t;
+    switch(cena) {
+    case 0: {   // O Senhor das Profundezas se desfaz em fumaça.
+        float some=std::clamp((tf-0.6f)/2.4f,0.0f,1.0f);
+        DrawCircleGradient((int)cx,(int)cy,250,{170,30,40,(unsigned char)(110*(1-some))},{0,0,0,0});
+        sprite(SENHOR.data(),cx-8*14,cy-8*14-10+some*30,14.0f,1.0f-0.5f*some,1.0f-some);
+        for(int k=0;k<40;k++) {
+            float subida=std::fmod(tf*(40+k%5*10)+k*41.0f,380.0f);
+            float x=cx+std::sin(k*12.9898f)*170+std::sin(tf+k)*14, y=cy+120-subida;
+            unsigned char a=(unsigned char)(150*some*(1-subida/380.0f));
+            DrawCircleV({x,y},4.0f+k%4,{60,50,70,a});
+        }
+        if(!marca && some>0.05f) { marca=true; tocarSom(SOM_RUGIDO); }
+        break;
+    }
+    case 1: {   // A luz de Aldric se apaga, devagar.
+        float some=std::clamp((tf-1.0f)/3.0f,0.0f,1.0f);
+        DrawCircleGradient((int)cx,(int)cy,230,{120,150,255,(unsigned char)(90*(1-some))},{0,0,0,0});
+        sprite(ESPIRITO.data(),cx-8*12,cy-8*12,12.0f,1.0f,1.0f-some);
+        for(int k=0;k<24;k++) {
+            float subida=std::fmod(tf*30+k*29.0f,300.0f);
+            float x=cx+std::sin(k*7.7f)*120, y=cy+110-subida;
+            DrawCircleV({x,y},2,{170,200,255,(unsigned char)(200*(1-some)*(1-subida/300.0f))});
+        }
+        break;
+    }
+    case 2: {   // As portas se abrem e o sol entra.
+        Rectangle arco={cx-170,cy-180,340,360};
+        float p=1.0f-suave((tf-0.6f)/2.0f);   // 1 = fechada, 0 = aberta
+        Rectangle muro={arco.x-60,arco.y-46,arco.width+120,arco.height+46};
+        DrawRectangleRec(muro,{46,48,58,255});
+        for(float y=muro.y;y<muro.y+muro.height;y+=46) {
+            DrawLineEx({muro.x,y},{muro.x+muro.width,y},2,{30,32,40,255});
+            int linha=(int)((y-muro.y)/46);
+            for(float x=muro.x+(linha%2)*35+35;x<muro.x+muro.width;x+=70)
+                DrawLineEx({x,y},{x,std::min(y+46,muro.y+muro.height)},2,{30,32,40,255});
+        }
+        DrawRectangleGradientV((int)arco.x,(int)arco.y,(int)arco.width,(int)arco.height,{255,236,170,255},{255,190,110,255});
+        // Raios de sol saindo da porta.
+        float abre=1-p;
+        for(int k=0;k<7;k++) {
+            float ang=-0.9f+k*0.3f;
+            Vector2 a={cx-60+k*20.0f,arco.y+arco.height}, b={cx+std::sin(ang)*700,arco.y+arco.height+500};
+            DrawTriangle(a,{b.x+40,b.y},{b.x-40,b.y},{255,220,140,(unsigned char)(50*abre)});
+        }
+        float meia=arco.width/2;
+        for(int lado=0;lado<2;lado++) {
+            float w=meia*p;
+            Rectangle f = lado==0 ? Rectangle{arco.x,arco.y,w,arco.height} : Rectangle{arco.x+arco.width-w,arco.y,w,arco.height};
+            if(w<1) continue;
+            DrawRectangleRec(f,{92,58,32,255});
+            for(float tabua=f.x+18;tabua<f.x+f.width;tabua+=36) DrawLineEx({tabua,f.y},{tabua,f.y+f.height},2,{62,38,20,255});
+            DrawRectangleRec({f.x,f.y+60,f.width,14},{52,54,64,255});
+            DrawRectangleRec({f.x,f.y+f.height-80,f.width,14},{52,54,64,255});
+        }
+        DrawRectangleLinesEx(arco,5,{26,28,36,255});
+        if(!marca && tf>0.6f) { marca=true; tocarSom(SOM_PORTA_FECHANDO); }
+        break;
+    }
+    case 3: {   // Quem esperava por você na saída.
+        DrawRectangleGradientV(0,0,Ui::LARGURA,480,{60,90,140,255},{230,170,110,255});
+        DrawRectangle(0,470,Ui::LARGURA,40,{70,90,60,255});
+        std::vector<const Sprite*> quem;
+        auto encontrou=[&](int tipo){
+            for(int a=0;a<NUM_ANDARES;a++) for(int i=0;i<jogo.andares[a].numNpcs;i++)
+                if(jogo.andares[a].npcs[i].tipo==tipo && jogo.andares[a].npcs[i].conversou) return true;
+            return false;
+        };
+        if(encontrou(NPC_EXPLORADORA)) quem.push_back(&EXPLORADORA);
+        if(encontrou(NPC_MINEIRO)) quem.push_back(&MINEIRO);
+        quem.insert(quem.begin()+(long)quem.size()/2,&HEROI);   // você no meio
+        if(encontrou(NPC_VIAJANTE)) quem.push_back(&VIAJANTE);
+        if(encontrou(NPC_COMERCIANTE)) quem.push_back(&COMERCIANTE);
+        float passo=170, x0=cx-(quem.size()-1)*passo/2;
+        for(size_t k=0;k<quem.size();k++) {
+            float aparece=std::clamp((tf-0.3f-k*0.35f)/0.4f,0.0f,1.0f);
+            float pulo=std::fabs(std::sin(tf*3+k))*6*aparece;
+            sprite(quem[k]->data(),x0+k*passo-8*8,330-8*8*2+60-pulo,8.0f,1.0f,aparece);
+        }
+        break;
+    }
+    default: {  // O sol nascendo sobre Valdoria.
+        float sobe=suave(tf/2.5f);
+        DrawRectangleGradientV(0,0,Ui::LARGURA,480,{40,60,110,255},{250,170,100,255});
+        DrawCircleGradient((int)cx,(int)(480-140*sobe),(int)(150+20*sobe),{255,220,130,255},{255,160,90,0});
+        DrawCircle((int)cx,(int)(480-140*sobe),70,{255,236,170,255});
+        DrawRectangle(0,470,Ui::LARGURA,40,{50,70,48,255});
+        sprite(HEROI.data(),cx-8*8,470-8*8*2+4,8.0f);
+        float a=std::clamp((tf-1.5f)/1.0f,0.0f,1.0f);
+        textoCentro("VALDORIA ESTÁ LIVRE",cx,90,52,{255,214,120,(unsigned char)(255*a)});
+        break;
+    }
+    }
+}
+}
+
+void mostrarHistoria(const Jogo& jogo,const std::vector<std::string>& linhas) {
+    definirCorDoHeroi(paraCor(CORES_DO_JOGADOR[jogo.jogador.cor]));
+    std::vector<std::string> pars=emParagrafos(linhas);
+    contarHistoria(pars,[&](int p,double t,bool& marca){
+        int cena=std::min(p,3);
+        if(p+1==(int)pars.size()) cena=3;   // a última é sempre a das portas
+        cenaDaHistoria(cena,t,marca);
+    },"Esc: pular a história");
+}
+
+void mostrarFinal(const Jogo& jogo,const std::vector<std::string>& linhas) {
+    definirCorDoHeroi(paraCor(CORES_DO_JOGADOR[jogo.jogador.cor]));
+    tocarMusica(MUSICA_MENU);
+    contarHistoria(emParagrafos(linhas),[&](int p,double t,bool& marca){ cenaDoFinal(jogo,p,t,marca); },
+                   "Esc: pular o final");
 }

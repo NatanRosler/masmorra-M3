@@ -1194,3 +1194,39 @@ void mostrarBestiario(const Jogo* jogo) {
 
 // O terminal não tem zoom (o mapa já usa a janela toda).
 void mudarZoomDoMapa(int) {}
+
+// Falas e história no terminal: a página de texto de sempre.
+void mostrarFala(const Jogo& jogo, int npc, const std::vector<std::string>& linhas) {
+    const Andar& andar = andarAtual(jogo);
+    std::string nome = (npc >= 0 && npc < andar.numNpcs) ? FICHAS_DOS_NPCS[andar.npcs[npc].tipo].nome : "";
+    // "> " na frente: quem fala é o herói. Linhas compridas são quebradas.
+    std::vector<std::string> texto;
+    for (const std::string& l : linhas) {
+        std::string linha = l.rfind("> ", 0) == 0 ? jogo.jogador.nome + ": " + l.substr(2) : l;
+        if (linha.empty()) { texto.push_back(""); continue; }
+        for (const std::string& parte : quebrarTexto(linha, 66)) texto.push_back(parte);
+    }
+    mostrarPagina(nome, texto);
+}
+
+void mostrarHistoria(const Jogo&, const std::vector<std::string>& linhas) {
+    mostrarPagina("A MASMORRA DE VALDORIA", linhas);
+}
+
+// Cenas no terminal: só o texto (sem câmera nem som).
+void cenaDaCorneta(const Jogo&, int, bool) {}
+
+void cenaDoChefe(const Jogo&, int, const std::vector<std::string>& falas, bool) {
+    mostrarPagina("O SENHOR DAS PROFUNDEZAS", falas);
+}
+
+void falaDoChefeNaBatalha(const Jogo& jogo, const Batalha& b, int inimigo, const std::string& fala) {
+    Batalha copia = b;
+    copia.texto = primeiraMaiuscula(b.inimigos[inimigo].nome) + ": \"" + fala + "\"";
+    desenharBatalha(jogo, copia);
+    lerTecla();
+}
+
+void mostrarFinal(const Jogo&, const std::vector<std::string>& linhas) {
+    mostrarPagina("VALDORIA ESTÁ LIVRE", linhas);
+}

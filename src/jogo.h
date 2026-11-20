@@ -161,6 +161,8 @@ struct Jogo {
 
     Elemento elementoDaEspecie[MAX_ESPECIES]; // sorteado a cada partida (Etapa 6)
     int especiesVistasNaPartida;    // bit t = a espécie t já apareceu nesta partida (bestiário)
+    int encontrosComOChefe;         // quantas vezes o chefe já apareceu na sua frente (cena longa na 1a)
+    bool chefeAVista;               // o chefe estava à vista no último passo (não vai no save)
 
     int passos;                     // quantos passos o jogador já deu
     int monstrosMortos;

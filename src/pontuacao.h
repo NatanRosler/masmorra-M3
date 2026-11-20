@@ -40,6 +40,12 @@ void registrarNoRanking(Jogo& jogo);
 
 // Textos das telas.
 std::vector<std::string> textoDaHistoria(const std::string& nomeDoJogador);
+// O final (depois de vencer o chefe). Muda conforme quem você encontrou e
+// ajudou pelo caminho. Um parágrafo para cada cena (linhas vazias separam).
+std::vector<std::string> textoDoFinal(const Jogo& jogo);
+// O que o Senhor das Profundezas diz quando você o encontra (a 1a vez, ou
+// depois de perder para ele).
+std::vector<std::string> falasDoChefe(const Jogo& jogo, bool primeiraVez);
 std::vector<std::string> textoComoJogar();
 std::vector<std::string> textoDosItens();
 std::vector<std::string> textoDaPontuacao();

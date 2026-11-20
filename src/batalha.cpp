@@ -825,6 +825,8 @@ static void conferirFuriaDoChefe(Jogo& jogo, Batalha& b) {
         if (l.estagioAtaque < 6) l.estagioAtaque++;
         tocarSom(SOM_CRITICO);
         animarBatalha(jogo, b, ANIM_FURIA, i + 1, i + 1, 0, 0, false);
+        if (!jogo.modoAutomatico)
+            falaDoChefeNaBatalha(jogo, b, i, "Você... me FERIU? Agora você vai conhecer as profundezas!");
         narrar(jogo, b, comMaiuscula(l.nome) + " fica FURIOSO! O ataque dele aumenta e ele não dorme mais.",
                MSG_PERIGO);
     }
@@ -833,6 +835,8 @@ static void conferirFuriaDoChefe(Jogo& jogo, Batalha& b) {
 static bool conferirDesmaios(Jogo& jogo, Batalha& b) {
     for (int i = 0; i < b.numInimigos; i++) {
         if (!b.naLuta[i] || *b.inimigos[i].vida > 0) continue;
+        if (b.inimigos[i].ehChefe && !jogo.modoAutomatico)
+            falaDoChefeNaBatalha(jogo, b, i, "Impossível... a luz... de novo...");
         animarBatalha(jogo, b, ANIM_DESMAIO, i + 1, i + 1, 0, 0, false);
         b.naLuta[i] = false;
         Monstro& m = *b.monstros[i];

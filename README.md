@@ -74,9 +74,9 @@ src/
 | `src/aleatorio.h/.cpp` | Números aleatórios com semente (xorshift32) |
 | `src/personagem.cpp` | Criação do personagem (nome, elemento, cor, atributos) e ficha (tecla C) |
 | `src/cenario.h/.cpp` | Armadilhas escondidas e caixas que se empurram (mapa que muda) |
-| `src/npcs.h/.cpp` | Personagens que conversam, ajudam e mudam o mapa |
+| `src/npcs.h/.cpp` | Personagens que conversam (falas em balões, com o herói respondendo), ajudam e mudam o mapa |
 | `src/dicas.h/.cpp` | Dicas: a caixa que explica cada novidade na primeira vez (e quando cada uma aparece) |
-| `src/opcoes.h/.cpp` | Opções (volumes, tela cheia, zoom, animações, dicas) gravadas em `opcoes.txt` |
+| `src/opcoes.h/.cpp` | Opções (volumes, tela cheia, zoom, animações, velocidade do texto, dicas) gravadas em `opcoes.txt` |
 | `src/bestiario.h/.cpp` | Bestiário: monstros já vistos e vencidos, gravado em `bestiario.txt` (v1.18) |
 | `src/salas.h/.cpp` | Salas especiais: fonte, altar de sangue, baú dourado (mímico), arena e o viajante perdido |
 | `src/tema.h/.cpp` | Temas dos andares: minas, caverna alagada (poças), vulcão (lava) e sala do trono |
@@ -94,7 +94,7 @@ src/
 | `src/grafico/itens_sprites.h` | Desenhos dos itens no chão e dos ícones (moeda, troféu, XP, atributos) |
 | `src/grafico/efeitos.cpp/.h` | Animações: partículas, números flutuantes, tremor e transições |
 | `src/grafico/sprites.h`, `extra_sprites.h` | Personagens em pixel art (16 x 16) |
-| `src/som.h`, `src/grafico/audio.cpp` | Sons e músicas gerados no código (sem arquivos de áudio) |
+| `src/som.h`, `src/grafico/audio.cpp` | Sons, músicas e as vozes das falas, gerados no código (sem arquivos de áudio) |
 | `src/console/` | A mesma coisa para o terminal: `main.cpp`, `tela.cpp`, `terminal.cpp` |
 
 Mais detalhes:
@@ -179,7 +179,7 @@ publicar → Run workflow**.
 | Armadilhas | `cenario.cpp` |
 | Experiência e níveis | `batalha.cpp` (`ganharExperiencia`) |
 | Atributos distribuíveis e seus efeitos | `personagem.cpp`, `jogo.cpp` (`recalcularAtributos`), `batalha.cpp` (precisão, esquiva, crítico) |
-| História e NPCs | `pontuacao.cpp` (`textoDaHistoria`), `npcs.cpp` |
+| História, final e NPCs | `pontuacao.cpp` (`textoDaHistoria`, `textoDoFinal`, `falasDoChefe`), `npcs.cpp` |
 | Mapa que muda (NPC, monstros, jogador) | `npcs.cpp` (porta), `cenario.cpp` (caixas, armadilhas) |
 | Chefe final | `monstros.cpp` (Senhor das Profundezas) |
 

@@ -247,7 +247,7 @@ bool novaPartida(Jogo& jogo, uint32_t semente) {
     definirDificuldade(c.dificuldade);
     iniciarJogo(jogo, semente);
     aplicarCriacao(jogo, c);
-    mostrarPagina("A MASMORRA DE VALDORIA", textoDaHistoria(jogo.jogador.nome));
+    mostrarHistoria(jogo, textoDaHistoria(jogo.jogador.nome));
     jogo.mensagensDoTurno.clear();
     jogo.tipoDoTurno = MSG_NORMAL;
     adicionarMensagem(jogo, "Boa sorte, " + jogo.jogador.nome + ". O único caminho é para baixo.");

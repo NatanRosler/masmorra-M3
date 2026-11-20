@@ -31,6 +31,25 @@ void desenharJogo(const Jogo& jogo);
 // Célula do mapa que aparece no canto superior esquerdo da câmera.
 void posicaoDaCamera(const Jogo& jogo, int& cameraX, int& cameraY);
 void desenharAjuda(const Jogo& jogo);
+// Fala de uma pessoa da masmorra (npc = índice em andar.npcs). Na versão
+// gráfica: um balão perto dela no mapa, com o texto aparecendo letra por
+// letra. As linhas vazias separam os "balões" (um parágrafo por vez).
+void mostrarFala(const Jogo& jogo, int npc, const std::vector<std::string>& linhas);
+// A história do começo. Na versão gráfica: tela escura, uma cena para cada
+// parágrafo e o texto aparecendo letra por letra, como alguém contando.
+void mostrarHistoria(const Jogo& jogo, const std::vector<std::string>& linhas);
+
+// CENAS (versão gráfica: câmera, faixas de cinema, sons; no terminal, só o texto)
+// O gnomo vigia sopra a corneta (gnomo = índice no andar). A 1a vez ele ri e
+// foge; a 2a, ri e fica. O som e o efeito da corneta tocam dentro da cena.
+void cenaDaCorneta(const Jogo& jogo, int gnomo, bool primeira);
+// O Senhor das Profundezas aparece. Depois dela, começa a batalha.
+void cenaDoChefe(const Jogo& jogo, int chefe, const std::vector<std::string>& falas, bool primeira);
+// O chefe fala no meio da batalha (na fúria e ao cair). inimigo: 0 a 2.
+void falaDoChefeNaBatalha(const Jogo& jogo, const Batalha& b, int inimigo, const std::string& fala);
+// O final, depois de vencer o chefe (como a história do começo).
+void mostrarFinal(const Jogo& jogo, const std::vector<std::string>& linhas);
+
 // Zoom do mapa (teclas + e -; só na versão gráfica, no terminal não faz nada).
 void mudarZoomDoMapa(int passo);
 // Bestiário (tecla E no jogo e botão do menu). Com jogo = nullptr (menu),

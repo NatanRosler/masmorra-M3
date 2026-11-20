@@ -93,3 +93,26 @@ substitua esse arquivo por outro `.ico` (com o mesmo nome) e rode o
 `compilar_windows.bat` de novo. O ícone da janela é desenhado no código, a
 partir do sprite `MIMICO` (`aplicarIconeDaJanela` em `src/grafico/visual.cpp`):
 para usar outro personagem, troque `MIMICO` pelo nome de outro sprite.
+
+## 9. Como mudar as falas das pessoas
+
+As falas ficam em `src/npcs.cpp`, na função `conversarComNpc`. Cada linha
+vazia separa um balão. O começo da linha diz quem fala:
+
+```cpp
+falas = {
+    "Uma mulher está sentada, encostada na parede...",   // sem aspas: narração (caixa no alto)
+    "",
+    "\"Passos... e não são de rato.\"",                  // entre aspas: a pessoa
+    "",
+    "> \"Eu sou " + nome + ".\"",                        // "> " na frente: o herói responde
+    "",
+    "\"Tome.\"  (+1 Poção de Vida)",                     // "(...)" no fim: prêmio, em verde
+};
+```
+
+As aspas não aparecem no balão (ele já mostra que é fala). A história do
+começo, o final e as falas do chefe ficam em `src/pontuacao.cpp`
+(`textoDaHistoria`, `textoDoFinal` e `falasDoChefe`), e os gritos dos monstros
+em `gritosDaEspecie` (`src/grafico/tela_grafica.cpp`).
+

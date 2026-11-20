@@ -312,6 +312,8 @@ void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros) {
     jogo.furtivo = false;
     jogo.furtivoLigado = false;
     jogo.especiesVistasNaPartida = 0;
+    jogo.encontrosComOChefe = 0;
+    jogo.chefeAVista = false;
     jogo.ataqueSurpresa = -1;
     jogo.msDeDescanso = 0;
     jogo.segundosDeDescanso = 0;
@@ -473,6 +475,7 @@ static void resolverBatalha(Jogo& jogo) {
                 tocarMusica(SEM_MUSICA);
                 tocarSom(SOM_VITORIA);
                 adicionarMensagem(jogo, "O Senhor das Profundezas caiu! Valdoria está livre!", MSG_BOA);
+                if (!jogo.modoAutomatico) mostrarFinal(jogo, textoDoFinal(jogo));
             }
             if (m.carregaChave) {
                 jogo.jogador.mochila[I_CHAVE]++;
@@ -560,6 +563,26 @@ static void comecarDescanso(Jogo& jogo) {
                             " de vida por segundo; qualquer tecla para parar)");
 }
 
+// O chefe acabou de aparecer na sua frente? Então tem a cena dele e a batalha
+// começa ali mesmo (ele não espera você chegar perto).
+static void conferirEncontroComOChefe(Jogo& jogo) {
+    const Andar& andar = andarAtual(jogo);
+    int chefe = -1;
+    for (int i = 0; i < andar.numMonstros; i++) {
+        const Monstro& m = andar.monstros[i];
+        if (m.vivo && (tipoDe(m).especial & CHEFE) && monstroAVista(jogo, m)) chefe = i;
+    }
+    bool estavaAVista = jogo.chefeAVista;
+    jogo.chefeAVista = chefe >= 0;
+    if (chefe < 0 || estavaAVista || jogo.batalhaPendente >= 0) return;
+    if (andar.monstros[chefe].turnosSemBatalha > 0) return;   // acabou de vencer você: dá um respiro
+    bool primeira = jogo.encontrosComOChefe == 0;
+    jogo.encontrosComOChefe++;
+    pararDeDescansar(jogo, "");
+    if (!jogo.modoAutomatico) cenaDoChefe(jogo, chefe, falasDoChefe(jogo, primeira), primeira);
+    jogo.batalhaPendente = chefe;
+}
+
 void avancarTempo(Jogo& jogo, int ms) {
     if (jogo.morto || jogo.venceu) return;
     if (ms > 250) ms = 250;   // depois de um menu ou batalha, o relógio não "pula"
@@ -570,6 +593,7 @@ void avancarTempo(Jogo& jogo, int ms) {
 
     // Monstros (se um alcançar o jogador, a batalha começa).
     if (jogo.comMonstros && jogo.batalhaPendente < 0) agirMonstros(jogo, ms);
+    if (jogo.batalhaPendente < 0) conferirEncontroComOChefe(jogo);   // o chefe pode ter entrado na sua visão
     if (jogo.batalhaPendente >= 0) {
         resolverBatalha(jogo);
         return;
@@ -612,6 +636,7 @@ static void depoisDoPasso(Jogo& jogo) {
     if (jogo.morto) return;
     atualizarVisao(jogo);
     deixarCheiro(jogo);
+    conferirEncontroComOChefe(jogo);
     // Na água (caverna alagada), cada passo leva o dobro do tempo.
     jogo.esperaDoJogadorMs = intervaloDoJogador(jogo.jogador) *
                              multiplicadorDoPasso(andarAtual(jogo), jogo.jogador.x, jogo.jogador.y);

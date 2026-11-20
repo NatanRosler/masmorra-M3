@@ -22,7 +22,8 @@ static const char* ARQUIVO_TEMPORARIO = "save.tmp";
 // e Lanterna no jogador, estoque novo do Garro. Saves das versões 1 e 2
 // continuam sendo lidos (ver "SAVES ANTIGOS" mais abaixo).
 // Versão 4 (v1.18): no fim, as espécies já vistas na partida (bestiário).
-static const int VERSAO_DO_SAVE = 4;
+// Versão 5 (v1.20): no fim, quantas vezes o chefe já apareceu (cena dele).
+static const int VERSAO_DO_SAVE = 5;
 static const char ASSINATURA[8] = { 'M', 'A', 'S', 'M', 'O', 'R', 'R', 'A' };
 
 // =============================================================================
@@ -292,6 +293,7 @@ bool salvarPartida(const Jogo& jogo) {
         g.bruto(tipo);
     }
     g.bruto(jogo.especiesVistasNaPartida);             // versão 4 (bestiário)
+    g.bruto(jogo.encontrosComOChefe);                  // versão 5 (cena do chefe)
     g.arquivo.write(ASSINATURA, sizeof(ASSINATURA));   // marca de fim: o arquivo está completo
     g.arquivo.close();
     if (!g.arquivo) return false;
@@ -369,6 +371,9 @@ bool carregarPartida(Jogo& jogo) {
     }
     jogo.especiesVistasNaPartida = 0;
     if (versao >= 4) l.bruto(jogo.especiesVistasNaPartida);
+    jogo.encontrosComOChefe = 0;
+    jogo.chefeAVista = false;
+    if (versao >= 5) l.bruto(jogo.encontrosComOChefe);
     char fim[8];
     if (!l.ok || !l.arquivo.read(fim, sizeof(fim))) return false;
     for (int i = 0; i < 8; i++) if (fim[i] != ASSINATURA[i]) return false;
