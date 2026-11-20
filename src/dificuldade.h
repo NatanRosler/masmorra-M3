@@ -20,6 +20,8 @@ struct Dificuldade {
     int pocoes;                 // poções de vida no começo
     int pontuacao;              // % da pontuação final (mais difícil vale mais)
     int precosDaLoja;           // % do preço normal na loja do comerciante
+    int chanceDeCampeao;        // % de cada monstro nascer campeão (elite), do andar 2 em diante
+    int maximoDeCampeoes;       // por andar
 };
 
 extern const Dificuldade DIFICULDADES[NUM_DIFICULDADES];

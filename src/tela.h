@@ -44,13 +44,14 @@ enum AnimacaoDaBatalha {
     ANIM_NIVEL,           // o jogador sobe para o nível "valor"
     ANIM_BLOQUEIO,        // "quem" ataca e o escudo de "alvo" (o jogador) bloqueia
     ANIM_FURIA,           // o chefe ("quem") entra na segunda fase
+    ANIM_FUMACA,          // bomba de fumaça: a tela some numa nuvem cinza
 };
 // quem/alvo: 0 = jogador, 1 a 3 = inimigos.
 void animarBatalha(const Jogo& jogo, const Batalha& b, int animacao, int quem, int alvo,
                    int elemento, int valor, bool critico);
 
 enum EfeitoNoMapa { EFEITO_ARMADILHA, EFEITO_ESPINHOS, EFEITO_ITEM, EFEITO_CAIXA, EFEITO_ATORDOAR, EFEITO_CURA,
-                   EFEITO_MOEDAS, EFEITO_LAVA };
+                   EFEITO_MOEDAS, EFEITO_LAVA, EFEITO_CORNETA };
 // Efeito rápido numa célula do mapa (não trava o jogo). "valor" depende do
 // efeito: dano da armadilha, tipo do item, vida recuperada...
 void efeitoNoMapa(const Jogo& jogo, int efeito, int x, int y, int valor);

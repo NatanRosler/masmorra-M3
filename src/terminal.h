@@ -57,6 +57,10 @@ int lerTeclaComEspera(int esperaMs);
 // Relógio em milissegundos (só serve para medir intervalos).
 long long relogioMs();
 
+// O Shift está apertado agora? (modo furtivo na versão gráfica; o terminal
+// não tem como saber, então lá é sempre false e o furtivo usa a tecla F)
+bool shiftSegurado();
+
 // Escreve um texto (com códigos ANSI) de uma vez só na tela.
 // Montar a tela inteira numa string e escrever de uma vez evita que ela pisque.
 void escreverNaTela(const std::string& texto);

@@ -139,8 +139,10 @@ const int RAIO_LUZ_TOCHA  = 7;
 
 // Como no Brogue, a luz do jogador enfraquece conforme ele desce:
 // raio 9 nos andares 1-2, 8 nos andares 3-4, ..., 5 nos andares 9-10.
-int raioDaLuzDoJogador(int andar) {
-    return 9 - (andar - 1) / 2;
+int raioDaLuzDoJogador(const Jogo& jogo) {
+    int raio = 9 - (jogo.andar - 1) / 2;
+    if (jogo.jogador.lanterna) raio += 2;
+    return raio;
 }
 
 void atualizarVisao(Jogo& jogo) {
@@ -150,8 +152,9 @@ void atualizarVisao(Jogo& jogo) {
     int jy = jogo.jogador.y;
 
     // 1. Luz: a do jogador + a de todas as tochas do andar.
+    // Primeiro só as tochas e a lava (onde a sombra aparece: luzDeTocha),
+    // depois a luz do jogador por cima.
     apagarLuzes(jogo.luz);
-    adicionarLuz(mapa, jx, jy, raioDaLuzDoJogador(jogo.andar), COR_LUZ_JOGADOR, jogo.luz);
     // A cor das tochas depende do tema do andar; a lava também ilumina.
     Luz corDaTocha = FICHAS_DOS_TEMAS[temaDoAndar(jogo.andar)].luzDaTocha;
     for (int y = 0; y < MAPA_ALTURA; y++) {
@@ -163,6 +166,10 @@ void atualizarVisao(Jogo& jogo) {
             }
         }
     }
+    for (int y = 0; y < MAPA_ALTURA; y++) {
+        for (int x = 0; x < MAPA_LARGURA; x++) jogo.luzDeTocha[y][x] = brilho(jogo.luz[y][x]) >= LUZ_MINIMA_PARA_VER;
+    }
+    adicionarLuz(mapa, jx, jy, raioDaLuzDoJogador(jogo), COR_LUZ_JOGADOR, jogo.luz);
 
     // 2. Linha de visão (também usada pelos monstros para "ver" o jogador).
     calcularCampoDeVisao(mapa, jx, jy, ALCANCE_DA_VISAO, jogo.linhaDeVisao);
@@ -277,6 +284,8 @@ void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros) {
     j.escudo = nullptr;
     j.bonusVida = j.bonusAtaque = j.bonusDefesa = j.bonusVelocidade = 0;
     j.moedas = 0;
+    j.mochilaDeCouro = false;
+    j.lanterna = false;
     j.nivel = NIVEL_INICIAL;
     j.experiencia = experienciaParaNivel(NIVEL_INICIAL);
     // Personagem padrão (os testes usam este; o jogo de verdade troca pelo
@@ -295,6 +304,9 @@ void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros) {
     jogo.tempoMs = 0;
     jogo.esperaDoJogadorMs = 0;
     jogo.descansando = false;
+    jogo.furtivo = false;
+    jogo.furtivoLigado = false;
+    jogo.ataqueSurpresa = -1;
     jogo.msDeDescanso = 0;
     jogo.segundosDeDescanso = 0;
     jogo.rodadasDaUltimaBatalha = 0;
@@ -333,7 +345,7 @@ static std::string umOuUma(const TipoMonstro& t) {
 }
 
 static std::string nomeComArtigoDoMonstro(const Monstro& m) {
-    return std::string(tipoDe(m).artigo) + " " + tipoDe(m).nome;
+    return std::string(tipoDe(m).artigo) + " " + nomeDaEspecie(m);
 }
 
 // Gasta uma vida e volta para a entrada do andar. Sem vidas, é o fim do jogo.
@@ -415,6 +427,17 @@ static void pararDeDescansar(Jogo& jogo, const std::string& motivo) {
     if (!motivo.empty()) adicionarMensagem(jogo, motivo);
 }
 
+// Campeão derrotado: metade das vezes deixa um item bom.
+static void premioDoCampeao(Jogo& jogo, const Monstro& m) {
+    if (!m.campeao || !chance(jogo.sorte, 50)) return;
+    const int PREMIOS[] = { I_POCAO_GRANDE, I_ETER, I_BOMBA_DE_FUMACA, I_CRISTAL_DE_VIDA };
+    int tipo = PREMIOS[sortear(jogo.sorte, 0, 3)];
+    if (tipo == I_CRISTAL_DE_VIDA) tipo += sortear(jogo.sorte, 0, 3);   // um dos 4 cristais
+    adicionarMensagem(jogo, "O campeão deixou cair " + nomeComArtigo(tipo) + "!", MSG_BOA);
+    if (TIPOS_DE_ITEM[tipo].categoria == CRISTAL) absorverCristal(jogo, tipo);
+    else guardarOuLargar(jogo, tipo);
+}
+
 static void resolverBatalha(Jogo& jogo) {
     Monstro* participantes[MAX_INIMIGOS];
     int quantos = juntarParticipantes(jogo, jogo.batalhaPendente, participantes);
@@ -452,6 +475,7 @@ static void resolverBatalha(Jogo& jogo) {
                 revelarPortaDoTesouro(jogo);
             }
             recompensaDoMimico(jogo, m);
+            premioDoCampeao(jogo, m);
         } else if (m.estado == FUGINDO) {
             adicionarMensagem(jogo, comMaiusculaInicial(nome) + " fugiu de você.");
         }
@@ -462,7 +486,9 @@ static void resolverBatalha(Jogo& jogo) {
             Monstro& m = *participantes[i];
             if (!m.vivo || m.estado == FUGINDO) continue;
             m.estado = VAGANDO;
-            m.turnosSemBatalha = 6;   // demora um pouco para puxar briga de novo
+            // Demora um pouco para puxar briga de novo (a bomba de fumaça já
+            // deixou os monstros tontos por mais tempo, em batalha.cpp).
+            if (m.turnosSemBatalha < 6) m.turnosSemBatalha = 6;
         }
         adicionarMensagem(jogo, "Você escapou da batalha.");
     }
@@ -482,11 +508,15 @@ int intervaloDoJogador(const Jogador& j) {
     return ms;
 }
 
+bool estaFurtivo(const Jogo& jogo) {
+    return jogo.furtivoLigado || (!jogo.modoAutomatico && shiftSegurado());
+}
+
 static bool algumMonstroVisivel(const Jogo& jogo) {
     const Andar& andar = andarAtual(jogo);
     for (int i = 0; i < andar.numMonstros; i++) {
         const Monstro& m = andar.monstros[i];
-        if (m.vivo && jogo.visivel[m.y][m.x]) return true;
+        if (monstroAVista(jogo, m)) return true;
     }
     return false;
 }
@@ -529,6 +559,7 @@ void avancarTempo(Jogo& jogo, int ms) {
     if (ms > 250) ms = 250;   // depois de um menu ou batalha, o relógio não "pula"
     jogo.tempoMs += ms;
     if (jogo.esperaDoJogadorMs > 0) jogo.esperaDoJogadorMs -= ms;
+    jogo.furtivo = estaFurtivo(jogo);   // o Shift pode ter sido solto
     atualizarSalasEspeciais(jogo);   // arena: próxima onda ou prêmio
 
     // Monstros (se um alcançar o jogador, a batalha começa).
@@ -578,6 +609,8 @@ static void depoisDoPasso(Jogo& jogo) {
     // Na água (caverna alagada), cada passo leva o dobro do tempo.
     jogo.esperaDoJogadorMs = intervaloDoJogador(jogo.jogador) *
                              multiplicadorDoPasso(andarAtual(jogo), jogo.jogador.x, jogo.jogador.y);
+    // Furtivo: passos 1,5x mais demorados (é o preço do silêncio).
+    if (jogo.furtivo) jogo.esperaDoJogadorMs = jogo.esperaDoJogadorMs * 3 / 2;
     if (jogo.batalhaPendente >= 0) resolverBatalha(jogo);
 }
 
@@ -653,10 +686,12 @@ static bool moverJogador(Jogo& jogo, int dx, int dy) {
         return false;
     }
 
-    // Andar na direção de um monstro começa uma batalha.
+    // Andar na direção de um monstro começa uma batalha. Chegando furtivo
+    // num monstro que não percebeu o jogador, é um ataque surpresa.
     int alvo = monstroEm(andarAtual(jogo), novoX, novoY);
     if (alvo >= 0) {
         jogo.batalhaPendente = alvo;
+        if (jogo.furtivo && andarAtual(jogo).monstros[alvo].estado == VAGANDO) jogo.ataqueSurpresa = alvo;
         return true;
     }
 
@@ -726,12 +761,12 @@ static bool abrirMochila(Jogo& jogo) {
             continue;
         }
         opcoes.push_back(std::string(TIPOS_DE_ITEM[i].nome) + "   " + std::to_string(j.mochila[i]) + "/" +
-                         std::to_string(limiteDoItem(i)));
+                         std::to_string(limiteDoItem(j, i)));
         descricoes.push_back(TIPOS_DE_ITEM[i].descricao);
     }
     std::string arma = (j.arma != nullptr) ? j.arma->nome : "nenhuma";
     std::string escudo = (j.escudo != nullptr) ? j.escudo->nome : "nenhum";
-    std::string titulo = "MOCHILA " + std::to_string(itensNaMochila(j)) + "/" + std::to_string(LIMITE_DA_MOCHILA) +
+    std::string titulo = "MOCHILA " + std::to_string(itensNaMochila(j)) + "/" + std::to_string(limiteDaMochila(j)) +
                          "   (arma: " + arma + ", escudo: " + escudo + ")";
     if (tipos.empty()) {
         adicionarMensagem(jogo, "A mochila está vazia. (arma: " + arma + ", escudo: " + escudo + ")");
@@ -766,6 +801,15 @@ void processarTecla(Jogo& jogo, int tecla) {
     int dx = 0, dy = 0;
     bool ehMovimento = teclaParaDirecao(tecla, dx, dy);
     bool ehDescanso = (tecla == 'z' || tecla == 'Z' || tecla == '5' || tecla == '.');
+    // F liga e desliga o modo furtivo (na versão gráfica também dá para só
+    // segurar o Shift enquanto anda).
+    if (tecla == 'f' || tecla == 'F') {
+        jogo.furtivoLigado = !jogo.furtivoLigado;
+        jogo.furtivo = estaFurtivo(jogo);
+        adicionarMensagem(jogo, jogo.furtivoLigado ? "Modo furtivo: passos lentos e silenciosos. (F de novo desliga)"
+                                                   : "Você volta a andar normalmente.");
+        return;
+    }
     bool ehComando = ehDescanso || tecla == 'Q' || tecla == 'i';
     if (!ehMovimento && !ehComando) return;
 
@@ -781,6 +825,7 @@ void processarTecla(Jogo& jogo, int tecla) {
         if (ehDescanso) return;
     }
     if (ehMovimento) {
+        jogo.furtivo = estaFurtivo(jogo);
         if (moverJogador(jogo, dx, dy)) depoisDoPasso(jogo);
     } else if (ehDescanso) {
         comecarDescanso(jogo);

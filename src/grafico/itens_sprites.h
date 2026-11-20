@@ -523,6 +523,86 @@ inline const Sprite ARTE_CHAVE = {{
     "............KK.."
 }};
 
+// Mochila de Couro
+inline const Sprite ARTE_MOCHILA_DE_COURO = {{
+    "......KKKK......",
+    ".....KIIIIK.....",
+    "....KIKKKKIK....",
+    "...KZCCCCCCZK...",
+    "..KZCCCCCCCCZK..",
+    "..KZCIIIIIICZK..",
+    "..KZCIMMMMICZK..",
+    "..KZCIIMMIICZK..",
+    ".KZZCCCCCCCCZZK.",
+    ".KZCCCCCCCCCCZK.",
+    ".KZCCZCCCCZCCZK.",
+    ".KZCCZCCCCZCCZK.",
+    ".KZCCCCCCCCCCZK.",
+    "..KZZZZZZZZZZK..",
+    "...KKKKKKKKKK...",
+    "................"
+}};
+
+// Lanterna
+inline const Sprite ARTE_LANTERNA = {{
+    "......KKKK......",
+    ".....KNNNNK.....",
+    "....KNKKKKNK....",
+    ".....KNNNNK.....",
+    "....KLLLLLLK....",
+    "...KNYYYYYYNK...",
+    "...KNYWWWWYNK...",
+    "...KNYWXXWYNK...",
+    "...KNYWXXWYNK...",
+    "...KNYYXXYYNK...",
+    "...KNYYYYYYNK...",
+    "....KLLLLLLK....",
+    "...KNNNNNNNNK...",
+    "....KKKKKKKK....",
+    "................",
+    "................"
+}};
+
+// Bomba de Fumaça
+inline const Sprite ARTE_BOMBA_DE_FUMACA = {{
+    ".........KLK..K.",
+    "........KLLLKKLK",
+    ".........KXK..K.",
+    "........KXYK....",
+    ".......KIKK.....",
+    "......KIK.......",
+    "....KKNNKK......",
+    "...KBBBBBBK.....",
+    "..KBBBBBBBBK....",
+    ".KBBLBBBBBBBK...",
+    ".KBLLBBBBBBBK...",
+    ".KBBBBBBBBBBK...",
+    ".KBBBBBBBBBBK...",
+    "..KBBBBBBBBK....",
+    "...KBBBBBBK.....",
+    "....KKKKKK......"
+}};
+
+// Pergaminho do Mapa
+inline const Sprite ARTE_PERGAMINHO_DO_MAPA = {{
+    "................",
+    "..KKKKKKKKKKKK..",
+    ".KIFFFFFFFFFFIK.",
+    ".KIFFFFFFFFFFIK.",
+    "..KFHFFFFFFFFK..",
+    "..KFHHHFFFHFFK..",
+    "..KFFFHFFFHFFK..",
+    "..KFFFHHHHHFFK..",
+    "..KFFFFFFFHFFK..",
+    "..KFFrFFFFHFFK..",
+    "..KFrrrFFFHHFK..",
+    "..KFFrFFFFFFFK..",
+    ".KIFFFFFFFFFFIK.",
+    ".KIFFFFFFFFFFIK.",
+    "..KKKKKKKKKKKK..",
+    "................"
+}};
+
 // Força
 inline const Sprite ARTE_ICONE_FORCA = {{
     "................",
@@ -710,7 +790,11 @@ inline const Sprite* const ARTE_DOS_ITENS[] = {
     &ARTE_PERGAMINHO_DE_PLANTA,
     &ARTE_PERGAMINHO_DE_VENENO,
     &ARTE_PERGAMINHO_DE_PEDRA,
-    &ARTE_CHAVE
+    &ARTE_CHAVE,
+    &ARTE_MOCHILA_DE_COURO,
+    &ARTE_LANTERNA,
+    &ARTE_BOMBA_DE_FUMACA,
+    &ARTE_PERGAMINHO_DO_MAPA
 };
 // Na mesma ordem do enum Atributo (jogo.h).
 inline const Sprite* const ARTE_DOS_ATRIBUTOS[] = { &ARTE_ICONE_FORCA, &ARTE_ICONE_CONSTITUICAO, &ARTE_ICONE_DESTREZA, &ARTE_ICONE_AGILIDADE };

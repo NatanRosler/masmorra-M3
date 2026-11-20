@@ -5,6 +5,7 @@
 #include "jogo.h"
 #include "aleatorio.h"
 #include "npcs.h"
+#include "loja.h"
 #include <cstdlib>
 
 // =============================================================================
@@ -102,6 +103,22 @@ const TipoItem TIPOS_DE_ITEM[NUM_TIPOS_DE_ITEM] = {
     { "Chave", "uma", '-', { 255, 215, 0 }, CHAVE,
       0, false, false,    0, 0, 0, 0,   -1, -1,   1, 10, 0,
       "Abre a porta trancada da sala do tesouro." },
+
+    // ---- Suporte (v1.17) --------------------------------------------------------
+    // A mochila e a lanterna não aparecem soltas: vêm do tesouro, do baú
+    // dourado ou do Garro. A bomba e o pergaminho do mapa também caem no chão.
+    { "Mochila de Couro", "uma", '(', { 205, 140, 80 }, SUPORTE,
+      0, false, false,    0, 0, 0, 0,   -1, -1,   1, 10, 0,
+      "A mochila passa a levar 16 itens (+1 em cada limite). Vale a partida toda." },
+    { "Lanterna", "uma", '(', { 255, 225, 120 }, SUPORTE,
+      0, false, false,    0, 0, 0, 0,   -1, -1,   1, 10, 0,
+      "+2 no raio de luz: você vê mais longe (e acha a sombra antes)." },
+    { "Bomba de Fumaça", "uma", '(', { 150, 160, 185 }, SUPORTE,
+      0, false, false,    0, 0, 0, 0,   -1, -1,   2, 10, 4,
+      "Na batalha: fuga garantida, e os monstros ficam tontos na fumaça." },
+    { "Pergaminho do Mapa", "um", '?', { 240, 225, 170 }, SUPORTE,
+      0, false, false,    0, 0, 0, 0,   -1, -1,   2, 10, 4,
+      "Revela o andar inteiro: salas, escadas e surpresas (não os monstros)." },
 };
 
 std::string nomeComArtigo(int tipo) {
@@ -204,7 +221,13 @@ void espalharItens(Andar& andar, int numeroDoAndar, uint32_t semente) {
     int numPremios = 0;
     premios[numPremios++] = sortearEquipamento(g, numeroDoAndar);
     premios[numPremios++] = I_CRISTAL_DE_VIDA + sortear(g, 0, 3);
-    if (chance(g, 35)) premios[numPremios++] = I_POCAO_GRANDE;
+    // O terceiro prêmio: às vezes uma Poção Grande, às vezes um item de
+    // suporte (a mochila e a lanterna só aparecem até o jogador ter uma;
+    // se já tiver, ao pegar ela vira moedas).
+    int r = sortear(g, 1, 100);
+    if (r <= 30) premios[numPremios++] = I_POCAO_GRANDE;
+    else if (r <= 45) premios[numPremios++] = (numeroDoAndar <= 5) ? I_MOCHILA_DE_COURO : I_LANTERNA;
+    else if (r <= 65) premios[numPremios++] = chance(g, 50) ? I_BOMBA_DE_FUMACA : I_PERGAMINHO_DO_MAPA;
     for (int i = 0; i < numPremios; i++) {
         int x, y;
         if (sortearLugar(andar, g, dentro, 0, x, y)) colocarItem(andar, premios[i], x, y);
@@ -245,16 +268,26 @@ static std::string comMaiusculaInicial(std::string texto) {
     return texto;
 }
 
-int limiteDoItem(int tipo) {
+bool usaNaHora(int tipo) {
+    return TIPOS_DE_ITEM[tipo].categoria == CRISTAL || tipo == I_MOCHILA_DE_COURO || tipo == I_LANTERNA;
+}
+
+int limiteDaMochila(const Jogador& j) {
+    return j.mochilaDeCouro ? 16 : LIMITE_DA_MOCHILA;
+}
+
+int limiteDoItem(const Jogador& j, int tipo) {
+    if (tipo == I_CHAVE || usaNaHora(tipo)) return 99;   // não ocupam espaço
+    int limite = 1;   // armas, escudos e pergaminhos de reserva: um de cada
     switch (tipo) {
-        case I_POCAO_DE_VIDA: return 6;
+        case I_POCAO_DE_VIDA:     limite = 6; break;
         case I_POCAO_GRANDE:
         case I_ANTIDOTO:
-        case I_ETER:          return 3;
-        case I_CHAVE:         return 99;   // a chave não ocupa espaço
+        case I_ETER:              limite = 3; break;
+        case I_BOMBA_DE_FUMACA:
+        case I_PERGAMINHO_DO_MAPA: limite = 2; break;
     }
-    if (TIPOS_DE_ITEM[tipo].categoria == CRISTAL) return 99;   // nunca fica na mochila
-    return 1;   // armas, escudos e pergaminhos de reserva: um de cada
+    return j.mochilaDeCouro ? limite + 1 : limite;
 }
 
 int itensNaMochila(const Jogador& j) {
@@ -266,17 +299,17 @@ int itensNaMochila(const Jogador& j) {
 }
 
 bool cabeNaMochila(const Jogador& j, int tipo) {
-    if (tipo == I_CHAVE || TIPOS_DE_ITEM[tipo].categoria == CRISTAL) return true;
-    return j.mochila[tipo] < limiteDoItem(tipo) && itensNaMochila(j) < LIMITE_DA_MOCHILA;
+    if (tipo == I_CHAVE || usaNaHora(tipo)) return true;
+    return j.mochila[tipo] < limiteDoItem(j, tipo) && itensNaMochila(j) < limiteDaMochila(j);
 }
 
 std::string motivoDeNaoCaber(const Jogador& j, int tipo) {
-    if (j.mochila[tipo] >= limiteDoItem(tipo)) {
+    if (j.mochila[tipo] >= limiteDoItem(j, tipo)) {
         return "Você já carrega o máximo de " + std::string(TIPOS_DE_ITEM[tipo].nome) + " (" +
-               std::to_string(j.mochila[tipo]) + "/" + std::to_string(limiteDoItem(tipo)) + ").";
+               std::to_string(j.mochila[tipo]) + "/" + std::to_string(limiteDoItem(j, tipo)) + ").";
     }
     return "A mochila está cheia (" + std::to_string(itensNaMochila(j)) + "/" +
-           std::to_string(LIMITE_DA_MOCHILA) + ").";
+           std::to_string(limiteDaMochila(j)) + ").";
 }
 
 // Deixa um item no chão em (x, y) ou, se já houver outro ali, numa célula vizinha.
@@ -304,6 +337,8 @@ static void largarNoChao(Jogo& jogo, int tipo, int x, int y) {
 
 void guardarOuLargar(Jogo& jogo, int tipo) {
     Jogador& j = jogo.jogador;
+    if (TIPOS_DE_ITEM[tipo].categoria == CRISTAL) { absorverCristal(jogo, tipo); return; }
+    if (usaNaHora(tipo)) { ganharItemPermanente(jogo, tipo); return; }
     if (cabeNaMochila(j, tipo)) {
         j.mochila[tipo]++;
         return;
@@ -356,6 +391,43 @@ void absorverCristal(Jogo& jogo, int tipo) {
     adicionarMensagem(jogo, "Você absorve " + nomeComArtigo(tipo) + "!" + textoDosBonus(t), MSG_BOA);
 }
 
+void ganharItemPermanente(Jogo& jogo, int tipo) {
+    Jogador& j = jogo.jogador;
+    bool& tem = (tipo == I_MOCHILA_DE_COURO) ? j.mochilaDeCouro : j.lanterna;
+    if (tem) {
+        // Já tinha uma: o Garro pagaria por ela, então vira moedas na hora.
+        int moedas = precoDeVenda(tipo);
+        j.moedas += moedas;
+        adicionarMensagem(jogo, "Você já tem " + nomeComArtigo(tipo) + ": esta vale " + std::to_string(moedas) +
+                                " moedas.", MSG_BOA);
+        return;
+    }
+    tem = true;
+    if (tipo == I_MOCHILA_DE_COURO) {
+        adicionarMensagem(jogo, "Mochila de Couro! Agora cabem " + std::to_string(limiteDaMochila(j)) +
+                                " itens, e cada tipo leva um a mais.", MSG_BOA);
+    } else {
+        atualizarVisao(jogo);
+        adicionarMensagem(jogo, "Lanterna! A sua luz chega mais longe.", MSG_BOA);
+    }
+}
+
+void revelarOAndar(Jogo& jogo) {
+    Andar& a = andarAtual(jogo);
+    // Tudo que encosta em algo passável aparece na memória do mapa.
+    for (int y = 0; y < MAPA_ALTURA; y++) {
+        for (int x = 0; x < MAPA_LARGURA; x++) {
+            if (ehPassavel(a.mapa, x, y) || ehVisivelComoParede(a.mapa, x, y) ||
+                a.mapa.celulas[y][x] == PORTA_TRANCADA) {
+                a.descoberto[y][x] = true;
+            }
+        }
+    }
+    for (int i = 0; i < a.numItens; i++) {
+        if (a.itens[i].ativo) a.itens[i].visto = true;
+    }
+}
+
 void pegarItensDoChao(Jogo& jogo) {
     Andar& andar = andarAtual(jogo);
     Jogador& j = jogo.jogador;
@@ -367,7 +439,7 @@ void pegarItensDoChao(Jogo& jogo) {
 
     // Mochila: cada item tem um máximo, e a mochila toda também.
     if (!cabeNaMochila(j, item.tipo)) {
-        bool cheiaDeTudo = j.mochila[item.tipo] < limiteDoItem(item.tipo);
+        bool cheiaDeTudo = j.mochila[item.tipo] < limiteDoItem(j, item.tipo);
         if (!cheiaDeTudo || jogo.modoAutomatico) {
             adicionarMensagem(jogo, motivoDeNaoCaber(j, item.tipo) + " " +
                                     comMaiusculaInicial(nomeComArtigo(item.tipo)) + " fica no chão.");
@@ -386,7 +458,7 @@ void pegarItensDoChao(Jogo& jogo) {
         opcoes.push_back("Deixar " + std::string(t.nome) + " no chão");
         descricoes.push_back(std::string(t.descricao) + "  |  Você pode voltar e pegar depois.");
         int escolha = escolherEmCaixa(jogo, "MOCHILA CHEIA (" + std::to_string(itensNaMochila(j)) + "/" +
-                                      std::to_string(LIMITE_DA_MOCHILA) + "): pegar " + t.nome + "?",
+                                      std::to_string(limiteDaMochila(j)) + "): pegar " + t.nome + "?",
                                       opcoes, descricoes, (int)opcoes.size() - 1);
         if (escolha < 0 || escolha >= (int)tipos.size()) {
             adicionarMensagem(jogo, comMaiusculaInicial(nomeComArtigo(item.tipo)) + " fica no chão.");
@@ -413,9 +485,13 @@ void pegarItensDoChao(Jogo& jogo) {
     tocarSom(SOM_ITEM);
     efeitoNoMapa(jogo, EFEITO_ITEM, item.x, item.y, item.tipo);
 
-    // Cristais fazem efeito na hora e para sempre.
+    // Cristais, a mochila e a lanterna fazem efeito na hora e para sempre.
     if (t.categoria == CRISTAL) {
         absorverCristal(jogo, item.tipo);
+        return;
+    }
+    if (usaNaHora(item.tipo)) {
+        ganharItemPermanente(jogo, item.tipo);
         return;
     }
 
@@ -516,6 +592,17 @@ bool usarItemForaDaBatalha(Jogo& jogo, int tipo) {
 
         case CRISTAL:
             return false; // cristais nunca ficam na mochila
+
+        case SUPORTE:
+            if (tipo == I_PERGAMINHO_DO_MAPA) {
+                revelarOAndar(jogo);
+                j.mochila[tipo]--;
+                tocarSom(SOM_ITEM);
+                adicionarMensagem(jogo, "Você lê o Pergaminho do Mapa: o andar inteiro aparece no mapa!", MSG_BOA);
+                return true;
+            }
+            adicionarMensagem(jogo, "A Bomba de Fumaça só serve na batalha: ela garante a fuga.");
+            return false;
 
         case POCAO:
             if (t.curaPorcento > 0) {

@@ -80,6 +80,18 @@ static const TextoDaDica DICAS[NUM_DICAS] = {
     { "Status",
       "Veneno tira vida a cada rodada; sono faz perder a vez, e a paralisia, às vezes. "
       "O Antídoto cura os três." },
+    { "Modo furtivo",
+      "Segure Shift enquanto anda (ou aperte F para ligar e desligar): os passos ficam lentos, "
+      "mas silenciosos. Chegando assim num monstro distraído, ele perde a 1ª rodada!" },
+    { "Campeão!",
+      "Esse monstro com aura dourada e coroa é um CAMPEÃO: mais forte e com mais vida, mas vale "
+      "o dobro de experiência, o triplo de moedas e pode soltar um item bom." },
+    { "Gnomo vigia",
+      "Se ele te vir, sopra a corneta e chama os monstros da sala dele e das salas vizinhas! "
+      "Chegue furtivo e pegue ele antes. Se ele fugir, na próxima vez ele fica para lutar." },
+    { "A sombra",
+      "Sombras só aparecem de perto (2 casas) ou na luz das tochas. Na batalha são difíceis de "
+      "acertar, mas têm pouca vida. Uma lanterna ajuda a vê-las antes." },
 };
 
 const char* tituloDaDica(Dica dica) { return DICAS[dica].titulo; }
@@ -137,7 +149,7 @@ void mostrarDica(Jogo& jogo, Dica dica) {
 // Algum monstro vivo à vista?
 static bool monstroAVista(const Jogo& jogo, const Andar& a) {
     for (int i = 0; i < a.numMonstros; i++) {
-        if (a.monstros[i].vivo && jogo.visivel[a.monstros[i].y][a.monstros[i].x]) return true;
+        if (monstroAVista(jogo, a.monstros[i])) return true;
     }
     return false;
 }
@@ -149,11 +161,28 @@ Dica proximaDica(const Jogo& jogo) {
     if (dicaPendente(DICA_CHEFE) && jogo.andar == NUM_ANDARES) return DICA_CHEFE;
     if (dicaPendente(DICA_NIVEL) && j.pontosLivres > 0) return DICA_NIVEL;
     if (dicaPendente(DICA_CHAVE) && j.mochila[I_CHAVE] > 0) return DICA_CHAVE;
-    if (dicaPendente(DICA_MOCHILA_CHEIA) && itensNaMochila(j) >= LIMITE_DA_MOCHILA) return DICA_MOCHILA_CHEIA;
+    if (dicaPendente(DICA_MOCHILA_CHEIA) && itensNaMochila(j) >= limiteDaMochila(j)) return DICA_MOCHILA_CHEIA;
     if (dicaPendente(DICA_ITEM) && jogo.itensColetados > 0) return DICA_ITEM;
     if (dicaPendente(DICA_LOJA) && a.loja.existe && a.zonaSegura[j.y][j.x]) return DICA_LOJA;
     if (dicaPendente(DICA_DESCANSO) && j.vida * 2 < j.vidaMaxima && !jogo.descansando && !monstroAVista(jogo, a))
         return DICA_DESCANSO;
+
+    // Monstros especiais à vista (a sombra só conta quando aparece de verdade).
+    bool querCampeao = dicaPendente(DICA_CAMPEAO), querGnomo = dicaPendente(DICA_GNOMO);
+    bool querSombra = dicaPendente(DICA_SOMBRA), querFurtivo = dicaPendente(DICA_FURTIVO);
+    if (querCampeao || querGnomo || querSombra || querFurtivo) {
+        for (int i = 0; i < a.numMonstros; i++) {
+            const Monstro& m = a.monstros[i];
+            if (!monstroAVista(jogo, m)) continue;
+            int especial = tipoDe(m).especial;
+            if (querCampeao && m.campeao) return DICA_CAMPEAO;
+            if (querGnomo && (especial & VIGIA)) return DICA_GNOMO;
+            if (querSombra && (especial & SOMBRIO)) return DICA_SOMBRA;
+            // Um monstro dormindo ou distraído, ainda longe: hora de ser furtivo.
+            int distancia = jogo.distanciaAteJogador[m.y][m.x];
+            if (querFurtivo && m.estado != CACANDO && distancia > 3 && jogo.andar >= 2) return DICA_FURTIVO;
+        }
+    }
 
     // Coisas à vista: caixas, poças, lava, armadilhas e as surpresas.
     for (int i = 0; i < a.numEspeciais; i++) {

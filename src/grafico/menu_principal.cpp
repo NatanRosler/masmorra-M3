@@ -3,6 +3,7 @@
 #include "visual.h"
 #include "sprites.h"
 #include "extra_sprites.h"
+#include "monstros_sprites.h"
 #include "raylib.h"
 #include "pontuacao.h"
 #include "som.h"
@@ -70,12 +71,13 @@ void personagens() {
     titulo();
     texto("PERSONAGENS",149,255,32,OURO);
     struct Carta { const Sprite* arte; const char* nome; const char* tipo; };
-    const std::array<Carta, 14> cartas = {{
+    const std::array<Carta, 16> cartas = {{
         {&HEROI,"AVENTUREIRO","você"}, {&RATO,"RATO","andares 1-4"}, {&KOBOLD,"KOBOLD","andares 1-4"},
         {&CHACAL,"CHACAL","andares 2-6, em bando"}, {&MACACO,"MACACO","andares 2-6, medroso"},
         {&SAPO,"SAPO","andares 2-6"}, {&GOBLIN,"GOBLIN","andares 3-10"},
         {&MORCEGO,"MORCEGO VAMPIRO","andares 4-9, rápido"}, {&OGRO,"OGRO","andares 6-10"},
-        {&NAGA,"NAGA","andares 8-10"}, {&SENHOR,"O SENHOR","chefe final, andar 10"},
+        {&NAGA,"NAGA","andares 8-10"}, {&GNOMO,"GNOMO VIGIA","andares 3-8, corneta"},
+        {&SOMBRA,"SOMBRA","andares 5-10, no escuro"}, {&SENHOR,"O SENHOR","chefe final, andar 10"},
         {&EXPLORADORA,"ELDRA","exploradora, andar 1"}, {&MINEIRO,"BORIN","velho mineiro, andar 4"},
         {&ESPIRITO,"ESPÍRITO","o guardião, andar 7"},
     }};

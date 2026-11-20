@@ -18,6 +18,8 @@ enum Dica {
     DICA_LOJA, DICA_CHEFE,
     // Na batalha (na caixa de texto da batalha)
     DICA_BATALHA, DICA_ESCUDO, DICA_STATUS,
+    // v1.17, no mapa (no fim: opcoes.txt guarda as vistas pela posição)
+    DICA_FURTIVO, DICA_CAMPEAO, DICA_GNOMO, DICA_SOMBRA,
     NUM_DICAS
 };
 

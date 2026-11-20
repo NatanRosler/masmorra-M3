@@ -51,9 +51,10 @@ static int sortearConteudo(GeradorAleatorio& g, int numeroDoAndar) {
         if (quantas > 0) return armas[sortear(g, 0, quantas - 1)];
         return I_POCAO_DE_VIDA;
     }
-    if (r <= 72) return I_ANTIDOTO;
-    if (r <= 82) return I_ETER;
-    if (r <= 92) return I_POCAO_GRANDE;
+    if (r <= 68) return I_ANTIDOTO;
+    if (r <= 76) return I_ETER;
+    if (r <= 84) return I_POCAO_GRANDE;
+    if (r <= 92 && numeroDoAndar >= 2) return chance(g, 50) ? I_BOMBA_DE_FUMACA : I_PERGAMINHO_DO_MAPA;
     return I_CRISTAL_DE_VIDA + sortear(g, 0, 3);   // um dos 4 cristais
 }
 

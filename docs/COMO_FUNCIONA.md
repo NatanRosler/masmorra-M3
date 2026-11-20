@@ -634,3 +634,60 @@ ficava fácil demais (97% de vitórias no nível 26, 99% no 30).
   Está no `.gitignore`, como o `ranking.txt` e o `save.dat`.
 - **Tela cheia** usa o modo "sem bordas" da raylib (`ToggleBorderlessWindowed`):
   ocupa o monitor sem trocar a resolução dele.
+
+## Monstros novos, campeões, itens de suporte e modo furtivo (v1.17)
+
+- **Campeões (elite)** — `tornarCampeao` (monstros.cpp). Depois de povoar o
+  andar (do 2 em diante), cada monstro tem uma chance de nascer campeão, até
+  um máximo por andar: Fácil 6% (máx. 1), Médio 12% (máx. 2), Difícil 18%
+  (máx. 3) (`chanceDeCampeao` e `maximoDeCampeoes` em dificuldade.cpp). O
+  campeão ganha +2 níveis e +50% de vida (`vidaMaximaDoMonstro`), aparece com
+  aura dourada e coroa (mapa e batalha; fundo dourado no console) e vale o
+  dobro de experiência e o triplo de moedas. Metade das vezes deixa Poção
+  Grande, Éter, Bomba de Fumaça ou um cristal (`premioDoCampeao`, jogo.cpp).
+- **Gnomo vigia** (`VIGIA`, andares 3–8) — `agirComoVigia` e `tocarCorneta`
+  (monstros.cpp). Ao perceber o jogador, sopra a corneta e foge para o ponto
+  do andar mais longe dele. Quando o jogador o encontra de novo, sopra outra
+  vez e fica parado esperando a luta (vale o dobro de moedas). Pego dormindo
+  (ou de surpresa) não toca nada.
+  - **Quem ouve** (`casasQueOuvemACorneta`): o mapa é dividido em regiões que
+    ficam entre portas (flood fill sem atravessar portas). Ouvem a região do
+    gnomo e as ligadas a ela por uma porta; se uma vizinha for um corredor
+    (região sem nenhuma casa com os 8 vizinhos livres), o som atravessa mais
+    uma porta. Os monstros que ouvem seguem até o jogador por 25 turnos, mesmo
+    sem vê-lo (`turnosSemVerJogador` negativo).
+  - Teste (1381 gnomos, 300 sementes, andares 3–8): cada corneta chama em
+    média 2,5 monstros (de 7,4 no andar; no máximo 10) e alcança 34% do andar.
+- **Sombra** (`SOMBRIO`, andares 5–10) — só aparece a até 2 casas do jogador
+  ou numa casa iluminada por tocha ou lava (`monstroAVista`, com
+  `Jogo::luzDeTocha` calculado em `atualizarVisao`). De longe, na versão
+  gráfica, às vezes surge um leve tremular. Na batalha tem +20 de esquiva.
+- **Itens de suporte** (categoria `SUPORTE`, no fim da lista de itens):
+  - Mochila de Couro: 16 itens e +1 no limite de cada tipo (`limiteDaMochila`,
+    `limiteDoItem(j, tipo)`). Lanterna: +2 no raio de luz
+    (`raioDaLuzDoJogador`). As duas valem na hora e para a partida toda
+    (`ganharItemPermanente`); uma repetida vira moedas.
+  - Bomba de Fumaça (máx. 2): na batalha, fuga garantida; os monstros ficam
+    tontos 4 s. Não funciona contra o chefe nem na arena.
+  - Pergaminho do Mapa (máx. 2): revela o andar (`revelarOAndar`).
+  - Onde achar: sala do tesouro (3º prêmio), baú dourado, caixas (bomba e
+    pergaminho), chão (bomba e pergaminho) e o Garro (bombas, pergaminhos e a
+    mochila ou a lanterna que o jogador ainda não tiver: `Npc::estoqueExtra`).
+- **Modo furtivo** — Shift segurado (versão gráfica, `shiftSegurado`) ou a
+  tecla F (`Jogo::furtivoLigado`). Cada passo leva 1,5× o tempo; os monstros
+  percebem o jogador a 7 casas em vez de 14; os que dormem só acordam se ele
+  estiver a até 2 casas (10% de chance por vez). Encostar furtivo num monstro
+  que está vagando (não percebeu o jogador) é um **ataque surpresa**: ele
+  perde a 1ª rodada (`Jogo::ataqueSurpresa`, em `batalhar`).
+- **Save versão 3** — os campos novos ficaram no fim das structs (`Monstro`,
+  `Npc`, `Jogador`); saves das versões 1 e 2 são lidos em structs antigas e
+  copiados (`MonstroAntigo`, `NpcAntigo`, salvar.cpp), e as espécies são
+  renumeradas (o gnomo e a sombra entraram antes do mímico). Testado com saves
+  reais das versões 1 e 2.
+- **Equilíbrio** — o ataque dos monstros no Médio subiu de 110% para 115%.
+  Bots (800 partidas, Médio): quem só desce chega ao andar 10 em 4,8% das
+  partidas (meta ~5%); usando o modo furtivo, 6,6%. O explorador chega em
+  100%. Chefe (bot sem Escudo): 48% no nível 22, 58% no 26, 59% no 30.
+  Fácil: 93%; Difícil: 0% (bot que só desce).
+- **Dicas novas**: modo furtivo (ao ver um monstro distraído), campeão,
+  gnomo vigia e sombra.

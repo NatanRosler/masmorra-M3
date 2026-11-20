@@ -105,6 +105,9 @@ void criarEfeitos() {
                                         {1047, 0, 400, QUADRADA, 0.3f}, {784, 0, 150, QUADRADA, 0.3f}, {1047, 0, 700, QUADRADA, 0.3f} });
     sons[SOM_DERROTA]      = gerarSom({ {392, 0, 250, TRIANGULAR, 0.55f}, {370, 0, 250, TRIANGULAR, 0.55f},
                                         {349, 0, 250, TRIANGULAR, 0.55f}, {330, 0, 700, TRIANGULAR, 0.55f} });
+    // Corneta do gnomo: duas notas longas de metal, a segunda mais aguda.
+    sons[SOM_CORNETA]      = gerarSom({ {294, 300, 380, QUADRADA_FINA, 0.38f}, {0, 0, 40, TRIANGULAR, 0.0f},
+                                        {392, 400, 650, QUADRADA_FINA, 0.38f} });
     // Bloqueio: "clang" de metal (um estalo agudo e um tom que fica soando).
     sons[SOM_BLOQUEIO]     = gerarSom({ {2400, 1800, 30, RUIDO, 0.45f}, {1560, 1500, 90, QUADRADA_FINA, 0.3f},
                                         {1180, 1150, 260, TRIANGULAR, 0.4f} });

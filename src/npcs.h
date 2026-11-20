@@ -36,6 +36,9 @@ struct Npc {
     bool conversou;    // a ajuda (item, cura, porta) só acontece na 1a conversa
     int estoque[2];    // comerciante: itens especiais à venda (-1 = vendido/nenhum)
     int pocoesAVenda[4];   // comerciante: quantas de cada poção ele ainda tem (loja.cpp)
+    // v1.17 (no fim da struct, por causa do save antigo):
+    int estoqueExtra;      // comerciante: Mochila de Couro ou Lanterna (-1 = nenhuma)
+    int extrasAVenda[2];   // comerciante: bombas de fumaça e pergaminhos do mapa
 };
 
 const int MAX_NPCS = 2;

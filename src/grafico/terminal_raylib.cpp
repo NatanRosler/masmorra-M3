@@ -47,6 +47,10 @@ void registrarOpcao(Rectangle r, int indice, int cursor) { opcoes.push_back({r,i
 void registrarAtalho(Rectangle r, int tecla) { atalhos.push_back({r,tecla}); }
 void limparOpcoes() { opcoes.clear(); atalhos.clear(); }
 
+bool shiftSegurado() {
+    return IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+}
+
 long long relogioMs() {
     using namespace std::chrono;
     return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();

@@ -23,6 +23,8 @@ const int MEDROSO  = 4;  // foge (no mapa e na batalha) quando está com pouca v
 const int EM_BANDO = 8;  // aparece em dupla (às vezes em trio)
 const int QUEBRA_CAIXAS = 16; // despedaça as caixas que encontra no caminho
 const int CHEFE    = 32; // o chefe final: só aparece no último andar
+const int VIGIA    = 64; // gnomo vigia: ao ver o jogador, sopra a corneta (chama as salas vizinhas)
+const int SOMBRIO  = 128; // sombra: invisível de longe (só aparece a 2 casas ou perto de uma tocha)
 
 const int LINHAS_DA_ARTE = 7;
 
@@ -42,7 +44,7 @@ struct TipoMonstro {
     int andarMinimo;       // em que andares aparece
     int andarMaximo;
     int frequencia;        // quanto maior, mais comum
-    int especial;          // RAPIDO, ERRATICO, MEDROSO, EM_BANDO
+    int especial;          // RAPIDO, ERRATICO, MEDROSO, EM_BANDO, VIGIA, SOMBRIO...
 };
 
 extern const TipoMonstro TIPOS_DE_MONSTRO[];
@@ -71,6 +73,9 @@ struct Monstro {
     int turnosSemBatalha;      // depois de uma fuga, demora a puxar briga de novo
     bool carregaChave;         // deixa a chave da sala do tesouro ao ser derrotado
     int tempoAcumulado;        // milissegundos desde a última ação (tempo real)
+    // v1.17 (no fim da struct: o save antigo lê só a parte de cima, ver salvar.cpp)
+    bool campeao;              // monstro elite: mais forte, aura dourada, mais prêmios
+    int cornetas;              // gnomo vigia: quantas vezes já soprou a corneta (0, 1 ou 2)
 };
 
 const int MAX_MONSTROS = 40;
@@ -120,9 +125,19 @@ int monstroEm(const Andar& andar, int x, int y);
 
 const TipoMonstro& tipoDe(const Monstro& m);
 
-// Nome com artigo, para as mensagens: "o rato", "a naga".
+// Nome com artigo, para as mensagens: "o rato", "a naga", "o ogro campeão".
 // Se o jogador não está vendo o monstro, vira "algo".
 std::string nomeDoMonstro(const Jogo& jogo, const Monstro& m);
+// Só o nome: "ogro", "ogro campeão", "sombra campeã".
+std::string nomeDaEspecie(const Monstro& m);
+
+// O jogador está vendo este monstro agora? (A sombra só aparece a até 2
+// casas ou na luz de uma tocha, mesmo numa casa visível.)
+bool monstroAVista(const Jogo& jogo, const Monstro& m);
+
+// Campeão (elite): +2 níveis, +50% de vida, aura dourada; vale o dobro de
+// experiência, o triplo de moedas e pode soltar um item bom.
+void tornarCampeao(Monstro& m);
 
 // Vida máxima do monstro (depende da espécie e do nível).
 int vidaMaximaDoMonstro(const Monstro& m);

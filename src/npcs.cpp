@@ -172,6 +172,8 @@ void colocarNpcs(Andar& andar, int numeroDoAndar, int chegadaX, int chegadaY) {
             npc.y = andar.loja.balcaoY;
             npc.conversou = false;
             npc.estoque[0] = npc.estoque[1] = -1;
+            npc.estoqueExtra = -1;
+            npc.extrasAVenda[0] = npc.extrasAVenda[1] = 0;
             for (int k = 0; k < 4; k++) npc.pocoesAVenda[k] = 0;
             int item = itemEm(andar, npc.x, npc.y);
             if (item >= 0) andar.itens[item].ativo = false;   // nada embaixo do balcão
@@ -209,6 +211,8 @@ void colocarNpcs(Andar& andar, int numeroDoAndar, int chegadaX, int chegadaY) {
         npc.y = melhorY;
         npc.conversou = false;
         npc.estoque[0] = npc.estoque[1] = -1;
+        npc.estoqueExtra = -1;
+        npc.extrasAVenda[0] = npc.extrasAVenda[1] = 0;
         for (int k = 0; k < 4; k++) npc.pocoesAVenda[k] = 0;
         if (tipo == NPC_COMERCIANTE) {
             // Sem salinha: um tapete 5x5 em volta dele vira a área protegida.

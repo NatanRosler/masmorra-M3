@@ -8,15 +8,20 @@
 #include "som.h"
 
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <type_traits>
 
 const char* ARQUIVO_DO_SAVE = "save.dat";
 static const char* ARQUIVO_TEMPORARIO = "save.tmp";
 
-// Muda quando o formato do arquivo mudar: saves antigos deixam de ser aceitos.
-// Versão 2 (v1.13): salas especiais. Saves da versão 1 continuam sendo lidos.
-static const int VERSAO_DO_SAVE = 2;
+// Muda quando o formato do arquivo mudar.
+// Versão 2 (v1.13): salas especiais.
+// Versão 3 (v1.17): campeões, gnomo vigia e sombra (2 espécies novas antes do
+// mímico), itens de suporte (4 itens novos no fim da lista), Mochila de Couro
+// e Lanterna no jogador, estoque novo do Garro. Saves das versões 1 e 2
+// continuam sendo lidos (ver "SAVES ANTIGOS" mais abaixo).
+static const int VERSAO_DO_SAVE = 3;
 static const char ASSINATURA[8] = { 'M', 'A', 'S', 'M', 'O', 'R', 'R', 'A' };
 
 // =============================================================================
@@ -61,15 +66,57 @@ struct Leitor {
     }
 };
 
+// =============================================================================
+// SAVES ANTIGOS (versões 1 e 2)
+// =============================================================================
+// Como as structs eram antes da v1.17. Os campos novos foram postos no FIM
+// das structs, então a parte de cima é igual: o save antigo é lido nessas
+// structs e copiado para o começo das novas (memcpy), e o resto recebe o
+// valor padrão.
+struct MonstroAntigo {
+    bool vivo; int tipo; int x, y; int nivel; int vida; Elemento elemento; int atordoadoMs;
+    EstadoMonstro estado; int destinoX, destinoY; int turnosSemVerJogador; int turnosSemBatalha;
+    bool carregaChave; int tempoAcumulado;
+};
+struct NpcAntigo {
+    int tipo; int x, y; bool conversou; int estoque[2]; int pocoesAVenda[4];
+};
+const int ITENS_ANTIGOS = 26;     // I_CHAVE + 1: os itens de suporte vieram depois
+const int ESPECIES_ANTIGAS = 9;   // do rato à naga: depois vinham o mímico e o chefe
+
 // Tamanho das estruturas gravadas "brutas": se o jogo mudar, o save antigo
 // é recusado em vez de ser lido errado.
-static void tamanhos(int t[12]) {
-    t[0] = (int)sizeof(Monstro);       t[1] = (int)sizeof(ItemNoChao);
-    t[2] = (int)sizeof(Armadilha);     t[3] = (int)sizeof(Npc);
+static void tamanhos(int t[12], int versao) {
+    bool antigo = versao < 3;
+    t[0] = antigo ? (int)sizeof(MonstroAntigo) : (int)sizeof(Monstro);
+    t[1] = (int)sizeof(ItemNoChao);
+    t[2] = (int)sizeof(Armadilha);
+    t[3] = antigo ? (int)sizeof(NpcAntigo) : (int)sizeof(Npc);
     t[4] = (int)sizeof(Mapa);          t[5] = (int)sizeof(Escadas);
     t[6] = (int)sizeof(SalaDoTesouro); t[7] = (int)sizeof(SalaDaLoja);
     t[8] = MAPA_LARGURA;               t[9] = MAPA_ALTURA;
-    t[10] = NUM_TIPOS_DE_ITEM;         t[11] = NUM_ANDARES;
+    t[10] = antigo ? ITENS_ANTIGOS : NUM_TIPOS_DE_ITEM;
+    t[11] = NUM_ANDARES;
+}
+
+static void lerMonstro(Leitor& l, Monstro& m, int versao) {
+    if (versao >= 3) { l.bruto(m); return; }
+    MonstroAntigo antigo;
+    l.bruto(antigo);
+    static_assert(sizeof(MonstroAntigo) <= sizeof(Monstro), "a struct nova só cresce");
+    std::memcpy(&m, &antigo, sizeof(antigo));
+    m.campeao = false;
+    m.cornetas = 0;
+}
+
+static void lerNpc(Leitor& l, Npc& n, int versao) {
+    if (versao >= 3) { l.bruto(n); return; }
+    NpcAntigo antigo;
+    l.bruto(antigo);
+    static_assert(sizeof(NpcAntigo) <= sizeof(Npc), "a struct nova só cresce");
+    std::memcpy(&n, &antigo, sizeof(antigo));
+    n.estoqueExtra = -1;
+    n.extrasAVenda[0] = n.extrasAVenda[1] = 0;
 }
 
 // =============================================================================
@@ -101,9 +148,11 @@ static void gravarJogador(Gravador& g, const Jogador& j) {
     g.bruto(j.bonusVelocidade);
     g.bruto(j.vidas);
     g.bruto(j.moedas);
+    g.bruto(j.mochilaDeCouro);
+    g.bruto(j.lanterna);
 }
 
-static void lerJogador(Leitor& l, Jogador& j) {
+static void lerJogador(Leitor& l, Jogador& j, int versao) {
     l.texto(j.nome);
     l.bruto(j.elemento);
     l.bruto(j.cor);
@@ -117,7 +166,13 @@ static void lerJogador(Leitor& l, Jogador& j) {
     l.bruto(j.golpes);
     l.bruto(j.pp);
     l.bruto(j.numGolpes);
-    l.bruto(j.mochila);
+    if (versao >= 3) {
+        l.bruto(j.mochila);
+    } else {
+        int antiga[ITENS_ANTIGOS];
+        l.bruto(antiga);
+        for (int i = 0; i < NUM_TIPOS_DE_ITEM; i++) j.mochila[i] = (i < ITENS_ANTIGOS) ? antiga[i] : 0;
+    }
     int arma = l.numero(-1, NUM_TIPOS_DE_ITEM - 1);
     int escudo = l.numero(-1, NUM_TIPOS_DE_ITEM - 1);
     j.arma = (arma >= 0) ? &TIPOS_DE_ITEM[arma] : nullptr;
@@ -128,6 +183,11 @@ static void lerJogador(Leitor& l, Jogador& j) {
     l.bruto(j.bonusVelocidade);
     l.bruto(j.vidas);
     l.bruto(j.moedas);
+    j.mochilaDeCouro = j.lanterna = false;
+    if (versao >= 3) {
+        l.bruto(j.mochilaDeCouro);
+        l.bruto(j.lanterna);
+    }
     // Vida máxima, ataque, defesa, precisão... são calculados de novo a partir
     // do nível, dos atributos, do equipamento e dos bônus.
     int vida = j.vida;
@@ -170,7 +230,7 @@ static void lerAndar(Leitor& l, Andar& a, int versao) {
     l.bruto(a.escadas);
     l.bruto(a.descoberto);
     a.numMonstros = l.numero(0, MAX_MONSTROS);
-    for (int i = 0; i < a.numMonstros && l.ok; i++) l.bruto(a.monstros[i]);
+    for (int i = 0; i < a.numMonstros && l.ok; i++) lerMonstro(l, a.monstros[i], versao);
     a.numItens = l.numero(0, MAX_ITENS_NO_CHAO);
     for (int i = 0; i < a.numItens && l.ok; i++) l.bruto(a.itens[i]);
     l.bruto(a.tesouro);
@@ -181,7 +241,7 @@ static void lerAndar(Leitor& l, Andar& a, int versao) {
     for (int i = 0; i < a.numArmadilhas && l.ok; i++) l.bruto(a.armadilhas[i]);
     l.bruto(a.conteudoDasCaixas);
     a.numNpcs = l.numero(0, MAX_NPCS);
-    for (int i = 0; i < a.numNpcs && l.ok; i++) l.bruto(a.npcs[i]);
+    for (int i = 0; i < a.numNpcs && l.ok; i++) lerNpc(l, a.npcs[i], versao);
     l.bruto(a.cheiro);
     if (versao >= 2) {
         a.numEspeciais = l.numero(0, MAX_ESPECIAIS);
@@ -204,7 +264,7 @@ bool salvarPartida(const Jogo& jogo) {
     g.arquivo.write(ASSINATURA, sizeof(ASSINATURA));
     g.bruto(VERSAO_DO_SAVE);
     int t[12];
-    tamanhos(t);
+    tamanhos(t, VERSAO_DO_SAVE);
     g.bruto(t);
     g.texto(jogo.jogador.nome);
     g.bruto(jogo.andar);
@@ -251,7 +311,7 @@ static bool lerCabecalho(Leitor& l, std::string& nome, int& andar, int& nivel, i
     if (!l.ok || versao < 1 || versao > VERSAO_DO_SAVE) return false;
     int lidos[12], esperados[12];
     l.bruto(lidos);
-    tamanhos(esperados);
+    tamanhos(esperados, versao);
     for (int i = 0; i < 12; i++) if (lidos[i] != esperados[i]) return false;
     l.texto(nome);
     andar = l.numero(1, NUM_ANDARES);
@@ -288,7 +348,7 @@ bool carregarPartida(Jogo& jogo) {
     l.bruto(jogo.sorte);
     l.bruto(jogo.elementoDaEspecie);
     for (int i = 0; i < NUM_ANDARES && l.ok; i++) lerAndar(l, jogo.andares[i], versao);
-    if (l.ok) lerJogador(l, jogo.jogador);
+    if (l.ok) lerJogador(l, jogo.jogador, versao);
     l.bruto(jogo.tempoMs);
     l.bruto(jogo.passos);
     l.bruto(jogo.monstrosMortos);
@@ -309,16 +369,34 @@ bool carregarPartida(Jogo& jogo) {
     if (!l.ok || !l.arquivo.read(fim, sizeof(fim))) return false;
     for (int i = 0; i < 8; i++) if (fim[i] != ASSINATURA[i]) return false;
     if (!jogo.andares[jogo.andar - 1].gerado) return false;
-    if (versao == 1) {
-        // Na versão 1 não existia o mímico, que entrou na tabela logo antes do
-        // chefe: o chefe (e o elemento dele) mudou de posição.
-        int chefe = tipoDoChefe(), mimico = tipoDoMimico();
-        jogo.elementoDaEspecie[chefe] = jogo.elementoDaEspecie[mimico];
-        jogo.elementoDaEspecie[mimico] = NORMAL;
+    if (versao < 3) {
+        // As espécies mudaram de número: na versão 1 a tabela acabava no
+        // chefe (índice 9); na 2, vinham o mímico (9) e o chefe (10); na 3,
+        // o gnomo e a sombra entraram antes do mímico.
+        int novoNumero[MAX_ESPECIES];
+        for (int i = 0; i < MAX_ESPECIES; i++) novoNumero[i] = i;
+        if (versao == 1) {
+            novoNumero[ESPECIES_ANTIGAS] = tipoDoChefe();
+        } else {
+            novoNumero[ESPECIES_ANTIGAS] = tipoDoMimico();
+            novoNumero[ESPECIES_ANTIGAS + 1] = tipoDoChefe();
+        }
+        Elemento antigos[MAX_ESPECIES];
+        for (int i = 0; i < MAX_ESPECIES; i++) antigos[i] = jogo.elementoDaEspecie[i];
+        // Espécies novas: um elemento tirado da semente da partida.
+        for (int i = ESPECIES_ANTIGAS; i < MAX_ESPECIES; i++) {
+            jogo.elementoDaEspecie[i] = (Elemento)((jogo.semente / (i + 1)) % NUM_ELEMENTOS);
+        }
+        int especiesNoSave = (versao == 1) ? ESPECIES_ANTIGAS + 1 : ESPECIES_ANTIGAS + 2;
+        for (int i = ESPECIES_ANTIGAS; i < especiesNoSave; i++) jogo.elementoDaEspecie[novoNumero[i]] = antigos[i];
+        if (versao == 1) jogo.elementoDaEspecie[tipoDoMimico()] = NORMAL;
         for (int i = 0; i < NUM_ANDARES; i++) {
             Andar& a = jogo.andares[i];
             if (!a.gerado) continue;
-            for (int k = 0; k < a.numMonstros; k++) if (a.monstros[k].tipo == mimico) a.monstros[k].tipo = chefe;
+            for (int k = 0; k < a.numMonstros; k++) {
+                int tipo = a.monstros[k].tipo;
+                if (tipo >= 0 && tipo < MAX_ESPECIES) a.monstros[k].tipo = novoNumero[tipo];
+            }
         }
     }
 
@@ -328,6 +406,9 @@ bool carregarPartida(Jogo& jogo) {
     jogo.batalhaPendente = -1;
     jogo.esperaDoJogadorMs = 0;
     jogo.descansando = false;
+    jogo.furtivo = false;
+    jogo.furtivoLigado = false;
+    jogo.ataqueSurpresa = -1;
     jogo.msDeDescanso = 0;
     jogo.segundosDeDescanso = 0;
     jogo.rodadasDaUltimaBatalha = 0;

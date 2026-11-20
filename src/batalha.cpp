@@ -466,19 +466,32 @@ static bool precisaDeAlvo(const Golpe& g) {
     return !(g.poder == 0 && (g.efeito == SOBE_ATAQUE || g.efeito == SOBE_DEFESA));
 }
 
-// Monta a lista das poções que o jogador tem na mochila.
+// Monta a lista das poções (e da bomba de fumaça) que o jogador tem na mochila.
 static void listarItensUsaveis(const Jogador& j, Batalha& b) {
     b.numItensUsaveis = 0;
     for (int i = 0; i < NUM_TIPOS_DE_ITEM; i++) {
-        if (TIPOS_DE_ITEM[i].categoria == POCAO && j.mochila[i] > 0 && b.numItensUsaveis < 16) {
+        bool serve = TIPOS_DE_ITEM[i].categoria == POCAO || i == I_BOMBA_DE_FUMACA;
+        if (serve && j.mochila[i] > 0 && b.numItensUsaveis < 16) {
             b.itensUsaveis[b.numItensUsaveis++] = i;
         }
     }
 }
 
 // O item faria alguma coisa agora? Se não, devolve o motivo (senão, "").
+static bool contraOChefe(const Batalha& b) {
+    for (int i = 0; i < b.numInimigos; i++) {
+        if (b.naLuta[i] && b.inimigos[i].ehChefe) return true;
+    }
+    return false;
+}
+
 static std::string motivoParaNaoUsar(const Jogador& j, const Batalha& b, int tipo) {
     const TipoItem& t = TIPOS_DE_ITEM[tipo];
+    if (tipo == I_BOMBA_DE_FUMACA) {
+        if (contraOChefe(b)) return "A fumaça não engana o Senhor das Profundezas.";
+        if (b.naArena) return "Na arena não há para onde fugir: a porta está trancada.";
+        return "";
+    }
     if (t.curaPorcento > 0 && j.vida >= j.vidaMaxima) return "Sua vida já está cheia.";
     if (t.curaStatus && b.jogador.status == SEM_STATUS) return "Você não está sob nenhum efeito.";
     if (t.restauraPP) {
@@ -513,6 +526,11 @@ static Acao escolherAcaoAutomatica(Jogo& jogo, Batalha& b) {
     }
     if (b.jogador.status == ENVENENADO && j.mochila[I_ANTIDOTO] > 0 && j.vida * 2 < j.vidaMaxima) {
         return { ACAO_ITEM, I_ANTIDOTO, 0 };
+    }
+    // Sem poção e quase desmaiando: a bomba de fumaça tira o bot da luta.
+    if (j.vida * 4 < j.vidaMaxima && j.mochila[I_BOMBA_DE_FUMACA] > 0 &&
+        motivoParaNaoUsar(j, b, I_BOMBA_DE_FUMACA).empty()) {
+        return { ACAO_ITEM, I_BOMBA_DE_FUMACA, 0 };
     }
     // Melhor par (golpe, alvo); empatando, o alvo com menos vida.
     int melhorSlot = 0, melhorAlvo = primeiroNaLuta(b), melhorValor = -1;
@@ -742,6 +760,7 @@ static Lutador montarLutadorDoJogador(Jogador& j) {
     l.esquiva = j.esquiva;
     l.criticoExtra = j.criticoExtra;
     l.ehChefe = false;
+    l.ehCampeao = false;
     l.ehJogador = true;
     l.indice = 0;
     return l;
@@ -750,7 +769,7 @@ static Lutador montarLutadorDoJogador(Jogador& j) {
 static Lutador montarLutadorDoMonstro(Monstro& m) {
     const TipoMonstro& t = tipoDe(m);
     Lutador l;
-    l.nome = std::string(t.artigo) + " " + t.nome;
+    l.nome = std::string(t.artigo) + " " + nomeDaEspecie(m);
     l.nivel = m.nivel;
     l.elemento = m.elemento;     // sorteado a cada partida (Etapa 6)
     l.vida = &m.vida;            // ponteiro para a vida do monstro no mapa
@@ -770,6 +789,7 @@ static Lutador montarLutadorDoMonstro(Monstro& m) {
     l.esquiva = esquivaDoMonstro(m);
     l.criticoExtra = 0;
     l.ehChefe = (t.especial & CHEFE) != 0;
+    l.ehCampeao = m.campeao;
     l.ehJogador = false;
     l.indice = 1;
     return l;
@@ -816,8 +836,11 @@ static bool conferirDesmaios(Jogo& jogo, Batalha& b) {
         m.vivo = false;   // derrotado: some do mapa
         tocarSom(SOM_DESMAIO);
         narrar(jogo, b, comMaiuscula(b.inimigos[i].nome) + " desmaiou!");
-        ganharExperiencia(jogo, b, tipoDe(m).experienciaBase * m.nivel / 6 * dificuldadeAtual().experiencia / 100,
-                          moedasDoMonstro(jogo, m.nivel, b.inimigos[i].ehChefe));
+        int experiencia = tipoDe(m).experienciaBase * m.nivel / 6 * dificuldadeAtual().experiencia / 100;
+        int moedas = moedasDoMonstro(jogo, m.nivel, b.inimigos[i].ehChefe);
+        if (m.campeao) { experiencia *= 2; moedas *= 3; }      // campeão: prêmio maior
+        if (m.cornetas >= 2) moedas *= 2;                       // o gnomo que parou de fugir
+        ganharExperiencia(jogo, b, experiencia, moedas);
     }
     return inimigosNaLuta(b) == 0;
 }
@@ -895,6 +918,14 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
     b.escudoNaRodadaAnterior = false;
     b.chanceDoBloqueio = 0;
     b.chefeFurioso = false;
+    b.naArena = false;
+    {
+        const Andar& andar = andarAtual(jogo);
+        for (int k = 0; k < andar.numEspeciais; k++) {
+            const Especial& e = andar.especiais[k];
+            if (e.tipo == ESP_GONGO && e.onda > 0 && !e.usado) b.naArena = true;
+        }
+    }
     b.numAlvos = 0;
 
     animarBatalha(jogo, b, ANIM_ENTRADA, 0, 0, 0, 0, false);
@@ -902,10 +933,18 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
     // ---- Apresentação. Monstros pegos dormindo começam a luta dormindo. -------
     std::string apresentacao;
     bool tonto = false;   // algum monstro entrou tonto (levou uma caixa)
+    bool surpreendido = false;   // ataque surpresa (modo furtivo)
     for (int i = 0; i < quantos; i++) {
         std::string nome = b.inimigos[i].nome + " (Nv " + std::to_string(participantes[i]->nivel) + ")";
         bool chefe = (tipoDe(*participantes[i]).especial & CHEFE) != 0;
-        if (participantes[i]->atordoadoMs > 0) {
+        bool surpresa = jogo.ataqueSurpresa >= 0 && participantes[i] == &andarAtual(jogo).monstros[jogo.ataqueSurpresa];
+        if (surpresa && !chefe) {
+            // Modo furtivo: o monstro nem viu o jogador chegar.
+            b.inimigos[i].status = ADORMECIDO;
+            b.inimigos[i].rodadasDormindo = 1;
+            nome += ", surpreso";
+            surpreendido = true;
+        } else if (participantes[i]->atordoadoMs > 0) {
             // Ainda tonto da caixa: perde a primeira rodada (até o chefe).
             b.inimigos[i].status = ADORMECIDO;
             b.inimigos[i].rodadasDormindo = 1;
@@ -921,7 +960,13 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
         apresentacao += nome;
         participantes[i]->estado = CACANDO;
     }
-    if (quantos == 1 && tonto) {
+    jogo.ataqueSurpresa = -1;
+    if (quantos == 1 && surpreendido) {
+        tocarSom(SOM_CRITICO);
+        narrar(jogo, b, "Ataque surpresa! " + comMaiuscula(b.inimigos[0].nome) + " (Nv " +
+                        std::to_string(participantes[0]->nivel) + ") nem viu você chegar e perde a primeira rodada!",
+               MSG_BOA);
+    } else if (quantos == 1 && tonto) {
         bool feminino = tipoDe(*participantes[0]).artigo[0] == 'a';
         narrar(jogo, b, comMaiuscula(b.inimigos[0].nome) + (feminino ? " ainda está tonta" : " ainda está tonto") +
                         " da caixa e perde a primeira rodada!", MSG_BOA);
@@ -933,6 +978,9 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
         narrar(jogo, b, comMaiuscula(apresentacao) + " quer lutar!", contraOChefe ? MSG_PERIGO : MSG_NORMAL);
     } else {
         narrar(jogo, b, "Um grupo ataca: " + apresentacao + "!", MSG_PERIGO);
+        if (surpreendido) {
+            narrar(jogo, b, "Ataque surpresa! " + comMaiuscula(b.inimigos[0].nome) + " perde a primeira rodada!", MSG_BOA);
+        }
     }
 
     // Aviso do ambiente: algum inimigo está mais forte por causa do tema do andar?
@@ -980,6 +1028,21 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
             } else {
                 narrar(jogo, b, "Não conseguiu fugir!");
             }
+        }
+        if (acao.tipo == ACAO_ITEM && acao.slot == I_BOMBA_DE_FUMACA) {
+            // Bomba de fumaça: fuga garantida, e os monstros ficam tossindo na
+            // fumaça por uns segundos (dá tempo de sumir do mapa).
+            jogo.jogador.mochila[I_BOMBA_DE_FUMACA]--;
+            tocarSom(SOM_CAIXA);
+            animarBatalha(jogo, b, ANIM_FUMACA, 0, 0, 0, 0, false);
+            narrar(jogo, b, "Você joga a Bomba de Fumaça! Ninguém enxerga nada... e você some.", MSG_BOA);
+            for (int i = 0; i < b.numInimigos; i++) {
+                Monstro& m = *b.monstros[i];
+                if (!m.vivo) continue;
+                m.atordoadoMs = 4000;
+                m.turnosSemBatalha = 10;
+            }
+            return JOGADOR_FUGIU;
         }
         if (acao.tipo == ACAO_ITEM) {
             Jogador& j = jogo.jogador;

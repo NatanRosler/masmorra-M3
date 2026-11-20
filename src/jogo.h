@@ -89,6 +89,9 @@ struct Jogador {
 
     int vidas;                 // chances que ainda restam (começa com 3)
     int moedas;                // dinheiro para a loja do comerciante (loja.h)
+    // Itens de suporte permanentes (v1.17): valem a partida toda.
+    bool mochilaDeCouro;       // mochila maior: 16 itens e +1 no limite de cada tipo
+    bool lanterna;             // +2 no raio de luz do jogador
 };
 
 // Cada andar é gerado na primeira visita e guardado, para que o jogador
@@ -141,12 +144,18 @@ struct Jogo {
     bool linhaDeVisao[MAPA_ALTURA][MAPA_LARGURA]; // em linha reta do jogador (com ou sem luz)
     bool visivel[MAPA_ALTURA][MAPA_LARGURA];      // o que o jogador vê agora (linha + luz)
     Luz luz[MAPA_ALTURA][MAPA_LARGURA];           // quanta luz chega em cada célula
+    bool luzDeTocha[MAPA_ALTURA][MAPA_LARGURA];   // iluminada por tocha ou lava (revela a sombra)
     int distanciaAteJogador[MAPA_ALTURA][MAPA_LARGURA]; // BFS a partir do jogador
 
     // Tempo real.
     long long tempoMs;              // tempo de jogo no mapa (não conta menus e batalhas)
     int esperaDoJogadorMs;          // quanto falta para o jogador poder dar outro passo
     bool descansando;               // tecla Z: recupera vida (e faz menos barulho)
+    // Modo furtivo (v1.17): Shift segurado (versão gráfica) ou a tecla F,
+    // que deixa ligado. Passos mais lentos e silenciosos (ver jogo.cpp).
+    bool furtivo;                   // furtivo neste momento
+    bool furtivoLigado;             // a tecla F deixou ligado
+    int ataqueSurpresa;             // monstro pego de surpresa pelo jogador furtivo (-1 = nenhum)
     int msDeDescanso;
     int segundosDeDescanso;
 
@@ -176,6 +185,9 @@ struct Jogo {
     int pontuacaoFinal;
     int posicaoNoRanking;           // 0 = primeiro; -1 = ficou fora do top 10
 };
+
+// O jogador está furtivo? (Shift segurado na versão gráfica ou a tecla F.)
+bool estaFurtivo(const Jogo& jogo);
 
 // Escolhas da tela de criação do personagem (Etapa 6).
 struct Criacao {
@@ -234,7 +246,7 @@ const Andar& andarAtual(const Jogo& jogo);
 void atualizarVisao(Jogo& jogo);
 
 // Alcance da luz que o jogador carrega (diminui nos andares mais fundos).
-int raioDaLuzDoJogador(int andar);
+int raioDaLuzDoJogador(const Jogo& jogo);   // menor nos andares fundos; a lanterna dá +2
 
 // Mostra uma mensagem no topo da tela (e guarda no histórico).
 void adicionarMensagem(Jogo& jogo, const std::string& texto, TipoMensagem tipo = MSG_NORMAL);

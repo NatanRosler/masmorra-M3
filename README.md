@@ -31,11 +31,12 @@ extraia. Não é preciso instalar nada.
 | Ficha (distribuir pontos de atributo) | `C` |
 | Empurrar caixa / conversar | ande na direção dela / da pessoa |
 | Descansar | `Z`: recupera vida (mais rápido a cada 5 níveis; qualquer tecla para) |
+| Modo furtivo | segure `Shift` enquanto anda (versão gráfica) ou `F` para ligar/desligar |
 | Histórico de mensagens | `M` |
 | Ajuda | `?` |
 | Pausa (e Opções) | `Esc` |
 | Tela cheia | `F11` (versão gráfica) |
-| Ligar / desligar o som | `O` (ou na pausa) |
+| Ligar / desligar o som | `O` |
 | **Na batalha** | setas escolhem, `Enter` confirma, `Esc` volta, `1`–`4` atalhos, ou clique com o mouse |
 
 ### Semente (seed)
@@ -84,6 +85,7 @@ src/
 | `src/grafico/terminal_raylib.cpp` | Teclado, mouse e janela (raylib) |
 | `src/grafico/menu_principal.cpp` | Menu principal e menu de pausa |
 | `src/grafico/visual.cpp/.h` | Cores, fontes, painéis e barras |
+| `src/grafico/monstros_sprites.h` | Desenhos do gnomo vigia e da sombra (v1.17) |
 | `src/grafico/itens_sprites.h` | Desenhos dos itens no chão e dos ícones (moeda, troféu, XP, atributos) |
 | `src/grafico/efeitos.cpp/.h` | Animações: partículas, números flutuantes, tremor e transições |
 | `src/grafico/sprites.h`, `extra_sprites.h` | Personagens em pixel art (16 x 16) |

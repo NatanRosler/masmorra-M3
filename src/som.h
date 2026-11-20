@@ -27,6 +27,7 @@ enum Som {
     SOM_VITORIA,
     SOM_DERROTA,         // o jogador desmaiou
     SOM_BLOQUEIO,        // o escudo bloqueou um ataque
+    SOM_CORNETA,         // o gnomo vigia sopra a corneta
     NUM_SONS
 };
 

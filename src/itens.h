@@ -9,6 +9,8 @@
 //   *  cristais     (power-ups: bônus permanente assim que são pegos)
 //   ?  pergaminhos  (ensinam um golpe)
 //   -  chave        (abre a porta trancada da sala do tesouro)
+//   (  suporte      (v1.17: mochila de couro e lanterna valem a partida toda;
+//                    bomba de fumaça e pergaminho do mapa são usados uma vez)
 // -----------------------------------------------------------------------------
 #pragma once
 
@@ -27,7 +29,8 @@ enum CategoriaItem {
     ESCUDO,
     CRISTAL,
     PERGAMINHO,
-    CHAVE
+    CHAVE,
+    SUPORTE
 };
 
 // Índices na tabela TIPOS_DE_ITEM.
@@ -40,6 +43,9 @@ enum IdItem {
     I_PERGAMINHO_DE_FOGO, I_PERGAMINHO_DE_AGUA, I_PERGAMINHO_DE_PLANTA,
     I_PERGAMINHO_DE_VENENO, I_PERGAMINHO_DE_PEDRA,
     I_CHAVE,
+    // v1.17: no fim da lista, para os números dos itens antigos não mudarem
+    // (o save guarda os itens pelo número).
+    I_MOCHILA_DE_COURO, I_LANTERNA, I_BOMBA_DE_FUMACA, I_PERGAMINHO_DO_MAPA,
     NUM_TIPOS_DE_ITEM
 };
 
@@ -98,10 +104,13 @@ int chanceDeBloqueio(const TipoItem* escudo, bool erguido);
 void equipar(Jogo& jogo, int tipo);
 
 // Limites da mochila: cada item tem um máximo (6 Poções de Vida, 3 das outras
-// poções, 1 de cada arma/escudo/pergaminho de reserva) e a mochila toda leva
-// no máximo 12 itens. A chave e os cristais não ocupam espaço.
+// poções, 2 bombas e 2 pergaminhos do mapa, 1 de cada arma/escudo/pergaminho
+// de reserva) e a mochila toda leva no máximo 12 itens. Com a Mochila de
+// Couro: 16 itens e +1 em cada limite. A chave, os cristais e os itens
+// permanentes não ocupam espaço.
 const int LIMITE_DA_MOCHILA = 12;
-int limiteDoItem(int tipo);
+int limiteDaMochila(const Jogador& j);
+int limiteDoItem(const Jogador& j, int tipo);
 int itensNaMochila(const Jogador& j);
 bool cabeNaMochila(const Jogador& j, int tipo);
 std::string motivoDeNaoCaber(const Jogador& j, int tipo);   // "A mochila está cheia (12/12)."
@@ -113,6 +122,16 @@ void revelarPortaDoTesouro(Jogo& jogo);
 
 // Cristal: aplica o bônus permanente (pego no chão ou comprado na loja).
 void absorverCristal(Jogo& jogo, int tipo);
+
+// Itens que valem na hora e não vão para a mochila: cristais, Mochila de
+// Couro e Lanterna.
+bool usaNaHora(int tipo);
+// Mochila de Couro ou Lanterna: aplica a melhoria. Se o jogador já tinha
+// uma, vira moedas (o preço de venda).
+void ganharItemPermanente(Jogo& jogo, int tipo);
+
+// Pergaminho do mapa: revela o andar inteiro (salas, escadas e surpresas).
+void revelarOAndar(Jogo& jogo);
 
 // Usa um item da mochila fora da batalha. Devolve true se gastou o turno.
 bool usarItemForaDaBatalha(Jogo& jogo, int tipo);

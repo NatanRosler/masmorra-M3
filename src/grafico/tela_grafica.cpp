@@ -14,6 +14,7 @@
 #include "extra_sprites.h"
 #include "itens_sprites.h"
 #include "salas_sprites.h"
+#include "monstros_sprites.h"
 #include "tema.h"
 #include "efeitos.h"
 #include "opcoes.h"
@@ -63,7 +64,17 @@ std::string semArtigo(std::string nome) {
     return nome;
 }
 std::string emMaiusculas(std::string s) {
-    for (char& c : s) if (c>='a' && c<='z') c=(char)(c-'a'+'A');
+    for (size_t i=0;i<s.size();i++) {
+        unsigned char c=(unsigned char)s[i];
+        if (c>='a' && c<='z') s[i]=(char)(c-'a'+'A');
+        // Letras acentuadas em UTF-8 (á, ã, é, í, ó, ú, ç...): 0xC3 + um byte
+        // de 0xA0 a 0xBE; a maiúscula é o mesmo byte menos 0x20.
+        else if (c==0xC3 && i+1<s.size()) {
+            unsigned char d=(unsigned char)s[i+1];
+            if (d>=0xA0 && d<=0xBE && d!=0xB7) s[i+1]=(char)(d-0x20);
+            i++;
+        }
+    }
     return s;
 }
 // Lista dos elementos contra os quais "alvo" é fraco (eficácia 4) ou resiste (1).
@@ -91,6 +102,8 @@ const Sprite& imagemMonstro(int tipo) {
         case 'N':return NAGA;
         case 'S':return SENHOR;
         case 'M':return MIMICO;
+        case 'G':return GNOMO;
+        case 'W':return SOMBRA;
     }
     return GOBLIN;
 }
@@ -372,10 +385,38 @@ void tileObjetos(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
     }
 }
 // Monstro no mapa (desenhado fora do tile para poder deslizar entre células).
+// Aura dourada pulsando e uma coroinha: o monstro é um campeão (elite).
+void auraDeCampeao(float cx,float cy,float raio,float t) {
+    Color ouro={255,205,70,(unsigned char)(80+50*std::sin(t*4))}; Color fora=ouro; fora.a=0;
+    DrawCircleGradient((int)cx,(int)cy,raio,ouro,fora);
+}
+// Triângulo em qualquer ordem (a raylib só desenha os de uma das voltas).
+void trianguloCheio(Vector2 a,Vector2 b,Vector2 c,Color cor) {
+    float giro=(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+    if(giro>0) DrawTriangle(a,c,b,cor); else DrawTriangle(a,b,c,cor);
+}
+// Coroa: base em (x, y), com três pontas para cima.
+void coroinha(float x,float y,float escala) {
+    Color ouro={255,210,70,255}, escuro={120,80,10,255};
+    float e=escala;
+    trianguloCheio({x-5*e,y},{x-5*e,y-5*e},{x-2*e,y},ouro);
+    trianguloCheio({x-2.5f*e,y},{x,y-6*e},{x+2.5f*e,y},ouro);
+    trianguloCheio({x+2*e,y},{x+5*e,y-5*e},{x+5*e,y},ouro);
+    DrawRectangleRec({x-5*e,y-e,10*e,2.5f*e},ouro);
+    DrawRectangleLinesEx({x-5*e,y-e,10*e,2.5f*e},std::max(1.0f,e*0.4f),escuro);
+    DrawCircleV({x,y-6*e},0.9f*e,{255,90,90,255});   // pedrinha na ponta do meio
+}
 void desenharMonstroNoMapa(const Jogo& jogo,const Monstro& m,float px,float py) {
     float claridade=std::clamp(brilho(jogo.luz[m.y][m.x]),0.27f,1.0f);
-    desenharSprite(imagemMonstro(m.tipo),px+2,py+1,1.25f,claridade);
+    float t=(float)GetTime();
+    if(m.campeao) auraDeCampeao(px+12,py+12,17,t);
+    // A sombra é meio transparente e tremula (some de vez se não estiver à vista).
+    float alfa=(tipoDe(m).especial & SOMBRIO) ? 0.55f+0.2f*std::sin(t*3+m.x) : 1.0f;
+    desenharSprite(imagemMonstro(m.tipo),px+2,py+1,1.25f,claridade,alfa);
     DrawCircle((int)px+21,(int)py+4,3.5f,corDoElemento(m.elemento));   // elemento sorteado
+    if(m.campeao) coroinha(px+12,py+1,1.3f);
+    // Gnomo que parou de fugir: "!" vermelho em cima (vai lutar).
+    if((tipoDe(m).especial & VIGIA) && m.cornetas>=2) textoCentro("!",px+20,py-8+std::sin(t*6)*1.5f,15,PERIGO);
     if(m.atordoadoMs>0) {
         // Atordoado: três estrelinhas girando sobre a cabeça.
         float giro=(float)GetTime()*5.5f;
@@ -428,8 +469,8 @@ void hud(const Jogo& jogo) {
     icone(ARTE_ICONE_MOEDA.data(),1180,446,1.05f);
     texto("Moedas: "+std::to_string(j.moedas),1202,444,19,OURO);
     int naMochila=itensNaMochila(j);
-    texto("Mochila: "+std::to_string(naMochila)+"/"+std::to_string(LIMITE_DA_MOCHILA),1202,470,19,
-          naMochila>=LIMITE_DA_MOCHILA?PERIGO:TEXTO);
+    texto("Mochila: "+std::to_string(naMochila)+"/"+std::to_string(limiteDaMochila(j)),1202,470,19,
+          naMochila>=limiteDaMochila(j)?PERIGO:TEXTO);
     texto("Monstros: "+std::to_string(jogo.monstrosMortos),1027,470,19,TEXTO);
     texto("Itens: "+std::to_string(jogo.itensColetados),1027,496,19,TEXTO);
     // Atributos: desenho de cada um (força, constituição, destreza, agilidade) e o valor.
@@ -454,6 +495,7 @@ void hud(const Jogo& jogo) {
     for(int i=primeira;i<n;i++) textoQueCabe(jogo.historico[i],61,690+32*(i-primeira),25,1320,corDaMensagem(jogo.tiposDoHistorico[i]));
     painel({39,782,1362,76},PAINEL2);
     texto("SETAS / WASD / HJKL: andar",61,796,19,APAGADO);
+    texto(jogo.furtivo?"FURTIVO (Shift / F)":"Shift / F: furtivo",61,812,15,jogo.furtivo?CIANO:APAGADO);
     const char* rotulos[]={"[I] MOCHILA","[C] FICHA","[Z] DESCANSAR","[?] AJUDA","[M] HISTÓRICO"};
     const int atalhos[]={'i','c','z','?','M'};
     for(int i=0;i<5;i++) {
@@ -805,13 +847,26 @@ void mapa(const Jogo& jogo) {
     };
     for(int i=0;i<a.numMonstros;i++) {
         const Monstro& m=a.monstros[i];
-        if(!m.vivo || !jogo.visivel[m.y][m.x]) continue;
         float px,py; naTela(monstrosSuaves[i].x,monstrosSuaves[i].y,px,py);
+        if(!monstroAVista(jogo,m)) {
+            // Sombra numa casa visível, mas longe: só um tremular no escuro.
+            if(m.vivo && jogo.visivel[m.y][m.x] && (tipoDe(m).especial & SOMBRIO) &&
+               std::sin((float)GetTime()*2.3f+m.x*1.7f)>0.75f) {
+                DrawCircleGradient((int)px+12,(int)py+12,9,{150,120,210,40},{150,120,210,0});
+            }
+            continue;
+        }
         desenharMonstroNoMapa(jogo,m,px,py);
     }
     float hx,hy; naTela(jogadorSuave.x,jogadorSuave.y,hx,hy);
-    DrawCircle((int)hx+12,(int)hy+12,12,{220,205,141,55});
-    desenharSprite(HEROI,hx+2,hy+1,1.25f,1.0f);
+    if(jogo.furtivo) {
+        // Furtivo: o herói fica escuro e meio transparente, sem o brilho da tocha.
+        desenharSprite(HEROI,hx+2,hy+1,1.25f,0.55f,0.7f);
+        textoCentro("furtivo",hx+12,hy-12,12,{180,190,230,220});
+    } else {
+        DrawCircle((int)hx+12,(int)hy+12,12,{220,205,141,55});
+        desenharSprite(HEROI,hx+2,hy+1,1.25f,1.0f);
+    }
     particulasDoAmbiente(jogo,a,cx,cy);
     // Efeitos do mapa (lascas, espinhos, números) acompanham a câmera.
     Efeitos::desenharParticulas(Efeitos::CAMADA_MAPA,MX-camX*TAM,MY-camY*TAM);
@@ -934,6 +989,7 @@ void spriteDoLutador(const Batalha& b,int quem,const Sprite& arte) {
     const AnimacaoDoLutador& an=animacao[quem];
     desenharSprite(arte,x+an.dx,y+an.dy,p,1.0f,an.alfa);
     const Lutador& l=(quem==0)?b.jogador:b.inimigos[quem-1];
+    if(l.ehCampeao) coroinha(x+8*p+an.dx,y+an.dy+2.2f*p,p*0.6f);   // coroa na cabeça
     iconeDeStatus(l.status,x+8*p+an.dx,y+an.dy-6);
 }
 // Escudo erguido (golpe Escudo): um escudo azulado brilhando na frente do herói.
@@ -964,6 +1020,13 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
     spriteDoLutador(b,0,HEROI);
     if(b.escudoErguido) escudoErguidoNaBatalha(b);
     painelDoLutador(b.jogador,b.vidaMostrada[0],{55,140,430,107},CIANO,CIANO,false);
+    // Campeões: aura dourada atrás e uma coroa em cima.
+    for(int i=0;i<b.numInimigos;i++) {
+        if(!b.naLuta[i] || !b.inimigos[i].ehCampeao || desmaiado[i+1]) continue;
+        float sx,sy,sp; posicaoDoSprite(b,i+1,sx,sy,sp);
+        float cx=sx+8*sp+animacao[i+1].dx, cy=sy+8*sp+animacao[i+1].dy;
+        auraDeCampeao(cx,cy,110,(float)GetTime());
+    }
     // Chefe furioso (segunda fase): aura vermelha pulsando atrás dele.
     if(b.chefeFurioso) {
         for(int i=0;i<b.numInimigos;i++) {
@@ -1111,6 +1174,7 @@ void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,
         case ANIM_GOLPE:   duracao=0.55; break;
         case ANIM_BLOQUEIO: duracao=0.6; break;
         case ANIM_FURIA:   duracao=1.1;  break;
+        case ANIM_FUMACA:  duracao=1.0;  break;
         case ANIM_DESMAIO: duracao=0.6;  break;
         case ANIM_NIVEL:   duracao=0.8;  break;
     }
@@ -1184,6 +1248,25 @@ void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,
             }
             break;
         }
+        case ANIM_FUMACA:
+            // Bomba de fumaça: nuvens cinzentas cobrem a arena e o herói some.
+            if(!disparou) {
+                disparou=true;
+                // Nuvem: muitas bolas grandes e bem juntas, saindo do herói
+                // e se espalhando pela arena (no fim parecem uma névoa só).
+                Vector2 h=centroDoSprite(b,0);
+                for(int k=0;k<140;k++) {
+                    float ang=k*2.39996f, raio=(k%7)*14.0f;
+                    float x=h.x+std::cos(ang)*raio, y=h.y+std::sin(ang)*raio*0.6f;
+                    float vx=std::cos(ang)*(140+(k%5)*70), vy=std::sin(ang)*(60+(k%4)*25)-25;
+                    unsigned char cinza=(unsigned char)(135+(k*13)%55);
+                    Efeitos::criarParticula({x,y,vx,vy,0,{cinza,cinza,(unsigned char)(cinza+12),150},
+                                             44+(k%6)*9.0f,GetTime()+(k%14)*0.02,1.25,Efeitos::BOLINHA,0,Efeitos::CAMADA_TELA});
+                }
+                Efeitos::piscar({200,205,215,255},0.15);
+            }
+            animacao[0].alfa=1.0f-suavizar(std::min(1.0f,t*1.4f));   // o herói some na fumaça
+            break;
         case ANIM_FURIA:
             // O chefe treme, fica vermelho e solta faíscas; a tela pisca.
             if(!disparou) {
@@ -1229,6 +1312,7 @@ void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,
         Ui::iniciarQuadro();telaBatalha(jogo,b);Ui::terminarQuadro();
     }
     for(int i=0;i<=MAX_INIMIGOS;i++) animacao[i]={0,0,1};
+    if(tipo==ANIM_FUMACA) animacao[0].alfa=0;   // o herói já sumiu (a batalha vai acabar)
     if(tipo==ANIM_DESMAIO) desmaiado[quem]=true;
 }
 
@@ -1269,6 +1353,16 @@ void efeitoNoMapa(const Jogo& jogo,int efeito,int x,int y,int valor) {
         case EFEITO_MOEDAS:
             Efeitos::brilhoSubindo(px,py-6,OURO,14,MAPA);
             Efeitos::textoFlutuante("+"+std::to_string(valor)+" moedas",px,py-16,OURO,18,MAPA,1.2);
+            break;
+        case EFEITO_CORNETA:
+            // Ondas de som saindo da corneta.
+            for(int k=0;k<18;k++) {
+                float ang=k*0.349f;
+                Efeitos::criarParticula({px,py,std::cos(ang)*150,std::sin(ang)*150,0,{255,210,90,255},7,
+                                         GetTime()+(k%3)*0.12,0.8,Efeitos::ANEL,0,MAPA});
+            }
+            Efeitos::textoFlutuante("TUUUU!",px,py-18,OURO,22,MAPA,1.4);
+            Efeitos::tremer(5,0.4);
             break;
         case EFEITO_CURA:
             Efeitos::textoFlutuante("+"+std::to_string(valor),px+6,py-14,{120,230,140,255},17,MAPA,0.8);
@@ -1335,14 +1429,15 @@ void desenharAjuda(const Jogo& jogo) {
         "Encoste nos monstros para começar a batalha",
         "I: mochila      C: ficha (distribuir pontos de atributo)",
         "Z: descansar e recuperar vida      M: mensagens",
+        "Shift (segurado) ou F: modo furtivo (lento, silencioso, ataque surpresa)",
         "Caixas: empurre contra um monstro para atordoá-lo; podem ter itens",
         "Espinhos vermelhos: armadilha! Empurre uma caixa em cima",
         "Pessoas com '!': ande até elas para conversar",
         "O chefe final espera no 10o andar. Dele não dá para fugir",
         "Bolinha colorida no monstro = elemento dele nesta partida",
         "Semente desta partida: "+std::to_string(jogo.semente)};
-    for(size_t i=0;i<linhas.size();i++)texto(linhas[i],263,240+i*41,21,i%2?TEXTO:CIANO);
-    texto("Aperte qualquer tecla para retornar",263,696,20,OURO);Ui::terminarQuadro();
+    for(size_t i=0;i<linhas.size();i++)texto(linhas[i],263,236+i*40,21,i%2?TEXTO:CIANO);
+    texto("Aperte qualquer tecla para retornar",263,700,20,OURO);Ui::terminarQuadro();
 }
 void desenharHistorico(const Jogo& jogo) {
     definirRedesenho([&jogo]{ desenharHistorico(jogo); });

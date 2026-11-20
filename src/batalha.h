@@ -132,6 +132,7 @@ struct Lutador {
     int esquiva;             // Agilidade: - chance de o inimigo acertar
     int criticoExtra;        // Destreza: + chance de golpe crítico
     bool ehChefe;            // o chefe final: não dá para fugir dele
+    bool ehCampeao;          // monstro elite (aura dourada)
     bool ehJogador;
     int indice;              // 0 = jogador; 1, 2, 3 = inimigos (posição na tela)
 };
@@ -190,6 +191,7 @@ struct Batalha {
 
     // Segunda fase do chefe: com metade da vida ele fica furioso.
     bool chefeFurioso;
+    bool naArena;                // desafio do gongo: a bomba de fumaça não funciona
 
     // Itens que podem ser usados na batalha (lista montada ao abrir ITENS).
     int itensUsaveis[16];

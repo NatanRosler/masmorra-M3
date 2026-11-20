@@ -6,8 +6,11 @@
 #include "cenario.h"
 #include "npcs.h"
 #include "dificuldade.h"
+#include "som.h"
+#include "tela.h"
 
 #include <cmath>
+#include <cstdlib>
 
 // =============================================================================
 // FICHAS DAS ESPÉCIES
@@ -123,6 +126,35 @@ const TipoMonstro TIPOS_DE_MONSTRO[] = {
         "" },
       8, 10, 10, 0 },
 
+    // O GNOMO VIGIA: fraco, mas quando vê o jogador sopra a corneta e acorda
+    // os monstros da sala dele e das salas vizinhas. Na 1a vez foge para
+    // longe; na 2a, sopra de novo e fica esperando a luta (ver tocarCorneta).
+    { "gnomo vigia", "o", 'G', { 215, 90, 90 }, NORMAL,
+      45, 50, 40, 75,   70,
+      { G_ARRANHAO, G_ROSNADO, G_ATAQUE_RAPIDO }, 3,
+      { "        /\\",
+        "       /  \\",
+        "      /____\\    __",
+        "      (o  o)  _/ /",
+        "      (\\__/)=(__/",
+        "      /|  |\\",
+        "       d  b" },
+      3, 8, 12, VIGIA },
+
+    // A SOMBRA: só aparece de perto (2 casas) ou perto de uma tocha.
+    // Na batalha é difícil de acertar, mas tem pouca vida.
+    { "sombra", "a", 'W', { 120, 100, 170 }, NORMAL,
+      45, 75, 40, 90,  120,
+      { G_ARRANHAO, G_HIPNOSE, G_ATAQUE_RAPIDO }, 3,
+      { "       .-~~-.",
+        "      / O  O \\",
+        "     |   ..   |",
+        "     |  .  .  |",
+        "      \\ ~  ~ /",
+        "       ~ ~~ ~",
+        "" },
+      5, 10, 12, SOMBRIO },
+
     // O MÍMICO: um baú dourado que morde. Nunca aparece por sorteio
     // (frequência 0): só nasce quando o jogador abre o baú errado (salas.cpp).
     { "mímico", "o", 'M', { 230, 190, 80 }, NORMAL,
@@ -214,6 +246,7 @@ int esquivaDoMonstro(const Monstro& m) {
     const TipoMonstro& t = tipoDe(m);
     int esquiva = 5;
     if (t.especial & (RAPIDO | ERRATICO)) esquiva += 10;   // chacais e morcegos são ágeis
+    if (t.especial & SOMBRIO) esquiva += 20;              // a sombra quase não tem corpo
     return esquiva;
 }
 
@@ -232,7 +265,9 @@ const TipoMonstro& tipoDe(const Monstro& m) {
 // dificuldade (ex.: +30% no difícil, -15% no fácil).
 int vidaMaximaDoMonstro(const Monstro& m) {
     // A dificuldade aumenta (ou diminui) a vida de todos os monstros.
-    return vidaPeloNivel(tipoDe(m).baseVida, m.nivel) * (100 + dificuldadeAtual().vidaDosMonstros) / 100;
+    int vida = vidaPeloNivel(tipoDe(m).baseVida, m.nivel) * (100 + dificuldadeAtual().vidaDosMonstros) / 100;
+    if (m.campeao) vida = vida * 3 / 2;   // campeão: +50% de vida
+    return vida;
 }
 
 int monstroEm(const Andar& andar, int x, int y) {
@@ -243,10 +278,24 @@ int monstroEm(const Andar& andar, int x, int y) {
     return -1;
 }
 
-std::string nomeDoMonstro(const Jogo& jogo, const Monstro& m) {
-    if (!jogo.visivel[m.y][m.x]) return "algo";
+std::string nomeDaEspecie(const Monstro& m) {
     const TipoMonstro& t = tipoDe(m);
-    return std::string(t.artigo) + " " + t.nome;
+    std::string nome = t.nome;
+    if (m.campeao) nome += (t.artigo[0] == 'a') ? " campeã" : " campeão";
+    return nome;
+}
+
+std::string nomeDoMonstro(const Jogo& jogo, const Monstro& m) {
+    if (!monstroAVista(jogo, m)) return "algo";
+    return std::string(tipoDe(m).artigo) + " " + nomeDaEspecie(m);
+}
+
+bool monstroAVista(const Jogo& jogo, const Monstro& m) {
+    if (!m.vivo || !jogo.visivel[m.y][m.x]) return false;
+    if (!(tipoDe(m).especial & SOMBRIO)) return true;
+    // A sombra só aparece de perto ou na luz de uma tocha.
+    int dx = std::abs(m.x - jogo.jogador.x), dy = std::abs(m.y - jogo.jogador.y);
+    return (dx <= 2 && dy <= 2) || jogo.luzDeTocha[m.y][m.x];
 }
 
 // "o rato" -> "O rato" (para começar frases).
@@ -286,6 +335,8 @@ static void criarMonstro(Andar& andar, int tipo, int x, int y, int nivel, Estado
     m.x = x;
     m.y = y;
     m.nivel = nivel;
+    m.campeao = false;   // antes da vida: a vida máxima depende disso
+    m.cornetas = 0;
     m.vida = vidaMaximaDoMonstro(m);
     m.elemento = TIPOS_DE_MONSTRO[tipo].elemento;   // trocado pelo sorteado em jogo.cpp
     m.turnosSemBatalha = 0;
@@ -342,6 +393,26 @@ void povoarAndar(Andar& andar, int numeroDoAndar, uint32_t semente,
             break;
         }
     }
+
+    // Campeões (elite): do andar 2 em diante, cada monstro tem uma chance
+    // (que depende da dificuldade) de nascer mais forte, até um máximo por
+    // andar. O gnomo vigia nunca é campeão (ele foge, não luta).
+    if (numeroDoAndar < 2) return;
+    const Dificuldade& d = dificuldadeAtual();
+    int campeoes = 0;
+    int primeiro = andar.numMonstros > 0 ? sortear(g, 0, andar.numMonstros - 1) : 0;
+    for (int k = 0; k < andar.numMonstros && campeoes < d.maximoDeCampeoes; k++) {
+        Monstro& m = andar.monstros[(primeiro + k) % andar.numMonstros];
+        if ((tipoDe(m).especial & VIGIA) || !chance(g, d.chanceDeCampeao)) continue;
+        tornarCampeao(m);
+        campeoes++;
+    }
+}
+
+void tornarCampeao(Monstro& m) {
+    m.campeao = true;
+    m.nivel += 2;
+    m.vida = vidaMaximaDoMonstro(m);
 }
 
 void colocarChefe(Andar& andar, int chegadaX, int chegadaY, Elemento elemento) {
@@ -474,6 +545,197 @@ static void vagar(Jogo& jogo, Monstro& m) {
     }
 }
 
+// =============================================================================
+// GNOMO VIGIA: A CORNETA
+// =============================================================================
+// O som atravessa as portas: acorda os monstros da "sala" do gnomo e das
+// salas ligadas a ela por uma porta. "Sala" aqui é cada pedaço do mapa que
+// fica entre portas (achado com flood fill, sem atravessar portas). Se do
+// outro lado da porta houver um corredor, o som segue por ele até a próxima
+// sala (corredor = região sem nenhuma casa com os 8 vizinhos livres).
+static bool ehPortaParaOSom(const Mapa& mapa, int x, int y) {
+    return mapa.celulas[y][x] == PORTA || mapa.celulas[y][x] == PORTA_TRANCADA;
+}
+static bool deixaOSomPassar(const Mapa& mapa, int x, int y) {
+    TipoCelula c = mapa.celulas[y][x];
+    return c != PAREDE && c != TOCHA && !ehPortaParaOSom(mapa, x, y);
+}
+
+void casasQueOuvemACorneta(const Mapa& mapa, int origemX, int origemY, bool ouve[MAPA_ALTURA][MAPA_LARGURA]) {
+    static int regiao[MAPA_ALTURA][MAPA_LARGURA];
+    const int MAX_REGIOES = 400;
+    static bool corredor[MAX_REGIOES];
+    int numRegioes = 0;
+    for (int y = 0; y < MAPA_ALTURA; y++)
+        for (int x = 0; x < MAPA_LARGURA; x++) { regiao[y][x] = -1; ouve[y][x] = false; }
+
+    // 1. Separa o mapa em regiões (flood fill sem atravessar portas).
+    static int fila[MAPA_ALTURA * MAPA_LARGURA];
+    for (int y = 0; y < MAPA_ALTURA; y++) {
+        for (int x = 0; x < MAPA_LARGURA; x++) {
+            if (regiao[y][x] >= 0 || !deixaOSomPassar(mapa, x, y) || numRegioes >= MAX_REGIOES) continue;
+            int r = numRegioes++;
+            corredor[r] = true;
+            int inicio = 0, fim = 0;
+            fila[fim++] = y * MAPA_LARGURA + x;
+            regiao[y][x] = r;
+            while (inicio < fim) {
+                int cx = fila[inicio] % MAPA_LARGURA, cy = fila[inicio] / MAPA_LARGURA;
+                inicio++;
+                int livres = 0;
+                for (int d = 0; d < 8; d++) {
+                    int nx = cx + DIRECOES_DX[d], ny = cy + DIRECOES_DY[d];
+                    if (!dentroDoMapa(nx, ny)) continue;
+                    if (mapa.celulas[ny][nx] != PAREDE && mapa.celulas[ny][nx] != TOCHA) livres++;
+                    if (d >= 4 || regiao[ny][nx] >= 0 || !deixaOSomPassar(mapa, nx, ny)) continue;
+                    regiao[ny][nx] = r;
+                    fila[fim++] = ny * MAPA_LARGURA + nx;
+                }
+                if (livres == 8) corredor[r] = false;   // tem "miolo": é uma sala
+            }
+        }
+    }
+
+    // 2. As portas ligam as regiões: cada porta vira uma "ligação" entre as
+    //    regiões que encostam nela.
+    auto regioesEmVolta = [&](int x, int y, int saida[4]) {
+        int n = 0;
+        for (int d = 0; d < 4; d++) {
+            int nx = x + DIRECOES_DX[d], ny = y + DIRECOES_DY[d];
+            if (dentroDoMapa(nx, ny) && regiao[ny][nx] >= 0) saida[n++] = regiao[ny][nx];
+        }
+        return n;
+    };
+    static int ligacaoA[MAPA_ALTURA * MAPA_LARGURA], ligacaoB[MAPA_ALTURA * MAPA_LARGURA];
+    int numLigacoes = 0;
+    for (int y = 0; y < MAPA_ALTURA; y++) {
+        for (int x = 0; x < MAPA_LARGURA; x++) {
+            if (!ehPortaParaOSom(mapa, x, y)) continue;
+            int lados[4];
+            int n = regioesEmVolta(x, y, lados);
+            for (int i = 0; i < n; i++)
+                for (int k = i + 1; k < n; k++)
+                    if (lados[i] != lados[k]) { ligacaoA[numLigacoes] = lados[i]; ligacaoB[numLigacoes++] = lados[k]; }
+        }
+    }
+
+    // 3. Começa pela região do gnomo (se ele estiver numa porta, pelas
+    //    regiões dos dois lados). Atravessa uma porta para todas as vizinhas;
+    //    as vizinhas que forem corredores atravessam mais uma.
+    static bool chega[MAX_REGIOES], primeiraLeva[MAX_REGIOES], segundaLeva[MAX_REGIOES];
+    for (int r = 0; r < numRegioes; r++) chega[r] = primeiraLeva[r] = segundaLeva[r] = false;
+    int inicio[4], numInicio = 0;
+    if (regiao[origemY][origemX] >= 0) inicio[numInicio++] = regiao[origemY][origemX];
+    else numInicio = regioesEmVolta(origemX, origemY, inicio);
+    for (int k = 0; k < numInicio; k++) chega[inicio[k]] = true;
+    for (int i = 0; i < numLigacoes; i++) {
+        if (chega[ligacaoA[i]] && !chega[ligacaoB[i]]) primeiraLeva[ligacaoB[i]] = true;
+        if (chega[ligacaoB[i]] && !chega[ligacaoA[i]]) primeiraLeva[ligacaoA[i]] = true;
+    }
+    for (int r = 0; r < numRegioes; r++) if (primeiraLeva[r]) chega[r] = true;
+    for (int i = 0; i < numLigacoes; i++) {
+        int a = ligacaoA[i], b = ligacaoB[i];
+        if (primeiraLeva[a] && corredor[a] && !chega[b]) segundaLeva[b] = true;
+        if (primeiraLeva[b] && corredor[b] && !chega[a]) segundaLeva[a] = true;
+    }
+    for (int r = 0; r < numRegioes; r++) if (segundaLeva[r]) chega[r] = true;
+
+    for (int y = 0; y < MAPA_ALTURA; y++) {
+        for (int x = 0; x < MAPA_LARGURA; x++) {
+            if (regiao[y][x] >= 0) ouve[y][x] = chega[regiao[y][x]];
+            else if (ehPortaParaOSom(mapa, x, y)) {
+                int lados[4];
+                int n = regioesEmVolta(x, y, lados);
+                for (int k = 0; k < n; k++) if (chega[lados[k]]) ouve[y][x] = true;
+            }
+        }
+    }
+}
+
+// Quantos turnos os monstros que ouviram a corneta seguem até o jogador,
+// mesmo sem vê-lo (guardado como turnosSemVerJogador negativo).
+const int TURNOS_DE_ALERTA = 25;
+
+// O gnomo sopra a corneta: os monstros da sala dele e das vizinhas acordam e
+// vêm atrás do jogador. Devolve quantos foram chamados.
+static int tocarCorneta(Jogo& jogo, Monstro& gnomo) {
+    Andar& andar = andarAtual(jogo);
+    static bool ouve[MAPA_ALTURA][MAPA_LARGURA];
+    casasQueOuvemACorneta(andar.mapa, gnomo.x, gnomo.y, ouve);
+    int chamados = 0;
+    for (int i = 0; i < andar.numMonstros; i++) {
+        Monstro& m = andar.monstros[i];
+        if (!m.vivo || &m == &gnomo || !ouve[m.y][m.x] || andar.zonaSegura[m.y][m.x]) continue;
+        if (tipoDe(m).especial & (CHEFE | VIGIA)) continue;
+        m.estado = CACANDO;
+        m.turnosSemVerJogador = -TURNOS_DE_ALERTA;
+        chamados++;
+    }
+    gnomo.cornetas++;
+    tocarSom(SOM_CORNETA);
+    efeitoNoMapa(jogo, EFEITO_CORNETA, gnomo.x, gnomo.y, chamados);
+    std::string quem = monstroAVista(jogo, gnomo) ? "O gnomo vigia" : "Um gnomo vigia, em algum lugar,";
+    std::string resultado = chamados == 0 ? " Ninguém respondeu... desta vez."
+                          : chamados == 1 ? " Você ouve passos vindo atrás de você!"
+                          : " Você ouve " + std::to_string(chamados) + " monstros vindo atrás de você!";
+    if (gnomo.cornetas == 1) {
+        adicionarMensagem(jogo, quem + " sopra a corneta!" + resultado, MSG_PERIGO);
+    } else {
+        adicionarMensagem(jogo, quem + " sopra a corneta de novo e não foge mais: \"Chega de correr!\"" + resultado,
+                          MSG_PERIGO);
+    }
+    return chamados;
+}
+
+// O gnomo foge para o ponto do andar mais longe do jogador.
+static void fugirParaLonge(Jogo& jogo, Monstro& m) {
+    const Andar& andar = andarAtual(jogo);
+    int maior = -1;
+    for (int y = 0; y < MAPA_ALTURA; y++) {
+        for (int x = 0; x < MAPA_LARGURA; x++) {
+            int d = jogo.distanciaAteJogador[y][x];
+            if (d == INALCANCAVEL || andar.mapa.celulas[y][x] != CHAO || andar.zonaSegura[y][x]) continue;
+            if (especialEm(andar, x, y) >= 0 || npcEm(andar, x, y) >= 0) continue;
+            if (d > maior) { maior = d; m.destinoX = x; m.destinoY = y; }
+        }
+    }
+    m.estado = FUGINDO;
+}
+
+// O gnomo vigia tem o seu próprio jeito de agir:
+//   0 cornetas: age como os outros até perceber o jogador; aí sopra e foge.
+//   1 corneta : corre até o lugar longe e fica lá, quieto. Se o jogador
+//               aparecer de novo, sopra outra vez e fica para lutar.
+//   2 cornetas: não sai do lugar; luta quando o jogador encostar.
+// Devolve 1 se começou a batalha, 0 se já agiu, -1 para seguir o normal.
+static int agirComoVigia(Jogo& jogo, Monstro& m, int indice, bool percebe) {
+    if (m.cornetas >= 2) {
+        if (podeAtacarJogador(jogo, m) && m.turnosSemBatalha == 0) {
+            jogo.batalhaPendente = indice;
+            return 1;
+        }
+        return 0;
+    }
+    if (m.cornetas == 1 && m.estado == FUGINDO) {
+        if (m.x == m.destinoX && m.y == m.destinoY) {
+            m.estado = VAGANDO;   // chegou: fica quieto no esconderijo
+            return 0;
+        }
+        static int caminho[MAPA_ALTURA][MAPA_LARGURA];
+        calcularDistancias(mapaAtual(jogo), m.destinoX, m.destinoY, caminho);
+        if (!moverParaMelhorVizinho(jogo, m, caminho, true)) moverParaMelhorVizinho(jogo, m, jogo.distanciaAteJogador, false);
+        return 0;
+    }
+    if (m.estado != DORMINDO && percebe) {
+        tocarCorneta(jogo, m);
+        if (m.cornetas == 1) fugirParaLonge(jogo, m);
+        else m.estado = CACANDO;
+        return 0;
+    }
+    if (m.cornetas == 1) return 0;   // escondido, esperando
+    return -1;
+}
+
 // Uma ação do monstro. Devolve true se ele alcançou o jogador (começa a batalha).
 static bool agirUmaVez(Jogo& jogo, Monstro& m, int indice) {
     const TipoMonstro& t = tipoDe(m);
@@ -483,14 +745,24 @@ static bool agirUmaVez(Jogo& jogo, Monstro& m, int indice) {
     // O monstro vê o jogador se o jogador vê a célula dele (a linha de visão
     // vale para os dois lados). O jogador carrega luz, então é sempre visto.
     bool vejoJogador = jogo.linhaDeVisao[m.y][m.x] && distancia != INALCANCAVEL;
-    int alcance = jogo.descansando ? ALCANCE_DE_PERCEPCAO / 2 : ALCANCE_DE_PERCEPCAO;
+    // Descansando ou furtivo, o jogador faz menos barulho: alcance pela metade.
+    bool silencioso = jogo.descansando || jogo.furtivo;
+    int alcance = silencioso ? ALCANCE_DE_PERCEPCAO / 2 : ALCANCE_DE_PERCEPCAO;
+
+    if (t.especial & VIGIA) {
+        int r = agirComoVigia(jogo, m, indice, vejoJogador && distancia <= alcance);
+        if (r >= 0) return r == 1;
+    }
 
     // ---- DORMINDO: pode acordar se o jogador estiver bem perto ----------
+    // Furtivo, o jogador quase não acorda ninguém (só colado e com pouca chance).
     if (m.estado == DORMINDO) {
-        if (vejoJogador && distancia <= alcance / 2 && chance(jogo.sorte, 33)) {
+        bool acorda = jogo.furtivo ? (distancia <= 2 && chance(jogo.sorte, 10))
+                                   : (distancia <= alcance / 2 && chance(jogo.sorte, 33));
+        if (vejoJogador && acorda) {
             m.estado = CACANDO;
             m.turnosSemVerJogador = 0;
-            if (jogo.visivel[m.y][m.x]) {
+            if (monstroAVista(jogo, m)) {
                 adicionarMensagem(jogo, comMaiuscula(nomeDoMonstro(jogo, m)) + " acorda!");
             }
         }
@@ -502,7 +774,7 @@ static bool agirUmaVez(Jogo& jogo, Monstro& m, int indice) {
         if (vejoJogador && distancia <= alcance) {
             m.estado = CACANDO;
             m.turnosSemVerJogador = 0;
-            if (jogo.visivel[m.y][m.x]) {
+            if (monstroAVista(jogo, m)) {
                 adicionarMensagem(jogo, comMaiuscula(nomeDoMonstro(jogo, m)) + " percebe você!");
             }
         } else {
@@ -543,6 +815,10 @@ static bool agirUmaVez(Jogo& jogo, Monstro& m, int indice) {
     if (vejoJogador) {
         // Vê o jogador: segue o caminho mais curto (BFS a partir do jogador).
         m.turnosSemVerJogador = 0;
+        moverParaMelhorVizinho(jogo, m, jogo.distanciaAteJogador, true);
+    } else if (m.turnosSemVerJogador < 0) {
+        // Ouviu a corneta: vai até onde o jogador está, mesmo sem vê-lo.
+        m.turnosSemVerJogador++;
         moverParaMelhorVizinho(jogo, m, jogo.distanciaAteJogador, true);
     } else {
         // Perdeu de vista: segue o rastro de cheiro. Depois de um tempo, desiste.

@@ -176,6 +176,8 @@ void colocarSalasEspeciais(Andar& andar, int numeroDoAndar, uint32_t semente) {
             npc.y = y;
             npc.conversou = false;
             npc.estoque[0] = npc.estoque[1] = -1;
+            npc.estoqueExtra = -1;
+            npc.extrasAVenda[0] = npc.extrasAVenda[1] = 0;
             for (int k = 0; k < 4; k++) npc.pocoesAVenda[k] = 0;
         } else {
             if (!sortearLugar(andar, g, distancia, x, y)) continue;
@@ -209,8 +211,12 @@ static void ganharCristal(Jogo& jogo) {
 // arma/escudo que costuma aparecer neste andar.
 static int itemDoBau(Jogo& jogo) {
     int r = sortear(jogo.sorte, 1, 100);
+    // Itens de suporte permanentes: só um de cada por partida.
+    if (r <= 12 && !jogo.jogador.mochilaDeCouro) return I_MOCHILA_DE_COURO;
+    if (r <= 12 && !jogo.jogador.lanterna) return I_LANTERNA;
     if (r <= 30) return I_POCAO_GRANDE;
-    if (r <= 45) return I_ETER;
+    if (r <= 40) return I_ETER;
+    if (r <= 50) return chance(jogo.sorte, 50) ? I_BOMBA_DE_FUMACA : I_PERGAMINHO_DO_MAPA;
     if (r <= 65) return I_PERGAMINHO_DE_FOGO + sortear(jogo.sorte, 0, 4);
     std::vector<int> opcoes;
     for (int i = 0; i < NUM_TIPOS_DE_ITEM; i++) {

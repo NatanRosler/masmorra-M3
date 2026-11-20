@@ -319,7 +319,7 @@ static const Monstro* monstroVisivelMaisProximo(const Jogo& jogo) {
     int melhorDistancia = 1000000;
     for (int i = 0; i < andar.numMonstros; i++) {
         const Monstro& m = andar.monstros[i];
-        if (!m.vivo || !jogo.visivel[m.y][m.x]) continue;
+        if (!monstroAVista(jogo, m)) continue;
         int dx = m.x - jogo.jogador.x, dy = m.y - jogo.jogador.y;
         int d = dx * dx + dy * dy;
         if (d < melhorDistancia) {
@@ -356,7 +356,8 @@ void desenharJogo(const Jogo& jogo) {
         for (int x = 0; x < MAPA_LARGURA; x++) monstroNaCelula[y][x] = -1;
     }
     for (int i = 0; i < andar.numMonstros; i++) {
-        if (andar.monstros[i].vivo) monstroNaCelula[andar.monstros[i].y][andar.monstros[i].x] = i;
+        // A sombra de longe não aparece (monstroAVista).
+        if (monstroAVista(jogo, andar.monstros[i])) monstroNaCelula[andar.monstros[i].y][andar.monstros[i].x] = i;
     }
     // O mesmo para os itens no chão.
     static int itemNaCelula[MAPA_ALTURA][MAPA_LARGURA];
@@ -398,6 +399,7 @@ void desenharJogo(const Jogo& jogo) {
                     if (x == jogo.jogador.x && y == jogo.jogador.y) {
                         a.simbolo = '@';                 // jogador por cima, na cor
                         frente = CORES_DO_JOGADOR[jogo.jogador.cor]; // escolhida
+                        if (jogo.furtivo) frente = { 110, 110, 150 };   // furtivo: apagado
                     } else if (monstroNaCelula[y][x] >= 0) {
                         // Monstro: só aparece se a célula está visível (no
                         // escuro ou fora da visão, ele fica escondido). A cor
@@ -407,6 +409,8 @@ void desenharJogo(const Jogo& jogo) {
                         frente = CORES_DOS_ELEMENTOS[m.elemento];
                         // Atordoado: pisca em amarelo.
                         if (m.atordoadoMs > 0 && (relogioMs() / 300) % 2 == 0) frente = { 255, 226, 90 };
+                        // Campeão: fundo dourado.
+                        if (m.campeao) fundo = { 135, 95, 0 };
                     } else if (npc >= 0) {
                         a.simbolo = FICHAS_DOS_NPCS[andar.npcs[npc].tipo].simbolo;
                         frente = FICHAS_DOS_NPCS[andar.npcs[npc].tipo].cor;
@@ -455,6 +459,7 @@ void desenharJogo(const Jogo& jogo) {
     std::string resto = "  Vidas " + std::to_string(j.vidas) + "  $" + std::to_string(j.moedas)
                       + "  Pts " + std::to_string(calcularPontuacao(jogo))
                       + "  " + textoDoTempo(jogo.tempoMs) + (jogo.descansando ? " zZz " : " ")
+                      + (jogo.furtivo ? "[furtivo] " : "")
                       + (j.pontosLivres > 0 ? "[C] " : "");
     p.texto(resto, COR_TEXTO);
     int usadas = contarLetras(inicio) + 16 + contarLetras(resto);
@@ -465,7 +470,7 @@ void desenharJogo(const Jogo& jogo) {
     if (perto != nullptr && sobra > 2) {
         const TipoMonstro& t = tipoDe(*perto);
         p.letra(t.simbolo, { rgbPara256(CORES_DOS_ELEMENTOS[perto->elemento]), FUNDO_PRETO });
-        std::string info = std::string(" ") + t.nome + " Nv" + std::to_string(perto->nivel)
+        std::string info = std::string(" ") + nomeDaEspecie(*perto) + " Nv" + std::to_string(perto->nivel)
                          + " " + NOMES_DOS_ELEMENTOS[perto->elemento];
         if (perto->estado == DORMINDO) info += " (dormindo)";
         if (perto->estado == FUGINDO)  info += " (fugindo)";
@@ -521,13 +526,14 @@ void desenharAjuda(const Jogo& jogo) {
         "Batalhar       ande na direção do monstro",
         "Descansar      z  ou  Z   (cura mais a cada 5 níveis)",
         "               qualquer tecla para de descansar",
+        "Furtivo        f  (liga/desliga: lento, silencioso, ataque surpresa)",
         "Mochila        i          Ficha (atributos)   C",
         "Mensagens      M          Sair   Q",
         "",
         "Na batalha: setas escolhem, Enter confirma, Esc volta.",
         "Pegue monstros dormindo: eles começam a luta dormindo.",
         "Escadas: ande para dentro de  >  (desce)  ou  <  (sobe)",
-        "Itens:  ! poção  ) arma  ] escudo  * cristal  ? pergaminho  - chave",
+        "Itens: ! poção ) arma ] escudo * cristal ? pergaminho - chave ( suporte",
         "Mapa:   = caixa (empurre num monstro: atordoa; pode ter item)",
         "        ^ armadilha   & pessoa (converse)",
         "",
@@ -696,8 +702,17 @@ static void barra(Pincel& p, int valor, int maximo, int largura, int corCheia, i
 }
 
 static std::string emMaiusculas(std::string texto) {
-    for (char& c : texto) {
-        if (c >= 'a' && c <= 'z') c = c - 'a' + 'A';
+    for (size_t i = 0; i < texto.size(); i++) {
+        unsigned char c = (unsigned char)texto[i];
+        if (c >= 'a' && c <= 'z') {
+            texto[i] = (char)(c - 'a' + 'A');
+        } else if (c == 0xC3 && i + 1 < texto.size()) {
+            // Letras acentuadas em UTF-8 (á, ã, é, í, ç...): 0xC3 + um byte de
+            // 0xA0 a 0xBE; a maiúscula é esse byte menos 0x20.
+            unsigned char d = (unsigned char)texto[i + 1];
+            if (d >= 0xA0 && d <= 0xBE && d != 0xB7) texto[i + 1] = (char)(d - 0x20);
+            i++;
+        }
     }
     return texto;
 }

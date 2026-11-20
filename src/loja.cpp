@@ -41,6 +41,10 @@ static const int PRECOS[NUM_TIPOS_DE_ITEM] = {
     35,  // Pergaminho de Veneno
     35,  // Pergaminho de Pedra
     0,   // Chave (não está à venda)
+    90,  // Mochila de Couro
+    70,  // Lanterna
+    30,  // Bomba de Fumaça
+    25,  // Pergaminho do Mapa
 };
 
 int precoDeCompra(int tipoDeItem) {
@@ -79,10 +83,17 @@ static const int POCOES_NO_ANDAR_3[NUM_POCOES_DA_LOJA] = { 1, 0, 1, 1 };
 static const int POCOES_MAIS_FUNDO[NUM_POCOES_DA_LOJA] = { 1, 0, 1, 1 };
 static const int POCOES_NO_ANDAR_9[NUM_POCOES_DA_LOJA] = { 1, 1, 1, 1 };
 
+// Itens de suporte gastáveis: também em quantidade limitada por andar.
+static const int EXTRAS_DA_LOJA[2] = { I_BOMBA_DE_FUMACA, I_PERGAMINHO_DO_MAPA };
+
 int estoqueDaLoja(const Npc& comerciante, int tipoDeItem) {
     for (int i = 0; i < NUM_POCOES_DA_LOJA; i++) {
         if (POCOES_DA_LOJA[i] == tipoDeItem) return comerciante.pocoesAVenda[i];
     }
+    for (int i = 0; i < 2; i++) {
+        if (EXTRAS_DA_LOJA[i] == tipoDeItem) return comerciante.extrasAVenda[i];
+    }
+    if (comerciante.estoqueExtra == tipoDeItem) return 1;
     for (int k = 0; k < 2; k++) {
         if (comerciante.estoque[k] == tipoDeItem) return 1;
     }
@@ -102,10 +113,19 @@ bool comprarItem(Jogo& jogo, Npc& comerciante, int tipoDeItem) {
     for (int i = 0; i < NUM_POCOES_DA_LOJA; i++) {
         if (POCOES_DA_LOJA[i] == tipoDeItem) { comerciante.pocoesAVenda[i]--; ehPocao = true; }
     }
+    for (int i = 0; i < 2 && !ehPocao; i++) {
+        if (EXTRAS_DA_LOJA[i] == tipoDeItem) { comerciante.extrasAVenda[i]--; ehPocao = true; }
+    }
+    if (!ehPocao && comerciante.estoqueExtra == tipoDeItem) { comerciante.estoqueExtra = -1; ehPocao = true; }
     for (int k = 0; k < 2 && !ehPocao; k++) {
         if (comerciante.estoque[k] == tipoDeItem) { comerciante.estoque[k] = -1; break; }
     }
     j.moedas -= preco;
+    // Mochila de Couro e Lanterna valem na hora (não vão para a mochila).
+    if (usaNaHora(tipoDeItem) && TIPOS_DE_ITEM[tipoDeItem].categoria != CRISTAL) {
+        ganharItemPermanente(jogo, tipoDeItem);
+        return true;
+    }
     j.mochila[tipoDeItem]++;
 
     const TipoItem& t = TIPOS_DE_ITEM[tipoDeItem];
@@ -139,6 +159,16 @@ void prepararEstoque(const Jogo& jogo, Npc& comerciante) {
         comerciante.pocoesAVenda[i] = (jogo.andar <= 3) ? POCOES_NO_ANDAR_3[i] : (jogo.andar >= 9 ? POCOES_NO_ANDAR_9[i] : POCOES_MAIS_FUNDO[i]);
     }
     comerciante.estoque[0] = comerciante.estoque[1] = -1;
+    // Suporte: bombas e pergaminhos do mapa, e um item permanente que o
+    // jogador ainda não tenha (a mochila primeiro, depois a lanterna).
+    comerciante.extrasAVenda[0] = (jogo.andar <= 3) ? 1 : 2;
+    comerciante.extrasAVenda[1] = 1;
+    const Jogador& j = jogo.jogador;
+    int primeiro = (jogo.andar >= 6) ? I_LANTERNA : I_MOCHILA_DE_COURO;
+    int segundo = (primeiro == I_LANTERNA) ? I_MOCHILA_DE_COURO : I_LANTERNA;
+    bool temPrimeiro = (primeiro == I_LANTERNA) ? j.lanterna : j.mochilaDeCouro;
+    bool temSegundo = (segundo == I_LANTERNA) ? j.lanterna : j.mochilaDeCouro;
+    comerciante.estoqueExtra = !temPrimeiro ? primeiro : (!temSegundo ? segundo : -1);
     if (jogo.andar <= 3) {
         // Andar 3: uma arma do elemento do jogador (+25% nos golpes dele).
         comerciante.estoque[0] = I_MACHADO;
@@ -173,9 +203,10 @@ static std::string situacao(const Jogador& j, const Npc& comerciante, int tipo) 
     if (!cabeNaMochila(j, tipo)) return motivoDeNaoCaber(j, tipo) + " Venda ou use algo antes.";
     const TipoItem& t = TIPOS_DE_ITEM[tipo];
     if (t.categoria == CRISTAL) return "Efeito na hora: o cristal é usado assim que você compra.";
+    if (usaNaHora(tipo)) return "Vale na hora e para a partida toda (não ocupa a mochila).";
     if (j.arma == &t || j.escudo == &t) return "Você já está usando um desses.";
-    return "Na sua mochila: " + std::to_string(j.mochila[tipo]) + " de " + std::to_string(limiteDoItem(tipo)) +
-           "   (mochila: " + std::to_string(itensNaMochila(j)) + "/" + std::to_string(LIMITE_DA_MOCHILA) + ")";
+    return "Na sua mochila: " + std::to_string(j.mochila[tipo]) + " de " + std::to_string(limiteDoItem(j, tipo)) +
+           "   (mochila: " + std::to_string(itensNaMochila(j)) + "/" + std::to_string(limiteDaMochila(j)) + ")";
 }
 
 // Vender: lista o que há na mochila (o equipamento em uso não aparece).
@@ -220,8 +251,10 @@ void abrirLoja(Jogo& jogo, Npc& comerciante) {
             const int* trouxe = (jogo.andar <= 3) ? POCOES_NO_ANDAR_3 : POCOES_MAIS_FUNDO;
             if (trouxe[i] > 0) tipos.push_back(POCOES_DA_LOJA[i]);
         }
+        for (int i = 0; i < 2; i++) tipos.push_back(EXTRAS_DA_LOJA[i]);   // bomba e pergaminho do mapa
         int primeiroEspecial = (int)tipos.size();
         for (int k = 0; k < 2; k++) if (comerciante.estoque[k] >= 0) tipos.push_back(comerciante.estoque[k]);
+        if (comerciante.estoqueExtra >= 0) tipos.push_back(comerciante.estoqueExtra);
 
         std::vector<std::string> opcoes, descricoes;
         for (int i = 0; i < (int)tipos.size(); i++) {
@@ -239,7 +272,7 @@ void abrirLoja(Jogo& jogo, Npc& comerciante) {
         descricoes.push_back("\"Volte sempre! Bom, se sobreviver.\"");
 
         std::string titulo = "LOJA DO GARRO   (moedas: " + std::to_string(j.moedas) + "   mochila: " +
-                             std::to_string(itensNaMochila(j)) + "/" + std::to_string(LIMITE_DA_MOCHILA) + ")";
+                             std::to_string(itensNaMochila(j)) + "/" + std::to_string(limiteDaMochila(j)) + ")";
         int escolha = escolherEmCaixa(jogo, titulo, opcoes, descricoes, cursor);
         if (escolha < 0 || escolha > opcaoVender) return;   // Esc ou "Sair"
         cursor = escolha;

@@ -25,6 +25,8 @@ static bool terminalAtivo = false;
 // No terminal as letras já chegam como letras: nada a fazer.
 void definirModoTexto(bool) {}
 
+bool shiftSegurado() { return false; }
+
 long long relogioMs() {
     using namespace std::chrono;
     return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
