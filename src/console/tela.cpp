@@ -620,7 +620,8 @@ void desenharCriacao(const Criacao& c) {
     rotulos[LINHA_NOME] = "Nome:         " + c.nome + (c.linha == LINHA_NOME ? "_" : "");
     rotulos[LINHA_ELEMENTO] = "Elemento:   < " + std::string(NOMES_DOS_ELEMENTOS[c.elemento]) + " >";
     rotulos[LINHA_COR] = "Cor:        < " + std::string(NOMES_DAS_CORES_DO_JOGADOR[c.cor]) + " >";
-    rotulos[LINHA_DIFICULDADE] = "Dificuldade: < " + std::string(DIFICULDADES[c.dificuldade].nome) + " >";
+    rotulos[LINHA_DIFICULDADE] = "Dificuldade: < " + std::string(DIFICULDADES[c.dificuldade].nome) +
+                                 (dificuldadeLiberada(c.dificuldade) ? "" : " (trancado)") + " >";
     for (int a = 0; a < NUM_ATRIBUTOS; a++) {
         std::string nome = NOMES_DOS_ATRIBUTOS[a];
         rotulos[LINHA_FORCA + a] = nome + ":" + std::string(13 - contarLetras(nome), ' ') + "- " +
@@ -644,7 +645,8 @@ void desenharCriacao(const Criacao& c) {
         dica = "Golpe inicial: " + std::string(GOLPES[golpeInicialDoElemento(e)].nome);
     }
     if (c.linha == LINHA_COR) dica = "A cor do seu @ no mapa.";
-    if (c.linha == LINHA_DIFICULDADE) dica = DIFICULDADES[c.dificuldade].descricao;
+    if (c.linha == LINHA_DIFICULDADE) dica = dificuldadeLiberada(c.dificuldade) ? DIFICULDADES[c.dificuldade].descricao
+                                                : "Trancado: vença o Difícil para liberar o modo Impossível.";
     if (c.linha >= LINHA_FORCA && c.linha <= LINHA_AGILIDADE) dica = EFEITOS_DOS_ATRIBUTOS[c.linha - LINHA_FORCA];
     if (c.linha == LINHA_ALEATORIO) dica = "Enter sorteia nome, elemento, cor e atributos.";
     if (c.linha == LINHA_COMECAR) dica = "Enter para começar.";

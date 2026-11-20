@@ -18,7 +18,7 @@ const char* EFEITOS_DOS_ATRIBUTOS[NUM_ATRIBUTOS] = {
     "+1 de ataque por ponto: seus golpes causam mais dano.",
     "+3 de vida máxima por ponto e +1 de armadura (defesa) a cada 2 pontos.",
     "+3% de precisão e +1% de chance de golpe crítico por ponto.",
-    "+2% de esquiva e +1 de velocidade por ponto: anda e age mais rápido.",
+    "+1% de esquiva (até 25%) e +1 de velocidade por ponto: anda e age mais rápido.",
 };
 
 const char* NOMES_DAS_CORES_DO_JOGADOR[NUM_CORES_DO_JOGADOR] = {
@@ -123,6 +123,11 @@ bool criarPersonagem(Criacao& c) {
             continue;
         }
         if (t == TECLA_ENTER) {   // linha "Começar"
+            if (!dificuldadeLiberada(c.dificuldade)) {   // Impossível ainda trancado
+                tocarSom(SOM_ERROU);
+                c.linha = LINHA_DIFICULDADE;
+                continue;
+            }
             if (c.nome.empty()) c.nome = "Aventureiro";
             definirModoTexto(false);
             return true;

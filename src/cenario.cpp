@@ -135,7 +135,7 @@ void armadilhaPegaJogador(Jogo& jogo) {
     if (i >= 0) {
         Armadilha& a = andar.armadilhas[i];
         a.descoberta = true;
-        tocarSom(SOM_ARMADILHA);
+        tocarSom(SOM_ESPINHOS);
         int dano = danoDaArmadilha(j.vidaMaxima, dificuldadeAtual().danoDasArmadilhas);
         efeitoNoMapa(jogo, EFEITO_ARMADILHA, j.x, j.y, dano);
         j.vida -= dano;
@@ -169,6 +169,7 @@ void armadilhaPegaMonstro(Jogo& jogo, Monstro& m) {
     bool visto = jogo.visivel[m.y][m.x];
     if (visto) {
         a.descoberta = true;
+        tocarSom(SOM_ESPINHOS);
         efeitoNoMapa(jogo, EFEITO_ESPINHOS, m.x, m.y, 0);
     }
     m.vida -= danoDaArmadilha(vidaMaximaDoMonstro(m), 20);

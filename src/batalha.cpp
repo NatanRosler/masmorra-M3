@@ -727,6 +727,7 @@ static void ganharExperiencia(Jogo& jogo, Batalha& b, int pontos, int moedas) {
                         std::to_string(MOEDAS_POR_NIVEL) + " moedas)", MSG_BOA);
         ganharPontosDeAtributo(jogo, PONTOS_POR_NIVEL);
         if (!jogo.modoAutomatico) {
+            tocarSom(SOM_PONTO_GANHO);
             narrar(jogo, b, "Você ganhou " + std::to_string(PONTOS_POR_NIVEL) +
                             " ponto de atributo! Aperte C no mapa para distribuir.", MSG_BOA);
         }

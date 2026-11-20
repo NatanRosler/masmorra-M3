@@ -215,7 +215,7 @@ bônus de 50% nos golpes do mesmo elemento e as fraquezas), **cor** e distribui
 | Força | +1 de ataque | fórmula de dano |
 | Constituição | +3 de vida máxima, +1 de defesa a cada 2 pontos | vida e armadura |
 | Destreza | +3% de precisão, +1% de crítico | `usarGolpe` e `calcularDano` |
-| Agilidade | +2% de esquiva, +1 de velocidade | chance de o inimigo errar, ordem na batalha, passo no mapa |
+| Agilidade | +1% de esquiva (até 25%; era 2%, até 40%, antes da v1.22), +1 de velocidade | chance de o inimigo errar, ordem na batalha, passo no mapa |
 
 Chance de acertar = precisão do golpe + precisão do atacante − esquiva do alvo.
 Os monstros têm 5% de esquiva (15% os rápidos).
@@ -292,16 +292,23 @@ como nos videogames de 8 bits.
 Escolhida na criação do personagem (`src/dificuldade.h/.cpp`). Cada nível é uma
 linha de uma tabela; as regras leem `dificuldadeAtual()` em vez de números fixos.
 
-| | Fácil | Médio | Difícil |
-|---|---|---|---|
-| Vida dos monstros | −15% | +10% | +30% |
-| Ataque dos monstros (≈ dano) | 75% | 110% (95% até a v1.7, 100% até a v1.13) | 125% |
-| Intervalo entre passos dos monstros | 130% (mais lentos) | 110% | 100% |
-| Dano das armadilhas | 6% da vida | 10% | 15% |
-| Experiência ganha | 150% | 125% | 100% |
-| Vidas / poções no início | 5 / 6 | 3 / 3 (eram 4 até a v1.7) | 3 / 3 |
-| Pontuação final | 50% | 100% | 150% |
-| Preços na loja (v1.8) | 75% | 100% | 125% |
+| | Fácil | Médio | Difícil | Impossível (v1.22) |
+|---|---|---|---|---|
+| Vida dos monstros | −15% | +10% | +30% | +40% |
+| Ataque dos monstros (≈ dano) | 75% | 110% (95% até a v1.7, 100% até a v1.13) | 125% | 135% |
+| Intervalo entre passos dos monstros | 130% (mais lentos) | 110% | 100% | 90% (mais rápidos) |
+| Dano das armadilhas | 6% da vida | 10% | 15% | 20% |
+| Experiência ganha | 150% | 125% | 100% | 100% |
+| Vidas / poções no início | 5 / 6 | 3 / 3 (eram 4 até a v1.7) | 3 / 3 | 1 / 1 |
+| Pontuação final | 50% | 100% | 150% | 200% |
+| Preços na loja (v1.8) | 75% | 100% | 125% | 150% |
+| Campeões (% e máximo por andar) | 6% / 1 | 12% / 2 | 18% / 3 | 25% / 4 |
+| Monstros no mínimo (andar 3 em diante, v1.22) | sem regra | seu nível − 2 | seu nível − 2 | seu nível |
+| Nível do chefe | seu nível + 1 | + 1 | + 1 | + 3 |
+
+O Impossível começa **trancado**: aparece na criação com um cadeado e só pode ser
+escolhido depois de vencer o chefe no Difícil (fica gravado em `opcoes.txt` como
+`impossivel=1`).
 
 Medido com os robôs (150 partidas cada):
 
@@ -842,3 +849,40 @@ Tudo continua gerado no código, sem nenhum arquivo de áudio.
   conseguir), modo furtivo, entrar na água, lava, ponto na ficha, dica,
   mímico, altar e gongo da arena.
 
+
+## Monstros que acompanham o jogador e o modo Impossível (v1.22)
+
+- **O problema**: o nível dos monstros vinha só do andar (`2 × andar ± 1`).
+  Quem explora tudo sobe de nível rápido e chega ao andar 9 uns 7 níveis acima
+  dos monstros: eles davam 2 ou 4 de dano e o jogo ficava fácil demais.
+- **`acompanharJogador`** (monstros.cpp): do andar 3 em diante, nenhum monstro
+  vivo fica mais que a `folgaDeNivel` da dificuldade abaixo do nível do jogador
+  (os campeões, 2 níveis a mais). A vida sobe na mesma proporção (um monstro
+  ferido continua ferido). Não mexe no chefe, que tem a regra dele. É chamada ao
+  chegar no andar, ao subir de nível e antes de cada batalha.
+  - Fácil: sem regra. Médio e Difícil: no máximo 2 níveis abaixo. Impossível:
+    nunca abaixo (folga 0).
+  - Os andares 1 e 2 ficam de fora: são de aprendizado, e com a regra lá o
+    Impossível era perdido quase sempre logo no começo.
+- **Chefe**: `ajustarNivelDoChefe` usa `nivelExtraDoChefe` (seu nível + 1, ou
+  + 3 no Impossível).
+- **Esquiva**: Agilidade dá 1% por ponto, no máximo 25% (era 2%, até 40%).
+- **Espada Longa**: o ataque estava +3, mas a descrição dizia +6. Agora é +6.
+- **Impossível**: 4ª dificuldade, em roxo. Trancada até vencer o Difícil
+  (`dificuldadeLiberada`, `Opcoes::impossivelLiberado`). Na criação aparece com
+  um cadeado e "Começar aventura" não aceita enquanto estiver trancada.
+- **Sons novos** (instrumentos): **espinhos** (três lâminas de metal saltando e
+  uma pancada), quando você pisa na armadilha ou vê um monstro pisando; e
+  **ponto de atributo** (harpa subindo e um brilho de sino), quando a batalha
+  termina e você ganhou um ponto.
+- **Medido com os robôs** (300 partidas do explorador com Força e Agilidade,
+  comprando na loja):
+
+  | | Fácil | Médio | Difícil | Impossível |
+  |---|---|---|---|---|
+  | Explorador: chega ao andar 10 | 100% | 38% | 8% | 0% |
+  | Explorador: andar médio onde termina | 10 | 8,3 | 6,6 | 2,9 (o melhor chegou ao 7) |
+
+  Antes desta versão o explorador chegava ao andar 10 em 97% (Médio) e 63%
+  (Difícil). Os robôs jogam pior que uma pessoa (não fogem nem escolhem as
+  lutas), então numa partida de verdade dá para ir mais longe.

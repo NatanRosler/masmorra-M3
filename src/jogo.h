@@ -43,7 +43,7 @@ enum Atributo {
     FORCA,          // +1 de ataque por ponto: mais dano
     CONSTITUICAO,   // +3 de vida máxima e +1 de defesa (armadura) por ponto
     DESTREZA,       // +3% de precisão e +1% de chance de crítico por ponto
-    AGILIDADE,      // +2% de esquiva e +1 de velocidade (andar mais rápido) por ponto
+    AGILIDADE,      // +1% de esquiva (até 25%) e +1 de velocidade (andar mais rápido) por ponto
     NUM_ATRIBUTOS
 };
 extern const char* NOMES_DOS_ATRIBUTOS[NUM_ATRIBUTOS];

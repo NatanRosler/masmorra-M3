@@ -9,6 +9,8 @@
 #include "som.h"
 #include "dicas.h"
 #include "bestiario.h"
+#include "dificuldade.h"
+#include "opcoes.h"
 #include <algorithm>
 
 Mapa& mapaAtual(Jogo& jogo) {
@@ -109,8 +111,8 @@ void recalcularAtributos(Jogador& j) {
     j.velocidade = atributoPeloNivel(BASE_VELOCIDADE_JOGADOR, j.nivel) + j.bonusVelocidade + pontos[AGILIDADE];
     j.precisaoExtra = 3 * pontos[DESTREZA];
     j.criticoExtra  = pontos[DESTREZA];
-    j.esquiva       = 2 * pontos[AGILIDADE];
-    if (j.esquiva > 40) j.esquiva = 40;
+    j.esquiva       = pontos[AGILIDADE];          // 1% por ponto (v1.22; antes 2%, até 40%)
+    if (j.esquiva > 25) j.esquiva = 25;
 
     if (j.arma != nullptr) {
         j.ataque += j.arma->bonusAtaque;
@@ -239,6 +241,7 @@ static void irParaAndar(Jogo& jogo, int novoAndar) {
     j.mochila[I_CHAVE] = destino.chavesGuardadas;
     jogo.andar = novoAndar;
     if (novoAndar > jogo.andarMaisFundo) jogo.andarMaisFundo = novoAndar;
+    acompanharJogador(jogo);
 
     if (descendo) {
         jogo.jogador.x = destino.escadas.chegadaSobeX;
@@ -447,6 +450,7 @@ static void premioDoCampeao(Jogo& jogo, const Monstro& m) {
 }
 
 static void resolverBatalha(Jogo& jogo) {
+    acompanharJogador(jogo);   // os monstros não ficam muito abaixo do seu nível
     Monstro* participantes[MAX_INIMIGOS];
     int quantos = juntarParticipantes(jogo, jogo.batalhaPendente, participantes);
     jogo.batalhaPendente = -1;
@@ -457,6 +461,7 @@ static void resolverBatalha(Jogo& jogo) {
     ResultadoBatalha resultado = batalhar(jogo, participantes, quantos);
     forcarLimpezaDaTela();
     tocarMusica(MUSICA_MASMORRA);
+    if (jogo.jogador.nivel > nivelAntes) acompanharJogador(jogo);   // subiu de nível: os monstros também
     if (jogo.jogador.nivel > nivelAntes && jogo.jogador.pontosLivres > 0) {
         int p = jogo.jogador.pontosLivres;
         adicionarMensagem(jogo, "Nível " + std::to_string(jogo.jogador.nivel) + "! Você tem " + std::to_string(p) +
@@ -475,6 +480,12 @@ static void resolverBatalha(Jogo& jogo) {
                 tocarMusica(SEM_MUSICA);
                 tocarSom(SOM_VITORIA);
                 adicionarMensagem(jogo, "O Senhor das Profundezas caiu! Valdoria está livre!", MSG_BOA);
+                // Vencer o Difícil (ou o próprio Impossível) libera o modo Impossível.
+                if (!jogo.modoAutomatico && nivelDaDificuldade() >= DIFICIL && !opcoes().impossivelLiberado) {
+                    opcoes().impossivelLiberado = true;
+                    salvarOpcoes();
+                    adicionarMensagem(jogo, "Modo IMPOSSÍVEL liberado! Ninguém voltou de lá... ainda.", MSG_BOA);
+                }
                 if (!jogo.modoAutomatico) mostrarFinal(jogo, textoDoFinal(jogo));
             }
             if (m.carregaChave) {

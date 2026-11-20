@@ -83,7 +83,7 @@ src/
 | `src/salvar.h/.cpp` | Salvar e continuar a partida (arquivo binário `save.dat`) |
 | `src/loja.h/.cpp` | Moedas e a loja do Garro, o comerciante (comprar e vender) |
 | `src/pontuacao.h/.cpp` | Pontuação, ranking em arquivo (`ranking.txt`) e textos do menu |
-| `src/dificuldade.h/.cpp` | Tabela das dificuldades (Fácil, Médio, Difícil) |
+| `src/dificuldade.h/.cpp` | Tabela das dificuldades (Fácil, Médio, Difícil e Impossível, este trancado até vencer o Difícil) |
 | `src/grafico/main.cpp` | Laço principal da versão gráfica, menu e pausa |
 | `src/grafico/tela_grafica.cpp` | Desenho do mapa em tela cheia, cartões do canto, bestiário e batalha em 2D |
 | `src/grafico/terminal_raylib.cpp` | Teclado, mouse e janela (raylib) |
@@ -158,7 +158,7 @@ publicar → Run workflow**.
 - [x] **7. Mapa vivo**: armadilhas que ferem jogador e monstros, caixas que se empurram ou quebram, ogros que despedaçam caixas
 - [x] **8. História**: abertura, 3 NPCs (um deles destranca a sala do tesouro), chefe final no andar 10 e tela de vitória
 - [x] **Som (v1.1)**: efeitos e 4 músicas (menu, masmorra, batalha, chefe) gerados no código
-- [x] **Dificuldades (v1.2)**: Fácil, Médio e Difícil, escolhidos na criação do personagem
+- [x] **Dificuldades (v1.2)**: Fácil, Médio e Difícil, escolhidos na criação do personagem; Impossível (v1.22), liberado ao vencer o Difícil
 - [x] **v1.4**: caixas com itens (poções, armas, cristais) e caixa empurrada contra um monstro o deixa atordoado
 - [x] **v1.3**: botão Aleatório na criação; mensagens importantes em destaque (trava contra Enter apressado, faixa no mapa, vida baixa piscando)
 - [x] **9. Pontuação**: menu com como jogar, itens e pontuação; pontos na tela e no fim; ranking salvo em `ranking.txt`

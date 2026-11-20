@@ -141,6 +141,9 @@ void tornarCampeao(Monstro& m);
 
 // Vida máxima do monstro (depende da espécie e do nível).
 int vidaMaximaDoMonstro(const Monstro& m);
+// Sobe o nível dos monstros do andar que ficaram muito abaixo do jogador
+// (Dificuldade::folgaDeNivel). Chamada ao chegar no andar e antes de cada batalha.
+void acompanharJogador(Jogo& jogo);
 
 // O tempo passou "ms" milissegundos no mapa: cada monstro age quando completa
 // o seu intervalo (ver intervaloDoMonstro). Se um monstro alcançar o jogador,

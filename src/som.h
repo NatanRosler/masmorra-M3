@@ -57,6 +57,9 @@ enum Som {
     SOM_MIMICO,          // o baú era um mímico!
     SOM_ALTAR,           // pacto no altar de sangue
     SOM_GONGO,           // desafio da arena aceito
+    // v1.22
+    SOM_ESPINHOS,        // armadilha de espinhos: lâminas de metal saltando e uma pancada
+    SOM_PONTO_GANHO,     // ganhou um ponto de atributo (subiu de nível)
     NUM_SONS
 };
 

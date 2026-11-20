@@ -39,7 +39,7 @@ const TipoItem TIPOS_DE_ITEM[NUM_TIPOS_DE_ITEM] = {
       0, false, false,    4, 0, 0, 0,   -1, -1,   3, 7, 4,
       "Ataque +4." },
     { "Espada Longa", "uma", ')', { 235, 235, 245 }, ARMA,
-      0, false, false,    3, 0, 0, 0,   -1, -1,   6, 10, 3,
+      0, false, false,    6, 0, 0, 0,   -1, -1,   6, 10, 3,
       "Ataque +6." },
     { "Espada de Fogo", "uma", ')', { 255, 130, 40 }, ARMA,
       0, false, false,    3, 0, 0, 0,   FOGO, -1,   2, 10, 2,

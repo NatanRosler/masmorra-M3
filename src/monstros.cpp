@@ -263,6 +263,28 @@ const TipoMonstro& tipoDe(const Monstro& m) {
 
 // A vida dos monstros segue a mesma fórmula do jogador, mais o ajuste da
 // dificuldade (ex.: +30% no difícil, -15% no fácil).
+// Os monstros acompanham o jogador (v1.22): nunca ficam mais que a "folga"
+// da dificuldade abaixo do nível dele (os campeões, 2 a mais). Quem explora
+// tudo sobe de nível rápido; sem isso, os monstros do andar ficavam fracos.
+// A vida sobe na mesma proporção (um monstro ferido continua ferido).
+void acompanharJogador(Jogo& jogo) {
+    int folga = dificuldadeAtual().folgaDeNivel;
+    if (folga < 0) return;          // Fácil: sem regra
+    if (jogo.andar < 3) return;     // os andares 1 e 2 são de aprendizado
+    Andar& andar = andarAtual(jogo);
+    for (int i = 0; i < andar.numMonstros; i++) {
+        Monstro& m = andar.monstros[i];
+        if (!m.vivo || (tipoDe(m).especial & CHEFE)) continue;   // o chefe tem a regra dele
+        int minimo = jogo.jogador.nivel - folga + (m.campeao ? 2 : 0);
+        if (minimo > NIVEL_MAXIMO) minimo = NIVEL_MAXIMO;
+        if (m.nivel >= minimo) continue;
+        int maximaAntes = vidaMaximaDoMonstro(m);
+        m.nivel = minimo;
+        m.vida = (int)((long long)m.vida * vidaMaximaDoMonstro(m) / maximaAntes);
+        if (m.vida < 1) m.vida = 1;
+    }
+}
+
 int vidaMaximaDoMonstro(const Monstro& m) {
     // A dificuldade aumenta (ou diminui) a vida de todos os monstros.
     int vida = vidaPeloNivel(tipoDe(m).baseVida, m.nivel) * (100 + dificuldadeAtual().vidaDosMonstros) / 100;
@@ -433,7 +455,7 @@ void colocarChefe(Andar& andar, int chegadaX, int chegadaY, Elemento elemento) {
 }
 
 void ajustarNivelDoChefe(Monstro& chefe, int nivelDoJogador) {
-    int novo = nivelDoJogador + 1;
+    int novo = nivelDoJogador + dificuldadeAtual().nivelExtraDoChefe;   // +1 (+3 no Impossível)
     if (novo < NIVEL_MINIMO_DO_CHEFE) novo = NIVEL_MINIMO_DO_CHEFE;
     if (novo <= chefe.nivel) return;   // só sobe
     int maximaAntes = vidaMaximaDoMonstro(chefe);

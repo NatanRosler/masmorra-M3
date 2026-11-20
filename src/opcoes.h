@@ -15,7 +15,8 @@ struct Opcoes {
     bool animacaoRapida;     // animações da batalha na metade do tempo
     int zoomDoMapa;          // 0 = longe (casas de 24 px), 1 = normal (36), 2 = perto (48)
     int volumeAmbiente;      // 0 a 10: sons dos andares, das salas e os passos
-    int velocidadeDoTexto;   // falas e história: 0 = lenta, 1 = normal, 2 = rápida, 3 = na hora
+    int velocidadeDoTexto;
+    bool impossivelLiberado; // venceu o Difícil: o modo Impossível pode ser escolhido   // falas e história: 0 = lenta, 1 = normal, 2 = rápida, 3 = na hora
     bool mostrarDicas;
     bool dicaVista[NUM_DICAS];
 };

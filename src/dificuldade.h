@@ -6,7 +6,7 @@
 // -----------------------------------------------------------------------------
 #pragma once
 
-enum NivelDeDificuldade { FACIL, MEDIO, DIFICIL, NUM_DIFICULDADES };
+enum NivelDeDificuldade { FACIL, MEDIO, DIFICIL, IMPOSSIVEL, NUM_DIFICULDADES };
 
 struct Dificuldade {
     const char* nome;
@@ -22,9 +22,16 @@ struct Dificuldade {
     int precosDaLoja;           // % do preço normal na loja do comerciante
     int chanceDeCampeao;        // % de cada monstro nascer campeão (elite), do andar 2 em diante
     int maximoDeCampeoes;       // por andar
+    // v1.22:
+    int folgaDeNivel;           // os monstros nunca ficam mais que isto abaixo do seu nível (-1 = sem regra)
+    int nivelExtraDoChefe;      // o chefe fica no seu nível + isto
 };
 
 extern const Dificuldade DIFICULDADES[NUM_DIFICULDADES];
+
+// O Impossível só pode ser escolhido depois de vencer o Difícil (fica
+// gravado em opcoes.txt: impossivel=1).
+bool dificuldadeLiberada(int nivel);
 
 // A dificuldade da partida atual (MÉDIO até alguém escolher outra).
 void definirDificuldade(int nivel);

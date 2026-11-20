@@ -66,6 +66,7 @@ Color corDaMensagem(int tipo) {
 Color corDaDificuldade(int d) {
     if (d==FACIL) return {110,210,120,255};
     if (d==DIFICIL) return PERIGO;
+    if (d==IMPOSSIVEL) return {200,90,255,255};
     return OURO;
 }
 
@@ -1909,6 +1910,13 @@ void desenharCriacao(const Criacao& c) {
             DrawRectangleRounded({vx+150,r.y+12,40,24},0.4f,6,paraCor(CORES_DO_JOGADOR[c.cor]));
         } else if(i==LINHA_DIFICULDADE) {
             valor=DIFICULDADES[c.dificuldade].nome; corValor=corDaDificuldade(c.dificuldade);
+            if(!dificuldadeLiberada(c.dificuldade)) {   // trancado: nome apagado e um cadeado
+                corValor=APAGADO;
+                float lx=vx+larguraDoTexto(valor,23)+14, ly=r.y+14;
+                DrawRing({lx+8,ly+8},4.5f,7.5f,180,360,12,APAGADO);         // a alça
+                DrawRectangleRounded({lx,ly+8,16,13},0.25f,4,APAGADO);      // o corpo
+                DrawRectangle((int)lx+7,(int)ly+12,2,5,{22,32,51,255});     // o buraco da chave
+            }
         } else {
             valor=std::to_string(c.atributos[i-LINHA_FORCA]);
         }
@@ -1944,7 +1952,8 @@ void desenharCriacao(const Criacao& c) {
     if(c.linha==LINHA_NOME) dica="Digite o nome (até 12 letras). Backspace apaga.";
     else if(c.linha==LINHA_ELEMENTO) dica="Golpes do seu elemento causam 50% a mais de dano.";
     else if(c.linha==LINHA_COR) dica="A cor da roupa do seu personagem.";
-    else if(c.linha==LINHA_DIFICULDADE) dica=DIFICULDADES[c.dificuldade].descricao;
+    else if(c.linha==LINHA_DIFICULDADE) dica = dificuldadeLiberada(c.dificuldade) ? DIFICULDADES[c.dificuldade].descricao
+                                                : "Trancado: vença o Difícil para liberar o modo Impossível.";
     else if(c.linha>=LINHA_FORCA && c.linha<=LINHA_AGILIDADE) dica=EFEITOS_DOS_ATRIBUTOS[c.linha-LINHA_FORCA];
     else if(c.linha==LINHA_ALEATORIO) dica="Sorteia nome, elemento, cor e atributos. Aperte de novo para outro.";
     else dica="Tudo pronto? Enter para descer à masmorra!";

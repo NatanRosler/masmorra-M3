@@ -340,6 +340,22 @@ void criarEfeitosComInstrumentos() {
         misturar(x, envelope(ruido(0.02f), 0, 100), 0, 0.5f);
         sons[SOM_GONGO] = somDeAmostras(reverb(x, 1.8f, 0.4f), 0.8f);
     }
+    {   // Espinhos: três lâminas de metal saltando quase juntas ("shhk") e a pancada no chão.
+        Amostras x;
+        for (int i = 0; i < 3; i++) {
+            Amostras lamina = envelope(passaAlta(ruido(0.12f), 3500), 0, 30);
+            misturar(lamina, sino(acaso(1900, 2600), 0.35f, 0.35f, 2.7f, 2.5f, 9), 0.005f);
+            misturar(x, lamina, i * 0.025f, 0.7f);
+        }
+        misturar(x, baque(70, 0.3f, 0.9f), 0.02f);
+        sons[SOM_ESPINHOS] = somDeAmostras(reverb(x, 0.9f, 0.3f), 0.7f);
+    }
+    // Ponto de atributo: duas notas de harpa subindo e um brilho de sino.
+    {
+        Amostras x = arpejo({ 784, 1175, 1568 }, 0.09f, true, 0.9f, 0.35f);
+        misturar(x, sino(2349, 0.9f, 0.18f, 2.0f, 1.2f, 3.5f), 0.2f);
+        sons[SOM_PONTO_GANHO] = somDeAmostras(reverb(x, 1.0f, 0.35f), 0.55f);
+    }
 }
 
 void criarEfeitos() {
