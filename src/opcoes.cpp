@@ -3,6 +3,7 @@
 // Lê e grava as opções em opcoes.txt. Formato (uma por linha):
 //   musica=8
 //   efeitos=10
+//   ambiente=7               (sons dos andares, das salas e os passos)
 //   tela_cheia=0
 //   animacao_rapida=0
 //   zoom=1                    (zoom do mapa: 0 longe, 1 médio, 2 perto)
@@ -25,6 +26,7 @@ static Opcoes padrao() {
     Opcoes o;
     o.volumeMusica = 10;
     o.volumeEfeitos = 10;
+    o.volumeAmbiente = 7;
     o.telaCheia = false;
     o.animacaoRapida = false;
     o.zoomDoMapa = 1;
@@ -69,6 +71,7 @@ void carregarOpcoes() {
         std::string chave = linha.substr(0, igual), valor = linha.substr(igual + 1);
         if (chave == "musica")          o.volumeMusica = limitar(numero(valor, 10), 0, 10);
         if (chave == "efeitos")         o.volumeEfeitos = limitar(numero(valor, 10), 0, 10);
+        if (chave == "ambiente")        o.volumeAmbiente = limitar(numero(valor, 7), 0, 10);
         if (chave == "tela_cheia")      o.telaCheia = (valor == "1");
         if (chave == "animacao_rapida") o.animacaoRapida = (valor == "1");
         if (chave == "zoom")            o.zoomDoMapa = limitar(numero(valor, 1), 0, 2);
@@ -88,6 +91,7 @@ void salvarOpcoes() {
     arquivo << "# Opções do Masmorra (pode apagar este arquivo: tudo volta ao padrão)\n";
     arquivo << "musica=" << o.volumeMusica << "\n";
     arquivo << "efeitos=" << o.volumeEfeitos << "\n";
+    arquivo << "ambiente=" << o.volumeAmbiente << "\n";
     arquivo << "tela_cheia=" << (o.telaCheia ? 1 : 0) << "\n";
     arquivo << "animacao_rapida=" << (o.animacaoRapida ? 1 : 0) << "\n";
     arquivo << "zoom=" << o.zoomDoMapa << "\n";

@@ -803,3 +803,42 @@ ficava fácil demais (97% de vitórias no nível 26, 99% no 30).
 - Os bots (`modoAutomatico`) não veem nenhuma cena nem balão. No terminal, as
   falas, as falas do chefe e o final aparecem como texto.
 
+## Sons novos: músicas das cenas, ambientes, efeitos e passos (v1.21)
+
+Tudo continua gerado no código, sem nenhum arquivo de áudio.
+
+- **Músicas (8 bits)**: oito novas, em `comporMusicas` (audio.cpp): a
+  história do começo, um tema para cada pessoa (tocam durante a conversa; o do
+  Garro também dentro da loja), o coração batendo na cena do chefe e o final.
+  - Cada música pode ter o seu timbre de melodia (`Faixa::ondaDaMelodia`:
+    quadrada, triangular ou senoide), percussão (`Faixa::percussao`: a
+    picareta do Borin e o coração do chefe) e eco (`Faixa::eco`, no tema do
+    Aldric).
+  - Trocar de música agora tem **fade**: a atual some em 1/4 de segundo e a
+    nova entra (`gerarMusica`).
+- **"Instrumentos"** (`src/grafico/sintese.cpp`): ruído filtrado (vento, água,
+  fogo), corda dedilhada (harpa, pelo algoritmo de Karplus-Strong), sino
+  (síntese FM: uma onda modulando a outra) e reverb (eco de caverna, pelo
+  método de Schroeder).
+- **Ambiente** (um segundo fluxo de áudio, `gerarAmbiente`, com volume próprio
+  em Opções > Ambiente):
+  - um loop de 10 s para cada tema de andar (minas: vento e tochas; caverna:
+    gotas; vulcão: lava borbulhando; trono: zumbido grave e um sino), trocando
+    com fade; some durante as batalhas;
+  - a fonte e o altar soam mais alto quanto mais perto (`volumeDasSalas`).
+- **Passos** (`sonsDoMapa`, tela_grafica.cpp, e `tocarPasso`):
+  - o herói: pedra, água, tapete (loja e sala do trono) ou quase mudo no modo
+    furtivo;
+  - cada espécie tem o seu passo; são ouvidos até 8 casas, **até através das
+    paredes** (mais baixos quando o monstro não está à vista), sem limite de
+    quantos ao mesmo tempo. Cada passo sai num tom um pouco diferente e com um
+    atraso de até 40 ms (passos juntos saem desencontrados), e muitos juntos
+    ficam um pouco mais baixos para a soma não distorcer. A sombra não faz
+    barulho; o ogro e o chefe fazem a tela tremer quando estão perto.
+  - Só a parte gráfica olha os passos (a lógica não muda; os bots não ouvem).
+- **Efeitos novos**: moedas, cristal, equipar arma e escudo, Éter, Antídoto,
+  Bomba de Fumaça, Pergaminho do Mapa, Mochila de Couro e Lanterna, largar
+  item, envenenar (e o dano do veneno), adormecer, paralisar, fugir (e não
+  conseguir), modo furtivo, entrar na água, lava, ponto na ficha, dica,
+  mímico, altar e gongo da arena.
+

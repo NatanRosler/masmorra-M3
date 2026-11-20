@@ -290,6 +290,7 @@ static void aplicarStatus(Jogo& jogo, Batalha& b, Lutador& alvo, Status status, 
         return;
     }
     alvo.status = status;
+    tocarSom(status == ENVENENADO ? SOM_VENENO : status == ADORMECIDO ? SOM_SONO : SOM_PARALISIA);
     // Status no jogador é perigo; no inimigo, é uma boa notícia.
     TipoMensagem tipo = alvo.ehJogador ? MSG_PERIGO : MSG_BOA;
     if (status == ENVENENADO) narrar(jogo, b, nome + " foi envenenado!", tipo);
@@ -704,6 +705,7 @@ static void ganharExperiencia(Jogo& jogo, Batalha& b, int pontos, int moedas) {
     Jogador& j = jogo.jogador;
     j.experiencia += pontos;
     j.moedas += moedas;
+    if (moedas > 0) tocarSom(SOM_MOEDAS);
     narrar(jogo, b, "Você ganhou " + std::to_string(pontos) + " pontos de experiência e " +
                     std::to_string(moedas) + (moedas == 1 ? " moeda!" : " moedas!"));
 
@@ -805,6 +807,7 @@ static void danoDoVeneno(Jogo& jogo, Batalha& b, Lutador& l) {
     if (dano < 1) dano = 1;
     *l.vida -= dano;
     if (*l.vida < 0) *l.vida = 0;
+    tocarSom(SOM_VENENO);
     animarVida(jogo, b, ladoDe(l));
     narrar(jogo, b, comMaiuscula(l.nome) + " sofre com o veneno!", l.ehJogador ? MSG_PERIGO : MSG_NORMAL);
 }
@@ -1032,9 +1035,11 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
             if (contraOChefe) {
                 narrar(jogo, b, "Não há como fugir do Senhor das Profundezas!", MSG_PERIGO);
             } else if (tentarFugir(jogo, b)) {
+                tocarSom(SOM_FUGA);
                 narrar(jogo, b, "Você fugiu da batalha!");
                 return JOGADOR_FUGIU;
             } else {
+                tocarSom(SOM_FUGA_FALHOU);
                 narrar(jogo, b, "Não conseguiu fugir!");
             }
         }
@@ -1042,7 +1047,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
             // Bomba de fumaça: fuga garantida, e os monstros ficam tossindo na
             // fumaça por uns segundos (dá tempo de sumir do mapa).
             jogo.jogador.mochila[I_BOMBA_DE_FUMACA]--;
-            tocarSom(SOM_CAIXA);
+            tocarSom(SOM_FUMACA);
             animarBatalha(jogo, b, ANIM_FUMACA, 0, 0, 0, 0, false);
             narrar(jogo, b, "Você joga a Bomba de Fumaça! Ninguém enxerga nada... e você some.", MSG_BOA);
             for (int i = 0; i < b.numInimigos; i++) {
@@ -1058,7 +1063,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
             const TipoItem& item = TIPOS_DE_ITEM[acao.slot];
             j.mochila[acao.slot]--;
             narrar(jogo, b, "Você usa " + nomeComArtigo(acao.slot) + ".");
-            tocarSom(SOM_CURA);
+            tocarSom(item.restauraPP ? SOM_ETER : item.curaStatus && item.curaPorcento == 0 ? SOM_ANTIDOTO : SOM_CURA);
             if (item.curaPorcento > 0) {
                 int antes = j.vida;
                 j.vida += j.vidaMaxima * item.curaPorcento / 100;

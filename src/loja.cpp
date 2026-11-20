@@ -240,6 +240,7 @@ static void telaDeVenda(Jogo& jogo, const std::string& nomeDoComerciante) {
 
 void abrirLoja(Jogo& jogo, Npc& comerciante) {
     if (jogo.modoAutomatico) return;   // os testes automáticos compram direto
+    tocarMusica(MUSICA_GARRO);         // a musiquinha da loja
     Jogador& j = jogo.jogador;
     const std::string nome = "Garro";
     int cursor = 0;
@@ -274,7 +275,7 @@ void abrirLoja(Jogo& jogo, Npc& comerciante) {
         std::string titulo = "LOJA DO GARRO   (moedas: " + std::to_string(j.moedas) + "   mochila: " +
                              std::to_string(itensNaMochila(j)) + "/" + std::to_string(limiteDaMochila(j)) + ")";
         int escolha = escolherEmCaixa(jogo, titulo, opcoes, descricoes, cursor);
-        if (escolha < 0 || escolha > opcaoVender) return;   // Esc ou "Sair"
+        if (escolha < 0 || escolha > opcaoVender) { tocarMusica(MUSICA_MASMORRA); return; }   // Esc ou "Sair"
         cursor = escolha;
         if (escolha == opcaoVender) { telaDeVenda(jogo, nome); continue; }
 

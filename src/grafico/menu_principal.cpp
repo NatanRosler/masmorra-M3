@@ -93,13 +93,14 @@ void inicio(int cursor) {
 
 // ---- OPÇÕES (menu principal e pausa) -------------------------------------------
 namespace {
-enum LinhaDasOpcoes { OP_MUSICA, OP_EFEITOS, OP_TELA, OP_ZOOM, OP_ANIMACAO, OP_TEXTO, OP_DICAS, OP_REVER, OP_ZERAR,
+enum LinhaDasOpcoes { OP_MUSICA, OP_EFEITOS, OP_AMBIENTE, OP_TELA, OP_ZOOM, OP_ANIMACAO, OP_TEXTO, OP_DICAS, OP_REVER, OP_ZERAR,
                       OP_VOLTAR, NUM_LINHAS };
-const char* NOMES_DAS_LINHAS[NUM_LINHAS] = {"Música","Efeitos sonoros","Tela cheia","Zoom do mapa","Animações",
+const char* NOMES_DAS_LINHAS[NUM_LINHAS] = {"Música","Efeitos sonoros","Ambiente","Tela cheia","Zoom do mapa","Animações",
                                            "Velocidade do texto","Dicas","Rever as dicas","Zerar bestiário","VOLTAR"};
 const char* EXPLICACOES[NUM_LINHAS] = {
     "Volume da música. Setas para os lados ajustam (de 10 em 10%).",
     "Volume dos golpes, itens e menus. A tecla O liga e desliga todo o som.",
+    "Volume dos sons de cada andar (vento, gotas, lava), das salas especiais e dos passos.",
     "Ocupa a tela toda. A tecla F11 também troca, em qualquer tela do jogo.",
     "Tamanho do mapa na tela. No jogo, a roda do mouse e as teclas + e - também mudam.",
     "Rápidas: as animações da batalha levam metade do tempo.",
@@ -113,7 +114,7 @@ const char* NOMES_DO_ZOOM[3] = {"LONGE","MÉDIO","PERTO"};
 const char* NOMES_DA_VELOCIDADE[4] = {"LENTA","NORMAL","RÁPIDA","NA HORA"};
 std::string avisoDasOpcoes;      // "Pronto! ..." depois de rever as dicas
 bool confirmandoZerar = false;   // o primeiro Enter em "Zerar bestiário" só pergunta
-Rectangle linhaDasOpcoes(int i) { return {300,314.0f+i*47,840,40}; }
+Rectangle linhaDasOpcoes(int i) { return {300,312.0f+i*43,840,37}; }
 Rectangle setaEsquerda(int i) { Rectangle r=linhaDasOpcoes(i); return {r.x+470,r.y,50,r.height}; }
 Rectangle setaDireita(int i)  { Rectangle r=linhaDasOpcoes(i); return {r.x+r.width-60,r.y,50,r.height}; }
 
@@ -130,25 +131,25 @@ void desenharOpcoes(int cursor) {
     for(int i=0;i<NUM_LINHAS;i++) {
         Rectangle r=linhaDasOpcoes(i);
         bool ativa=(i==cursor);
-        if(i==OP_VOLTAR) { botao({r.x+270,r.y+4,300,42},"VOLTAR",ativa); continue; }
+        if(i==OP_VOLTAR) { botao({r.x+270,r.y+5,300,40},"VOLTAR",ativa); continue; }
         painel(r,ativa?Color{52,66,96,255}:PAINEL2,ativa?OURO:Color{69,89,110,255});
-        texto(NOMES_DAS_LINHAS[i],r.x+26,r.y+8,23,ativa?OURO:TEXTO);
+        texto(NOMES_DAS_LINHAS[i],r.x+26,r.y+7,22,ativa?OURO:TEXTO);
         Color cor=ativa?TEXTO:APAGADO;
-        if(i==OP_MUSICA || i==OP_EFEITOS) {
-            int nivel=(i==OP_MUSICA)?o.volumeMusica:o.volumeEfeitos;
+        if(i==OP_MUSICA || i==OP_EFEITOS || i==OP_AMBIENTE) {
+            int nivel=(i==OP_MUSICA)?o.volumeMusica:(i==OP_EFEITOS)?o.volumeEfeitos:o.volumeAmbiente;
             desenharSeta(setaEsquerda(i),false,cor);
             desenharSeta(setaDireita(i),true,cor);
             for(int k=0;k<10;k++) {
-                Rectangle q={r.x+530+k*19.0f,r.y+11,14,18};
+                Rectangle q={r.x+530+k*19.0f,r.y+10,14,17};
                 if(k<nivel) DrawRectangleRec(q,ativa?OURO:CIANO); else DrawRectangleLinesEx(q,1.5f,{90,110,135,255});
             }
-            texto(std::to_string(nivel*10)+"%",r.x+730,r.y+8,23,cor);
+            texto(std::to_string(nivel*10)+"%",r.x+730,r.y+7,22,cor);
         } else if(i==OP_REVER) {
             std::string vistas=std::to_string(dicasVistas())+" de "+std::to_string((int)NUM_DICAS)+" já vistas";
-            textoCentro(vistas,r.x+660,r.y+9,21,cor);
+            textoCentro(vistas,r.x+660,r.y+8,20,cor);
         } else if(i==OP_ZERAR) {
             std::string vistas=std::to_string(especiesVistas())+" de "+std::to_string(especiesDoBestiario())+" espécies vistas";
-            textoCentro(vistas,r.x+660,r.y+9,21,cor);
+            textoCentro(vistas,r.x+660,r.y+8,20,cor);
         } else {
             std::string valor = i==OP_TELA ? (o.telaCheia?"SIM":"NÃO")
                               : i==OP_ZOOM ? NOMES_DO_ZOOM[o.zoomDoMapa]
@@ -157,7 +158,7 @@ void desenharOpcoes(int cursor) {
                               : (o.mostrarDicas?"LIGADAS":"DESLIGADAS");
             desenharSeta(setaEsquerda(i),false,cor);
             desenharSeta(setaDireita(i),true,cor);
-            textoCentro(valor,r.x+655,r.y+8,23,ativa?OURO:TEXTO);
+            textoCentro(valor,r.x+655,r.y+7,22,ativa?OURO:TEXTO);
         }
     }
     std::string rodape = avisoDasOpcoes.empty() ? EXPLICACOES[cursor] : avisoDasOpcoes;
@@ -170,14 +171,15 @@ void mudarOpcao(int linha,int passo,bool daVolta) {
     Opcoes& o=opcoes();
     avisoDasOpcoes.clear();
     if(linha!=OP_ZERAR) confirmandoZerar=false;
-    if(linha==OP_MUSICA || linha==OP_EFEITOS) {
-        int& nivel=(linha==OP_MUSICA)?o.volumeMusica:o.volumeEfeitos;
+    if(linha==OP_MUSICA || linha==OP_EFEITOS || linha==OP_AMBIENTE) {
+        int& nivel=(linha==OP_MUSICA)?o.volumeMusica:(linha==OP_EFEITOS)?o.volumeEfeitos:o.volumeAmbiente;
         nivel+=passo;
         if(nivel>10) nivel=daVolta?0:10;
         if(nivel<0) nivel=0;
         salvarOpcoes();
         aplicarVolumes();
         if(linha==OP_EFEITOS) tocarSom(SOM_ITEM);   // para ouvir o volume novo
+        if(linha==OP_AMBIENTE) tocarPasso(PASSO_PEDRA,1.0f);
         return;
     }
     if(linha==OP_TELA) { alternarTelaCheia(); return; }
@@ -301,6 +303,8 @@ int mostrarMenuPrincipal() {
     int cursor=0;
     temSave=existePartidaSalva(&resumoDoSave);
     tocarMusica(MUSICA_MENU);
+    tocarAmbiente(SEM_AMBIENTE);
+    volumeDasSalas(0,0);
     while(!WindowShouldClose()) {
         // Desenha ANTES de ler o teclado: terminarQuadro() atualiza as teclas.
         // Assim a tecla que abriu este menu (Esc, Enter...) não é lida de novo.

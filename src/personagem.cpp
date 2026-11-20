@@ -53,6 +53,7 @@ static void mudarAtributo(Criacao& c, int atributo, int mudanca) {
     if (mudanca > 0 && c.pontosLivres > 0) {
         c.atributos[atributo]++;
         c.pontosLivres--;
+        tocarSom(SOM_PONTO);
     } else if (mudanca < 0 && c.atributos[atributo] > 0) {
         c.atributos[atributo]--;
         c.pontosLivres++;
@@ -190,6 +191,7 @@ static void gastarPonto(Jogador& j, int atributo) {
     int vidaMaximaAntes = j.vidaMaxima;
     j.atributos[atributo]++;
     j.pontosLivres--;
+    tocarSom(SOM_PONTO);
     recalcularAtributos(j);
     j.vida += j.vidaMaxima - vidaMaximaAntes;
 }

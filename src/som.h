@@ -33,6 +33,30 @@ enum Som {
     SOM_RUGIDO,          // o Senhor das Profundezas ruge
     SOM_TOCHA_APAGA,     // "fff": uma tocha se apaga (cena do chefe)
     SOM_RACHADURA,       // a tela racha antes da batalha com o chefe
+    // v1.21: efeitos com "instrumentos" (grafico/sintese.cpp)
+    SOM_MOEDAS,          // ganhou moedas (sino)
+    SOM_CRISTAL,         // absorveu um cristal (harpa subindo)
+    SOM_EQUIPAR_ARMA,    // "shing" metálico
+    SOM_EQUIPAR_ESCUDO,  // "tonc" de metal
+    SOM_ETER,            // bolhas e sino (PP de volta)
+    SOM_ANTIDOTO,
+    SOM_FUMACA,          // bomba de fumaça: estouro e chiado
+    SOM_PERGAMINHO,      // papel desenrolando e harpa
+    SOM_ITEM_ESPECIAL,   // Mochila de Couro, Lanterna
+    SOM_LARGAR,          // um item cai no chão
+    SOM_VENENO,          // bolhas (envenenou / dano do veneno)
+    SOM_SONO,            // harpa descendo
+    SOM_PARALISIA,       // zumbido elétrico
+    SOM_FUGA,            // passos correndo
+    SOM_FUGA_FALHOU,     // passos e um tropeço
+    SOM_FURTIVO,         // "shh": entrou ou saiu do modo furtivo
+    SOM_AGUA,            // entrou numa poça
+    SOM_LAVA,            // a lava queima
+    SOM_PONTO,           // distribuiu um ponto na ficha
+    SOM_DICA,            // apareceu uma dica
+    SOM_MIMICO,          // o baú era um mímico!
+    SOM_ALTAR,           // pacto no altar de sangue
+    SOM_GONGO,           // desafio da arena aceito
     NUM_SONS
 };
 
@@ -51,8 +75,36 @@ enum Musica {
     MUSICA_MASMORRA,
     MUSICA_BATALHA,
     MUSICA_CHEFE,
+    // v1.21: as músicas das cenas
+    MUSICA_HISTORIA,     // a história do começo
+    MUSICA_ELDRA, MUSICA_BORIN, MUSICA_ALDRIC, MUSICA_GARRO, MUSICA_TOBIAS,   // conversas (e a loja)
+    MUSICA_CHEFE_CENA,   // o coração batendo na cena do chefe
+    MUSICA_FINAL,
     NUM_MUSICAS
 };
+
+// Som de ambiente de cada tema de andar (toca em loop por baixo da música).
+enum Ambiente { SEM_AMBIENTE, AMBIENTE_MINAS, AMBIENTE_CAVERNA, AMBIENTE_VULCAO, AMBIENTE_TRONO, NUM_AMBIENTES };
+
+// Passos: do herói (conforme o chão) e de cada espécie de monstro.
+enum Passo {
+    SEM_PASSO = -1,
+    PASSO_PEDRA, PASSO_AGUA, PASSO_TAPETE, PASSO_FURTIVO,
+    PASSO_RATO, PASSO_KOBOLD, PASSO_CHACAL, PASSO_MACACO, PASSO_SAPO, PASSO_GOBLIN, PASSO_MORCEGO,
+    PASSO_OGRO, PASSO_NAGA, PASSO_GNOMO, PASSO_MIMICO, PASSO_CHEFE,
+    NUM_PASSOS
+};
+
+// Passo de cada espécie (pelo símbolo do mapa). A sombra não faz barulho.
+inline Passo passoDoMonstro(char simbolo) {
+    switch (simbolo) {
+        case 'r': return PASSO_RATO;    case 'k': return PASSO_KOBOLD;  case 'j': return PASSO_CHACAL;
+        case 'm': return PASSO_MACACO;  case 't': return PASSO_SAPO;    case 'g': return PASSO_GOBLIN;
+        case 'v': return PASSO_MORCEGO; case 'O': return PASSO_OGRO;    case 'N': return PASSO_NAGA;
+        case 'G': return PASSO_GNOMO;   case 'M': return PASSO_MIMICO;  case 'S': return PASSO_CHEFE;
+    }
+    return SEM_PASSO;
+}
 
 void tocarSom(Som som);
 // Igual, mas mais agudo (tom > 1) ou mais grave (tom < 1): a "voz" de cada
@@ -86,11 +138,19 @@ inline float ritmoDaVoz(Voz voz) {
         default: return 1.0f;
     }
 }
-void tocarMusica(Musica musica);   // troca a música (ou continua, se for a mesma)
+void tocarMusica(Musica musica);   // troca a música, com fade (ou continua, se for a mesma)
+
+// Ambiente do andar (troca com fade; SEM_AMBIENTE desliga) e o som das salas
+// especiais por perto (0 = longe/sem som, 1 = do lado).
+void tocarAmbiente(Ambiente ambiente);
+void volumeDasSalas(float fonte, float altar);
+// Um passo, com volume de 0 a 1 (a distância). Os passos usam o volume de
+// Ambiente das Opções; muitos ao mesmo tempo ficam um pouco mais baixos.
+void tocarPasso(Passo passo, float volume);
 
 // Tecla O: liga e desliga o som. Devolve true se o som ficou ligado.
 bool alternarSom();
 bool somLigado();
 
-// Aplica os volumes de música e de efeitos escolhidos em Opções (opcoes.h).
+// Aplica os volumes de música, efeitos e ambiente escolhidos em Opções (opcoes.h).
 void aplicarVolumes();

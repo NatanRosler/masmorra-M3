@@ -277,7 +277,7 @@ static bool usarAltar(Jogo& jogo, Especial& e) {
     recalcularAtributos(j);
     if (j.vida > j.vidaMaxima) j.vida = j.vidaMaxima;
     e.usado = true;
-    tocarSom(SOM_DANO);
+    tocarSom(SOM_ALTAR);
     efeitoNoMapa(jogo, EFEITO_ARMADILHA, e.x, e.y, 5);
     adicionarMensagem(jogo, "O altar bebe o seu sangue... -5 de vida máxima, +2 de ataque!", MSG_BOA);
     return true;
@@ -298,7 +298,7 @@ static bool usarBau(Jogo& jogo, int indice) {
         // O baú some do mapa (o mímico fica no lugar dele).
         andar.especiais[indice] = andar.especiais[--andar.numEspeciais];
         if (m < 0) return false;
-        tocarSom(SOM_DANO);
+        tocarSom(SOM_MIMICO);
         adicionarMensagem(jogo, "O baú abre a boca... É um MÍMICO!", MSG_PERIGO);
         jogo.batalhaPendente = m;
         return true;
@@ -308,6 +308,7 @@ static bool usarBau(Jogo& jogo, int indice) {
     efeitoNoMapa(jogo, EFEITO_ITEM, e.x, e.y, item);
     int moedas = 5 + 2 * jogo.andar + sortear(jogo.sorte, 0, 5);
     jogo.jogador.moedas += moedas;
+    tocarSom(SOM_MOEDAS);
     adicionarMensagem(jogo, "O baú dourado se abre: " + nomeComArtigo(item) + " e " + emMoedas(moedas) + "!", MSG_BOA);
     guardarOuLargar(jogo, item);
     jogo.itensColetados++;
@@ -368,7 +369,7 @@ static bool usarGongo(Jogo& jogo, Especial& e) {
     Andar& a = andarAtual(jogo);
     a.mapa.celulas[e.portaY][e.portaX] = PORTA_TRANCADA;
     a.descoberto[e.portaY][e.portaX] = true;
-    tocarSom(SOM_PORTA);
+    tocarSom(SOM_GONGO);
     adicionarMensagem(jogo, "BONG! A porta da arena se tranca atrás de você.", MSG_PERIGO);
     e.onda = 1;
     chamarOnda(jogo, e);
@@ -443,6 +444,7 @@ void recompensaDoMimico(Jogo& jogo, const Monstro& m) {
     if (m.tipo != tipoDoMimico()) return;
     int moedas = 25 + 5 * jogo.andar;
     jogo.jogador.moedas += moedas;
+    tocarSom(SOM_MOEDAS);
     adicionarMensagem(jogo, "Dentro do mímico havia " + emMoedas(moedas) + " e um cristal!", MSG_BOA);
     ganharCristal(jogo);
 }

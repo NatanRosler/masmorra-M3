@@ -127,7 +127,7 @@ void mostrarDica(Jogo& jogo, Dica dica) {
     if (jogo.modoAutomatico || !dicaPendente(dica)) return;
     marcarDicaVista(dica);
     adicionarMensagem(jogo, std::string("Dica: ") + DICAS[dica].titulo);
-    tocarSom(SOM_MENU);
+    tocarSom(SOM_DICA);
     long long inicio = relogioMs();
     bool desenhada = false, estavaTravada = true;
     while (true) {

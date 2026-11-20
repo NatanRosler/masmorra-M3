@@ -326,6 +326,7 @@ static void largarNoChao(Jogo& jogo, int tipo, int x, int y) {
             vaga = andar.numItens++;
         }
         ItemNoChao& item = andar.itens[vaga];
+        tocarSom(SOM_LARGAR);
         item.ativo = true;
         item.tipo = tipo;
         item.x = nx;
@@ -375,6 +376,7 @@ void equipar(Jogo& jogo, int tipo) {
     int vidaMaximaAntes = j.vidaMaxima;
     recalcularAtributos(j);
     j.vida += j.vidaMaxima - vidaMaximaAntes;
+    tocarSom(novo->categoria == ARMA ? SOM_EQUIPAR_ARMA : SOM_EQUIPAR_ESCUDO);
     adicionarMensagem(jogo, "Você equipou " + nomeComArtigo(tipo) + ".");
 }
 
@@ -388,6 +390,7 @@ void absorverCristal(Jogo& jogo, int tipo) {
     int vidaMaximaAntes = j.vidaMaxima;
     recalcularAtributos(j);
     j.vida += j.vidaMaxima - vidaMaximaAntes;
+    tocarSom(SOM_CRISTAL);
     adicionarMensagem(jogo, "Você absorve " + nomeComArtigo(tipo) + "!" + textoDosBonus(t), MSG_BOA);
 }
 
@@ -398,11 +401,13 @@ void ganharItemPermanente(Jogo& jogo, int tipo) {
         // Já tinha uma: o Garro pagaria por ela, então vira moedas na hora.
         int moedas = precoDeVenda(tipo);
         j.moedas += moedas;
+        tocarSom(SOM_MOEDAS);
         adicionarMensagem(jogo, "Você já tem " + nomeComArtigo(tipo) + ": esta vale " + std::to_string(moedas) +
                                 " moedas.", MSG_BOA);
         return;
     }
     tem = true;
+    tocarSom(SOM_ITEM_ESPECIAL);
     if (tipo == I_MOCHILA_DE_COURO) {
         adicionarMensagem(jogo, "Mochila de Couro! Agora cabem " + std::to_string(limiteDaMochila(j)) +
                                 " itens, e cada tipo leva um a mais.", MSG_BOA);
@@ -597,7 +602,7 @@ bool usarItemForaDaBatalha(Jogo& jogo, int tipo) {
             if (tipo == I_PERGAMINHO_DO_MAPA) {
                 revelarOAndar(jogo);
                 j.mochila[tipo]--;
-                tocarSom(SOM_ITEM);
+                tocarSom(SOM_PERGAMINHO);
                 adicionarMensagem(jogo, "Você lê o Pergaminho do Mapa: o andar inteiro aparece no mapa!", MSG_BOA);
                 return true;
             }
@@ -617,6 +622,7 @@ bool usarItemForaDaBatalha(Jogo& jogo, int tipo) {
                 adicionarMensagem(jogo, "Você bebe " + nomeComArtigo(tipo) + " e recupera "
                                         + std::to_string(j.vida - antes) + " de vida.");
             } else if (t.restauraPP) {
+                tocarSom(SOM_ETER);
                 for (int s = 0; s < j.numGolpes; s++) j.pp[s] = GOLPES[j.golpes[s]].ppMaximo;
                 adicionarMensagem(jogo, "Você bebe " + nomeComArtigo(tipo) + ". Seus golpes recuperaram os PP!");
             } else {

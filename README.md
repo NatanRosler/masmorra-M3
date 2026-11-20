@@ -76,7 +76,7 @@ src/
 | `src/cenario.h/.cpp` | Armadilhas escondidas e caixas que se empurram (mapa que muda) |
 | `src/npcs.h/.cpp` | Personagens que conversam (falas em balões, com o herói respondendo), ajudam e mudam o mapa |
 | `src/dicas.h/.cpp` | Dicas: a caixa que explica cada novidade na primeira vez (e quando cada uma aparece) |
-| `src/opcoes.h/.cpp` | Opções (volumes, tela cheia, zoom, animações, velocidade do texto, dicas) gravadas em `opcoes.txt` |
+| `src/opcoes.h/.cpp` | Opções (volumes de música, efeitos e ambiente, tela cheia, zoom, animações, velocidade do texto, dicas) gravadas em `opcoes.txt` |
 | `src/bestiario.h/.cpp` | Bestiário: monstros já vistos e vencidos, gravado em `bestiario.txt` (v1.18) |
 | `src/salas.h/.cpp` | Salas especiais: fonte, altar de sangue, baú dourado (mímico), arena e o viajante perdido |
 | `src/tema.h/.cpp` | Temas dos andares: minas, caverna alagada (poças), vulcão (lava) e sala do trono |
@@ -94,7 +94,8 @@ src/
 | `src/grafico/itens_sprites.h` | Desenhos dos itens no chão e dos ícones (moeda, troféu, XP, atributos) |
 | `src/grafico/efeitos.cpp/.h` | Animações: partículas, números flutuantes, tremor e transições |
 | `src/grafico/sprites.h`, `extra_sprites.h` | Personagens em pixel art (16 x 16) |
-| `src/som.h`, `src/grafico/audio.cpp` | Sons, músicas e as vozes das falas, gerados no código (sem arquivos de áudio) |
+| `src/som.h`, `src/grafico/audio.cpp` | Sons, músicas, vozes, ambientes e passos, gerados no código (sem arquivos de áudio) |
+| `src/grafico/sintese.cpp/.h` | "Instrumentos" dos ambientes e efeitos: ruído filtrado, harpa, sinos e reverb (v1.21) |
 | `src/console/` | A mesma coisa para o terminal: `main.cpp`, `tela.cpp`, `terminal.cpp` |
 
 Mais detalhes:

@@ -5,6 +5,9 @@
 void tocarSom(Som) {}
 void tocarSomComTom(Som, float) {}
 void tocarVoz(Voz, int) {}
+void tocarAmbiente(Ambiente) {}
+void volumeDasSalas(float, float) {}
+void tocarPasso(Passo, float) {}
 void tocarMusica(Musica) {}
 bool alternarSom() { return false; }
 bool somLigado() { return false; }

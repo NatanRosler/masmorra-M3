@@ -119,7 +119,7 @@ void armadilhaPegaJogador(Jogo& jogo) {
 
     // Lava (profundezas vulcânicas): queima a cada passo em cima dela.
     if (andar.mapa.celulas[j.y][j.x] == LAVA) {
-        tocarSom(SOM_DANO);
+        tocarSom(SOM_LAVA);
         int dano = danoDaArmadilha(j.vidaMaxima, dificuldadeAtual().danoDasArmadilhas);
         efeitoNoMapa(jogo, EFEITO_LAVA, j.x, j.y, dano);
         j.vida -= dano;
@@ -211,6 +211,7 @@ static void soltarConteudo(Jogo& jogo, Andar& andar, int caixaX, int caixaY, int
         // Moedas: o jogador recolhe na hora.
         int moedas = item - MOEDAS_NA_CAIXA;
         jogo.jogador.moedas += moedas;
+        tocarSom(SOM_MOEDAS);
         efeitoNoMapa(jogo, EFEITO_MOEDAS, caixaX, caixaY, moedas);
         adicionarMensagem(jogo, "A caixa se quebra e espalha " + std::to_string(moedas) + " moedas! Você recolhe todas.", MSG_BOA);
         return;

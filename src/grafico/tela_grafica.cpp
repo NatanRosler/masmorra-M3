@@ -1409,8 +1409,67 @@ void mudarZoomDoMapa(int passo) {
     zoomMudouEm=GetTime();
     if(opcoes().zoomDoMapa!=antes) { salvarOpcoes(); tocarSom(SOM_MENU); }
 }
+// ---- Sons do mapa (v1.21): ambiente, salas especiais, passos e furtivo ----
+// Tudo aqui só olha o jogo e toca sons (a lógica não muda; os bots não ouvem).
+void sonsDoMapa(const Jogo& jogo) {
+    static int andarAntes=-1, monstrosAntes=-1, jxAntes=-1, jyAntes=-1;
+    static bool furtivoAntes=false;
+    static int mxAntes[MAX_MONSTROS], myAntes[MAX_MONSTROS];
+    const Andar& a=andarAtual(jogo);
+    const Jogador& j=jogo.jogador;
+    // O som do andar, conforme o tema.
+    static const Ambiente DO_TEMA[NUM_TEMAS]={AMBIENTE_MINAS,AMBIENTE_CAVERNA,AMBIENTE_VULCAO,AMBIENTE_TRONO};
+    tocarAmbiente(DO_TEMA[temaDoAndar(jogo.andar)]);
+    // Fonte e altar: mais altos quanto mais perto (até umas 9 casas).
+    float fonte=0, altar=0;
+    for(int i=0;i<a.numEspeciais;i++) {
+        const Especial& e=a.especiais[i];
+        if(e.usado || (e.tipo!=ESP_FONTE && e.tipo!=ESP_ALTAR)) continue;
+        float d=std::hypot((float)(e.x-j.x),(float)(e.y-j.y));
+        float v=std::clamp(1.0f-d/9.0f,0.0f,1.0f); v*=v;
+        if(e.tipo==ESP_FONTE) fonte=std::max(fonte,v); else altar=std::max(altar,v);
+    }
+    volumeDasSalas(fonte,altar);
+    // Andar novo (ou partida nova): só guarda onde cada um está.
+    if(jogo.andar!=andarAntes || a.numMonstros!=monstrosAntes) {
+        andarAntes=jogo.andar; monstrosAntes=a.numMonstros; jxAntes=j.x; jyAntes=j.y; furtivoAntes=jogo.furtivo;
+        for(int i=0;i<a.numMonstros;i++) { mxAntes[i]=a.monstros[i].x; myAntes[i]=a.monstros[i].y; }
+        return;
+    }
+    // Passos do herói: o som muda com o chão.
+    if(j.x!=jxAntes || j.y!=jyAntes) {
+        TipoCelula chao=a.mapa.celulas[j.y][j.x];
+        Passo p = jogo.furtivo ? PASSO_FURTIVO : chao==POCA ? PASSO_AGUA
+                : (noTapete(a,j.x,j.y) || a.zonaSegura[j.y][j.x]) ? PASSO_TAPETE : PASSO_PEDRA;
+        tocarPasso(p,0.8f);
+        bool estavaNaAgua = jxAntes>=0 && a.mapa.celulas[jyAntes][jxAntes]==POCA;
+        if(chao==POCA && !estavaNaAgua) tocarSom(SOM_AGUA);
+        jxAntes=j.x; jyAntes=j.y;
+    }
+    if(jogo.furtivo!=furtivoAntes) { tocarSom(SOM_FURTIVO); furtivoAntes=jogo.furtivo; }
+    // Passos dos monstros: ouvidos até 8 casas, até através das paredes (mais
+    // baixos quando não estão à vista). A sombra não faz barulho.
+    for(int i=0;i<a.numMonstros;i++) {
+        const Monstro& m=a.monstros[i];
+        bool andou = m.x!=mxAntes[i] || m.y!=myAntes[i];
+        mxAntes[i]=m.x; myAntes[i]=m.y;
+        if(!andou || !m.vivo || m.estado==DORMINDO) continue;
+        Passo p=passoDoMonstro(tipoDe(m).simbolo);
+        if(p==SEM_PASSO) continue;
+        int d=std::max(std::abs(m.x-j.x),std::abs(m.y-j.y));
+        if(d>8) continue;
+        bool aVista=monstroAVista(jogo,m);
+        float v=std::pow(1.0f-d/9.0f,1.5f)*(aVista?1.0f:0.6f);
+        tocarPasso(p,v);
+        // O ogro e o chefe fazem o chão tremer quando estão perto.
+        if(p==PASSO_OGRO && aVista && d<=4) Efeitos::tremer(1.6f,0.12);
+        if(p==PASSO_CHEFE && d<=6) Efeitos::tremer(3.0f,0.2);
+    }
+}
+
 void desenharJogo(const Jogo& jogo) {
     ultimoJogo=&jogo;
+    sonsDoMapa(jogo);
     // Roda do mouse: zoom do mapa (as teclas + e - chegam pelo jogo.cpp).
     float roda=GetMouseWheelMove();
     if(roda>0.1f) mudarZoomDoMapa(+1);
@@ -1421,6 +1480,8 @@ void desenharJogo(const Jogo& jogo) {
 }
 void desenharBatalha(const Jogo& jogo,const Batalha& b) {
     Efeitos::trocarDeTela(TELA_BATALHA);
+    tocarAmbiente(SEM_AMBIENTE);   // na batalha, só a música
+    volumeDasSalas(0,0);
     definirRedesenho([&jogo,b]{ desenharBatalha(jogo,b); });   // cópia da batalha
     Ui::iniciarQuadro();telaBatalha(jogo,b);Ui::terminarQuadro();
 }
@@ -2367,10 +2428,14 @@ void mostrarFala(const Jogo& jogo,int indice,const std::vector<std::string>& lin
         falanteHeroi(jogo),
     };
     esconderCartoes=true;
+    // Cada pessoa tem a sua música; no fim da conversa, volta a da masmorra.
+    static const Musica TEMA_DE[NUM_TIPOS_DE_NPC]={MUSICA_ELDRA,MUSICA_BORIN,MUSICA_ALDRIC,MUSICA_GARRO,MUSICA_TOBIAS};
+    if(npc.tipo>=0 && npc.tipo<NUM_TIPOS_DE_NPC) tocarMusica(TEMA_DE[npc.tipo]);
     conversar(falantes,emTrechos(linhas),[&](double){
         mapa(jogo);
         DrawRectangle(0,0,Ui::LARGURA,Ui::ALTURA,{4,6,14,70});
     });
+    tocarMusica(MUSICA_MASMORRA);
     engolirTeclas(jogo);
     esconderCartoes=false;
 }
@@ -2514,6 +2579,7 @@ void cenaDoChefe(const Jogo& jogo,int indice,const std::vector<std::string>& fal
     while(!WindowShouldClose()) {
         double t=GetTime()-inicio;
         for(int k=0;k<3;k++) if(primeira && t>=apagou[k] && !tocouApagar[k]) { tocouApagar[k]=true; tocarSom(SOM_TOCHA_APAGA); }
+        if(t>=OLHOS) tocarMusica(MUSICA_CHEFE_CENA);   // o coração começa a bater
         if(t>=RUGIDO && !rugiu) { rugiu=true; tocarSom(SOM_RUGIDO); Efeitos::tremer(12.0f,1.1); }
         if(t>=FALA || pulouACena()) break;
         Ui::iniciarQuadro();
@@ -2523,6 +2589,7 @@ void cenaDoChefe(const Jogo& jogo,int indice,const std::vector<std::string>& fal
         while(GetCharPressed()!=0) {}
     }
     // 2) As falas, com a voz dele.
+    tocarMusica(MUSICA_CHEFE_CENA);
     double tFixo=std::max(GetTime()-inicio,FALA+0.7);
     std::vector<Falante> falantes={{bx,by,&SENHOR,"Senhor das Profundezas",{255,90,90,255},VOZ_CHEFE,BALAO_CHEFE}};
     conversar(falantes,emTrechos(falas),[&](double){ desenharCena(tFixo); });
@@ -2787,6 +2854,8 @@ void cenaDoFinal(const Jogo& jogo,int cena,double t,bool& marca) {
 
 void mostrarHistoria(const Jogo& jogo,const std::vector<std::string>& linhas) {
     definirCorDoHeroi(paraCor(CORES_DO_JOGADOR[jogo.jogador.cor]));
+    tocarMusica(MUSICA_HISTORIA);
+    tocarAmbiente(SEM_AMBIENTE);
     std::vector<std::string> pars=emParagrafos(linhas);
     contarHistoria(pars,[&](int p,double t,bool& marca){
         int cena=std::min(p,3);
@@ -2797,7 +2866,8 @@ void mostrarHistoria(const Jogo& jogo,const std::vector<std::string>& linhas) {
 
 void mostrarFinal(const Jogo& jogo,const std::vector<std::string>& linhas) {
     definirCorDoHeroi(paraCor(CORES_DO_JOGADOR[jogo.jogador.cor]));
-    tocarMusica(MUSICA_MENU);
+    tocarMusica(MUSICA_FINAL);
+    tocarAmbiente(SEM_AMBIENTE);
     contarHistoria(emParagrafos(linhas),[&](int p,double t,bool& marca){ cenaDoFinal(jogo,p,t,marca); },
                    "Esc: pular o final");
 }
