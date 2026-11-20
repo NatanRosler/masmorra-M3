@@ -38,6 +38,11 @@ enum Tecla {
 // sem virar comandos (na versão gráfica, W A S D deixam de andar).
 void definirModoTexto(bool ligado);
 
+// Muda a pasta de trabalho para a pasta onde está o executável. Assim o
+// save, as opções, o ranking e o bestiário ficam sempre ao lado do jogo,
+// mesmo abrindo por um atalho na Área de Trabalho ou por outra pasta.
+void irParaAPastaDoPrograma();
+
 // Prepara o terminal para o jogo: tela alternativa, cursor escondido,
 // leitura de tecla sem precisar apertar Enter.
 void iniciarTerminal();

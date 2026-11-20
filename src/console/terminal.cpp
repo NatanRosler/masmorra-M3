@@ -72,6 +72,15 @@ std::string ansiResetar() {
 #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
 #endif
 
+void irParaAPastaDoPrograma() {
+    char caminho[MAX_PATH];
+    DWORD n = GetModuleFileNameA(nullptr, caminho, MAX_PATH);
+    if (n == 0 || n >= MAX_PATH) return;
+    std::string pasta(caminho, n);
+    size_t barra = pasta.find_last_of("\\/");
+    if (barra != std::string::npos) SetCurrentDirectoryA(pasta.substr(0, barra).c_str());
+}
+
 static DWORD modoOriginalSaida = 0;
 static bool temModoOriginal = false;
 static UINT paginaDeCodigoOriginal = 0;
@@ -190,6 +199,25 @@ bool tamanhoDoTerminal(int& colunas, int& linhas) {
 #include <sys/ioctl.h>
 #include <cerrno>
 #include <cstring>
+
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
+
+void irParaAPastaDoPrograma() {
+    char caminho[4096];
+#ifdef __APPLE__
+    uint32_t tamanho = sizeof(caminho);
+    if (_NSGetExecutablePath(caminho, &tamanho) != 0) return;
+    std::string pasta(caminho);
+#else
+    ssize_t n = readlink("/proc/self/exe", caminho, sizeof(caminho) - 1);
+    if (n <= 0) return;
+    std::string pasta(caminho, (size_t)n);
+#endif
+    size_t barra = pasta.find_last_of('/');
+    if (barra != std::string::npos && barra > 0 && chdir(pasta.substr(0, barra).c_str()) != 0) { /* fica onde está */ }
+}
 
 static struct termios configOriginal;
 static bool temConfigOriginal = false;

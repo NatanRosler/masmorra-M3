@@ -188,6 +188,7 @@ static bool jogarAteSair(Jogo& jogo) {
 
 int main(int argc, char* argv[]) {
     uint32_t sementeInicial = lerSemente(argc, argv);
+    irParaAPastaDoPrograma();   // save, opções, ranking e bestiário ficam ao lado do jogo
     carregarOpcoes();
     carregarBestiario();
     iniciarTerminal();

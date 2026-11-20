@@ -88,7 +88,8 @@ src/
 | `src/grafico/tela_grafica.cpp` | Desenho do mapa em tela cheia, cartões do canto, bestiário e batalha em 2D |
 | `src/grafico/terminal_raylib.cpp` | Teclado, mouse e janela (raylib) |
 | `src/grafico/menu_principal.cpp` | Menu principal e menu de pausa |
-| `src/grafico/visual.cpp/.h` | Cores, fontes, painéis e barras |
+| `src/grafico/visual.cpp/.h` | Cores, fontes, painéis, barras e o ícone da janela |
+| `src/grafico/icone.rc`, `masmorra.ico` | Ícone do `masmorra.exe` (o baú mímico) |
 | `src/grafico/monstros_sprites.h` | Desenhos do gnomo vigia e da sombra (v1.17) |
 | `src/grafico/itens_sprites.h` | Desenhos dos itens no chão e dos ícones (moeda, troféu, XP, atributos) |
 | `src/grafico/efeitos.cpp/.h` | Animações: partículas, números flutuantes, tremor e transições |
@@ -107,8 +108,11 @@ preciso baixar nada.
 
 - **Windows**: precisa só do **g++ do MinGW-w64**. Dê dois cliques em
   `compilar_windows.bat`. Na primeira vez ele também compila a raylib (cerca de
-  1 minuto); nas próximas, só o jogo. O jogo sai em `build\masmorra.exe` e abre
-  sozinho no final.
+  1 minuto); nas próximas, só o jogo. O `masmorra.exe` (com o ícone do baú
+  mímico) sai **na mesma pasta do `.bat`** e abre sozinho no final. Na primeira
+  vez também é criado um atalho "Masmorra" na Área de Trabalho.
+  - Depois disso, **para jogar basta abrir o `masmorra.exe` ou o atalho**. O
+    `.bat` só precisa ser rodado de novo quando o código mudar.
   - Se o seu g++ for o MinGW **antigo** (o que vem com alguns cursos), o `.bat`
     compila só a versão de console e mostra como instalar o novo. Basta rodar
     uma vez no terminal: `winget install -e --id BrechtSanders.WinLibs.POSIX.UCRT`
@@ -120,6 +124,10 @@ preciso baixar nada.
 São gerados dois programas: `masmorra` (gráfico) e `masmorra_console`
 (terminal). No Windows os dois são **estáticos**: o `.exe` roda em qualquer
 computador, sem DLLs extras.
+
+O jogo sempre grava os arquivos dele (`save.dat`, `opcoes.txt`, `ranking.txt`
+e `bestiario.txt`) **na pasta onde está o executável**, mesmo quando é aberto
+por um atalho ou por outra pasta.
 
 ## Como publicar uma versão para download
 

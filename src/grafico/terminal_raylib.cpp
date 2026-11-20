@@ -55,10 +55,14 @@ long long relogioMs() {
     using namespace std::chrono;
     return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
 }
+void irParaAPastaDoPrograma() {
+    ChangeDirectory(GetApplicationDirectory());
+}
 void iniciarTerminal() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
     InitWindow(Ui::LARGURA, Ui::ALTURA, "MASMORRA | Exploracao original em 2D");
     SetWindowMinSize(960,600);
+    Ui::aplicarIconeDaJanela();
     SetExitKey(KEY_NULL); // Esc é usada nos menus; fechar pela janela continua funcionando.
     SetTargetFPS(60);
     Ui::iniciarRecursos();

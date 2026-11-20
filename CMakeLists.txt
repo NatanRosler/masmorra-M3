@@ -82,6 +82,9 @@ if(MASMORRA_GRAFICO)
     configurar_executavel(masmorra)
     target_link_libraries(masmorra PRIVATE raylib)
     if(WIN32)
+        # Ícone do masmorra.exe (o baú mímico).
+        enable_language(RC)
+        target_sources(masmorra PRIVATE src/grafico/icone.rc)
         # Aplicativo de janela: não abre o console preto junto.
         set_target_properties(masmorra PROPERTIES WIN32_EXECUTABLE TRUE)
         if(MSVC)
@@ -99,3 +102,7 @@ add_executable(masmorra_console ${FONTES_DA_LOGICA}
     src/console/sem_som.cpp
 )
 configurar_executavel(masmorra_console)
+if(WIN32)
+    enable_language(RC)
+    target_sources(masmorra_console PRIVATE src/grafico/icone.rc)
+endif()

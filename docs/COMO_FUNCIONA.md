@@ -740,3 +740,22 @@ ficava fácil demais (97% de vitórias no nível 26, 99% no 30).
     ficha de cada uma (Enter).
 - **Save versão 4**: grava `especiesVistasNaPartida` no fim. Saves das
   versões 1, 2 e 3 continuam sendo lidos (testado com saves reais).
+
+## O jogo como um programa de verdade (v1.19)
+
+- **Ícone**: o baú mímico. No Windows, `src/grafico/icone.rc` coloca
+  `masmorra.ico` dentro do `.exe` (o `compilar_windows.bat` usa o `windres`; o
+  CMake faz o mesmo sozinho). O nome do recurso é `GLFW_ICON`, que a raylib
+  também usa na janela. Em todos os sistemas, `Ui::aplicarIconeDaJanela`
+  (visual.cpp) desenha o mesmo ícone a partir do sprite e o coloca na janela
+  (`SetWindowIcon`), então ele aparece na barra de tarefas também no Linux.
+- **Arquivos ao lado do jogo**: `irParaAPastaDoPrograma` (terminal.h), chamada
+  no começo dos dois `main.cpp`, muda a pasta de trabalho para a pasta do
+  executável (gráfico: `ChangeDirectory(GetApplicationDirectory())`; terminal:
+  `GetModuleFileName` no Windows, `/proc/self/exe` no Linux,
+  `_NSGetExecutablePath` no Mac). Assim o save, as opções, o ranking e o
+  bestiário são sempre os mesmos, abrindo pelo `.exe`, por um atalho ou pelo
+  terminal em outra pasta.
+- **compilar_windows.bat**: o `masmorra.exe` agora sai na pasta principal
+  (antes ficava em `build\`), e na primeira vez é criado um atalho "Masmorra"
+  na Área de Trabalho (`build\atalho.ok` marca que já foi criado).

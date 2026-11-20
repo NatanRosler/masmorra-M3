@@ -81,6 +81,15 @@ Quando você escolhe LUTAR, o botão envia uma escolha ao sistema original. É p
 
 Sempre salve com **Ctrl + S**. Depois dê dois cliques em `compilar_windows.bat`
 (ou rode-o no terminal, na pasta principal do projeto). Ele recompila o jogo e
-abre `build\masmorra.exe` sozinho. A raylib só é compilada na primeira vez.
+abre o `masmorra.exe` (na pasta principal) sozinho. A raylib só é compilada na
+primeira vez.
 
 Se aparecer um erro de compilação, copie as **primeiras linhas vermelhas** do terminal, porque os erros seguintes muitas vezes são consequência do primeiro.
+
+## 8. Como trocar o ícone do jogo
+
+O ícone do `masmorra.exe` é o arquivo `src/grafico/masmorra.ico`. Para trocar,
+substitua esse arquivo por outro `.ico` (com o mesmo nome) e rode o
+`compilar_windows.bat` de novo. O ícone da janela é desenhado no código, a
+partir do sprite `MIMICO` (`aplicarIconeDaJanela` em `src/grafico/visual.cpp`):
+para usar outro personagem, troque `MIMICO` pelo nome de outro sprite.

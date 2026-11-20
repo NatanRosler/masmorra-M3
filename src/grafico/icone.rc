@@ -1,0 +1,5 @@
+// Ícone do masmorra.exe (o baú mímico). Aparece no Explorador, na barra de
+// tarefas e no canto da janela. O nome GLFW_ICON faz a raylib (GLFW) usar o
+// mesmo ícone na janela do jogo no Windows.
+// Para trocar o desenho, substitua masmorra.ico (mesma pasta) e compile de novo.
+GLFW_ICON ICON "masmorra.ico"

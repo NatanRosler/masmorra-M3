@@ -17,6 +17,9 @@ inline constexpr Color VIDA = {111,200,131,255};
 inline constexpr Color PERIGO = {243,104,121,255};
 
 void iniciarRecursos();
+// Ícone da janela (o baú mímico, igual ao do masmorra.exe): desenhado aqui
+// mesmo, a partir do sprite, para valer também no Linux e no Mac.
+void aplicarIconeDaJanela();
 void finalizarRecursos();
 void iniciarQuadro();
 // Desenho com zoom (o mapa): (x0, y0) é onde a origem do mundo cai na tela

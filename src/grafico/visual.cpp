@@ -1,6 +1,7 @@
 #include "visual.h"
 #include "efeitos.h"
 #include "opcoes.h"
+#include "salas_sprites.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -50,6 +51,48 @@ Vector2 deslocamento() { float e=escala(); return {(GetScreenWidth()-Ui::LARGURA
 }
 
 namespace Ui {
+void aplicarIconeDaJanela() {
+    // 64 x 64: quadrado azul-escuro de cantos redondos, borda dourada, um
+    // brilho de tocha no meio e o mímico em pixel art por cima.
+    const int T = 64;
+    const float RAIO = 11.5f, BORDA = 2.0f;
+    Image img = GenImageColor(T, T, {0, 0, 0, 0});
+    for (int y = 0; y < T; y++) {
+        for (int x = 0; x < T; x++) {
+            // Distância até a borda do retângulo arredondado (negativa = dentro).
+            float qx = std::fabs(x + 0.5f - T / 2.0f) - (T / 2.0f - RAIO);
+            float qy = std::fabs(y + 0.5f - T / 2.0f) - (T / 2.0f - RAIO);
+            float fora = std::hypot(std::max(qx, 0.0f), std::max(qy, 0.0f)) + std::min(std::max(qx, qy), 0.0f) - RAIO;
+            if (fora > 0.5f) continue;
+            Color c = {22, 30, 52, 255};
+            float d = std::hypot(x + 0.5f - T / 2.0f, y + 0.5f - T / 2.0f) / (T * 0.3f);
+            float luz = 0.28f * std::exp(-d * d);
+            c.r = (unsigned char)(c.r + (250 - c.r) * luz);
+            c.g = (unsigned char)(c.g + (190 - c.g) * luz);
+            c.b = (unsigned char)(c.b + (91 - c.b) * luz);
+            if (fora > -BORDA) c = {250, 190, 91, 255};
+            if (fora > -0.5f) c.a = (unsigned char)(255 * (0.5f - fora));
+            ImageDrawPixel(&img, x, y, c);
+        }
+    }
+    // Só a parte desenhada do sprite, centralizada.
+    int x0 = 16, x1 = -1, y0 = 16, y1 = -1;
+    for (int l = 0; l < 16; l++)
+        for (int c = 0; c < 16 && MIMICO[l][c]; c++)
+            if (pixelCor(MIMICO[l][c]).a) { x0 = std::min(x0, c); x1 = std::max(x1, c); y0 = std::min(y0, l); y1 = std::max(y1, l); }
+    if (x1 >= x0) {
+        int w = x1 - x0 + 1, h = y1 - y0 + 1;
+        int p = (int)(T * 0.74f / std::max(w, h));
+        int ox = (T - w * p) / 2, oy = (T - h * p) / 2;
+        for (int l = y0; l <= y1; l++)
+            for (int c = x0; c <= x1 && MIMICO[l][c]; c++) {
+                Color cor = pixelCor(MIMICO[l][c]);
+                if (cor.a) ImageDrawRectangle(&img, ox + (c - x0) * p, oy + (l - y0) * p, p, p, cor);
+            }
+    }
+    SetWindowIcon(img);
+    UnloadImage(img);
+}
 void definirCorDoHeroi(Color cor) { corDoHeroi = cor; }
 void iniciarRecursos() {
     fonte = GetFontDefault();
