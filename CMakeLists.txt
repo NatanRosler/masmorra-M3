@@ -34,6 +34,7 @@ set(FONTES_DA_LOGICA
     src/salas.cpp
     src/opcoes.cpp
     src/dicas.cpp
+    src/bestiario.cpp
     src/pontuacao.cpp
     src/dificuldade.cpp
 )

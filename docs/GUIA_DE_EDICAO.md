@@ -43,10 +43,10 @@ Evite usar nomes próprios `RED`, `GREEN` ou `GOLD` para novas variáveis. Esses
 Abra `src/grafico/menu_principal.cpp` e encontre:
 
 ```cpp
-const char* opcoes[]={"JOGAR","PERSONAGENS","CONTROLES","SAIR"};
+const char* NOMES_DAS_OPCOES[NUM_OPCOES] = {"CONTINUAR","NOVO JOGO","COMO JOGAR","ITENS","PONTUAÇÃO","BESTIÁRIO","OPÇÕES","SAIR"};
 ```
 
-Você pode trocar `JOGAR` por `INICIAR AVENTURA` sem mexer nas regras. **Não mude a quantidade nem a ordem** das opções sem ajustar também o código que trata cada seleção.
+Você pode trocar `NOVO JOGO` por `INICIAR AVENTURA` sem mexer nas regras. **Não mude a quantidade nem a ordem** das opções sem ajustar também o código que trata cada seleção.
 
 O menu de batalha está desenhado em `src/grafico/tela_grafica.cpp` dentro de `telaBatalha()`, mas as regras e opções de verdade continuam em `src/batalha.cpp`. Modifique o desenho e os rótulos visuais, não as regras.
 

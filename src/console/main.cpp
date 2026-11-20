@@ -15,6 +15,7 @@
 #include "pontuacao.h"
 #include "salvar.h"
 #include "opcoes.h"
+#include "bestiario.h"
 #include "dicas.h"
 
 #include <cstdint>
@@ -49,16 +50,17 @@ static uint32_t lerSemente(int argc, char* argv[]) {
     return sementeDoRelogio();
 }
 
-enum OpcaoDoMenu { CONTINUAR, JOGAR, COMO_JOGAR, ITENS, PONTUACAO, OPCOES, SAIR };
+enum OpcaoDoMenu { CONTINUAR, JOGAR, COMO_JOGAR, ITENS, PONTUACAO, BESTIARIO, OPCOES, SAIR };
 
 static int menuPrincipal() {
-    std::vector<std::string> opcoes = { "Novo jogo", "Como jogar", "Itens", "Pontuação e ranking", "Opções", "Sair" };
+    std::vector<std::string> opcoes = { "Novo jogo", "Como jogar", "Itens", "Pontuação e ranking", "Bestiário", "Opções", "Sair" };
     std::vector<std::string> descricoes = {
         "Crie seu personagem e desça a masmorra.",
         "Objetivo, comandos, batalha e atributos.",
         "Poções, armas, escudos, cristais, pergaminhos e chave.",
         "Como os pontos são contados e as melhores partidas.",
-        "Ligar ou desligar as dicas, ou ver todas de novo.",
+        "Os monstros que você já encontrou (em todas as partidas).",
+        "Dicas e bestiário.",
         "Fechar o jogo.",
     };
     // Com partida salva, "Continuar" aparece em primeiro.
@@ -82,21 +84,25 @@ static int menuPrincipal() {
     }
 }
 
-// Opções da versão de terminal: só as dicas (som, tela cheia e animações são
-// da versão gráfica). Fica tudo em opcoes.txt.
+// Opções da versão de terminal: as dicas e o bestiário (som, tela cheia,
+// zoom e animações são da versão gráfica). Fica tudo em opcoes.txt.
 static void menuDeOpcoes() {
     int cursor = 0;
     std::string aviso;
+    bool confirmandoZerar = false;   // o primeiro Enter em "Zerar bestiário" só pergunta
     while (true) {
         Opcoes& o = opcoes();
         std::vector<std::string> itens = {
             std::string("Dicas: ") + (o.mostrarDicas ? "ligadas" : "desligadas"),
             "Rever as dicas (" + std::to_string(dicasVistas()) + " de " + std::to_string((int)NUM_DICAS) + " já vistas)",
+            "Zerar bestiário (" + std::to_string(especiesVistas()) + " de " + std::to_string(especiesDoBestiario()) +
+                " espécies vistas)",
             "Voltar",
         };
         std::vector<std::string> descricoes = {
             "Uma caixa explicando cada novidade, na primeira vez que ela aparece.",
             "Todas as dicas voltam a aparecer.",
+            "Apaga os monstros já encontrados (o bestiário volta a ficar cheio de \"???\").",
             "Volta ao menu principal.",
         };
         desenharAviso("  MASMORRA  -  um roguelike nas profundezas de Valdoria", "");
@@ -104,13 +110,23 @@ static void menuDeOpcoes() {
         int t = lerTecla();
         if (t == TECLA_REDIMENSIONOU) continue;
         aviso.clear();
-        if (t == TECLA_CIMA || t == 'k') cursor = (cursor + 2) % 3;
-        if (t == TECLA_BAIXO || t == 'j') cursor = (cursor + 1) % 3;
+        if (t == TECLA_CIMA || t == 'k') { cursor = (cursor + 3) % 4; confirmandoZerar = false; }
+        if (t == TECLA_BAIXO || t == 'j') { cursor = (cursor + 1) % 4; confirmandoZerar = false; }
         if (t == TECLA_ESC || t == 'x') return;
         if (t == TECLA_ENTER || t == ' ') {
             if (cursor == 0) { o.mostrarDicas = !o.mostrarDicas; salvarOpcoes(); }
             if (cursor == 1) { zerarDicas(); aviso = "Pronto! Todas as dicas vão aparecer de novo."; }
-            if (cursor == 2) return;
+            if (cursor == 2) {
+                if (!confirmandoZerar) {
+                    confirmandoZerar = true;
+                    aviso = "Tem certeza? Aperte Enter de novo para apagar (não dá para desfazer).";
+                } else {
+                    confirmandoZerar = false;
+                    zerarBestiario();
+                    aviso = "Pronto! O bestiário foi zerado.";
+                }
+            }
+            if (cursor == 3) return;
         }
     }
 }
@@ -173,6 +189,7 @@ static bool jogarAteSair(Jogo& jogo) {
 int main(int argc, char* argv[]) {
     uint32_t sementeInicial = lerSemente(argc, argv);
     carregarOpcoes();
+    carregarBestiario();
     iniciarTerminal();
 
     // "static" porque o Jogo é grande (10 andares de 79 x 21 células) e fica
@@ -189,6 +206,7 @@ int main(int argc, char* argv[]) {
         if (opcao == COMO_JOGAR) mostrarPagina("COMO JOGAR", textoComoJogar());
         if (opcao == ITENS)      mostrarPagina("ITENS", textoDosItens());
         if (opcao == PONTUACAO)  mostrarPagina("PONTUAÇÃO", textoDaPontuacao());
+        if (opcao == BESTIARIO)  mostrarBestiario(nullptr);
         if (opcao == OPCOES)     menuDeOpcoes();
         if (opcao == SAIR)       continuar = false;
     }

@@ -6,6 +6,7 @@
 #include "batalha.h"
 #include "itens.h"
 #include "pontuacao.h"
+#include "bestiario.h"
 
 #include <string>
 #include <vector>
@@ -481,7 +482,7 @@ void desenharJogo(const Jogo& jogo) {
 
     // Linha 24: lembrete de comandos
     p.irPara(24, 1);
-    p.texto(ajustarLargura(" Mover: setas/hjkl  i: mochila  C: ficha  Z: descansar  M: mensagens  ?: ajuda",
+    p.texto(ajustarLargura(" setas/hjkl: mover  i: mochila  C: ficha  E: bestiário  Z: descansar  ?: ajuda",
                            TELA_COLUNAS - 1), COR_DICA);
 
     p.saida += ansiResetar();
@@ -528,7 +529,7 @@ void desenharAjuda(const Jogo& jogo) {
         "               qualquer tecla para de descansar",
         "Furtivo        f  (liga/desliga: lento, silencioso, ataque surpresa)",
         "Mochila        i          Ficha (atributos)   C",
-        "Mensagens      M          Sair   Q",
+        "Mensagens      M          Bestiário  E     Sair  Q",
         "",
         "Na batalha: setas escolhem, Enter confirma, Esc volta.",
         "Pegue monstros dormindo: eles começam a luta dormindo.",
@@ -1095,3 +1096,101 @@ void desenharDica(const Jogo& jogo, const std::string& titulo, const std::string
 // Animações e efeitos: só existem na versão gráfica.
 void animarBatalha(const Jogo&, const Batalha&, int, int, int, int, int, bool) {}
 void efeitoNoMapa(const Jogo&, int, int, int, int) {}
+
+// ---------------------------------------------------------------------------
+// BESTIÁRIO (tecla E no jogo e "Bestiário" no menu): lista das espécies;
+// Enter abre a ficha. As que ainda não apareceram ficam como "???".
+// ---------------------------------------------------------------------------
+static std::string primeiraMaiuscula(std::string s) {
+    if (!s.empty() && s[0] >= 'a' && s[0] <= 'z') s[0] = (char)(s[0] - 'a' + 'A');
+    return s;
+}
+
+static std::vector<std::string> linhasDaFicha(const Jogo* jogo, int tipo) {
+    const TipoMonstro& t = TIPOS_DE_MONSTRO[tipo];
+    const FichaDoBestiario& f = fichaDoBestiario(tipo);
+    std::vector<std::string> linhas;
+    if (!f.visto) {
+        linhas.push_back("Ainda não encontrado.");
+        linhas.push_back("Aparece: " + andaresDaEspecie(tipo));
+        return linhas;
+    }
+    linhas.push_back("Aparece: " + andaresDaEspecie(tipo));
+    for (const std::string& l : quebrarTexto(descricaoDaEspecie(tipo), 60)) linhas.push_back(l);
+    linhas.push_back("");
+    if (jogo && vistaNaPartida(*jogo, tipo)) {
+        Elemento e = jogo->elementoDaEspecie[tipo];
+        linhas.push_back(std::string("Nesta partida: ") + NOMES_DOS_ELEMENTOS[e] + "  (fraco contra: " +
+                         listaDeElementos(e, 4) + ")");
+    } else if (jogo) {
+        linhas.push_back("Nesta partida: ainda não apareceu (o elemento é sorteado).");
+    } else {
+        linhas.push_back("O elemento é sorteado a cada partida.");
+    }
+    std::string elementos;
+    for (int e = 0; e < NUM_ELEMENTOS; e++) {
+        if (!(f.elementosVistos & (1 << e))) continue;
+        elementos += (elementos.empty() ? "" : ", ") + std::string(NOMES_DOS_ELEMENTOS[e]);
+    }
+    linhas.push_back("Já apareceu como: " + (elementos.empty() ? std::string("-") : elementos));
+    linhas.push_back("");
+    if (f.derrotados > 0) {
+        linhas.push_back("Atributos: Vida " + std::to_string(t.baseVida) + "  Ataque " + std::to_string(t.baseAtaque) +
+                         "  Defesa " + std::to_string(t.baseDefesa) + "  Velocidade " + std::to_string(t.baseVelocidade));
+    } else {
+        linhas.push_back("Atributos: vença um para descobrir.");
+    }
+    std::string golpes;
+    int vistos = 0;
+    for (int g = 0; g < NUM_GOLPES; g++) {
+        if (!(f.golpesVistos & (1ULL << g))) continue;
+        golpes += (golpes.empty() ? "" : ", ") + std::string(GOLPES[g].nome);
+        vistos++;
+    }
+    for (int k = vistos; k < t.numGolpes; k++) golpes += (golpes.empty() ? "" : ", ") + std::string("???");
+    for (const std::string& l : quebrarTexto("Golpes: " + golpes, 60)) linhas.push_back(l);
+    linhas.push_back("");
+    std::string conta = "Derrotados: " + std::to_string(f.derrotados);
+    if (!(t.especial & CHEFE) && t.frequencia > 0) conta += "   Campeões: " + std::to_string(f.campeoesDerrotados);
+    linhas.push_back(conta);
+    return linhas;
+}
+
+void mostrarBestiario(const Jogo* jogo) {
+    int cursor = 0;
+    int total = NUM_TIPOS_DE_MONSTRO;
+    while (true) {
+        std::vector<std::string> opcoes;
+        for (int t = 0; t < total; t++) {
+            const FichaDoBestiario& f = fichaDoBestiario(t);
+            if (!f.visto) { opcoes.push_back("???"); continue; }
+            std::string nome = primeiraMaiuscula(TIPOS_DE_MONSTRO[t].nome);
+            std::string conta = f.derrotados > 0 ? std::to_string(f.derrotados) + " derrotado" + (f.derrotados == 1 ? "" : "s") : "";
+            int espacos = 30 - contarLetras(nome);
+            opcoes.push_back(nome + std::string(espacos > 1 ? espacos : 1, ' ') + conta);
+        }
+        opcoes.push_back("Voltar");
+        std::string descricao = cursor < total
+            ? (fichaDoBestiario(cursor).visto ? "Aparece: " + andaresDaEspecie(cursor) + ".  Enter: ver a ficha."
+                                               : "Ainda não encontrado. Aparece: " + andaresDaEspecie(cursor) + ".")
+            : "Volta.";
+        desenharMenuEmCaixa("BESTIÁRIO  (" + std::to_string(especiesVistas()) + " de " + std::to_string(total) +
+                            " espécies vistas)", opcoes, descricao, cursor);
+        int tecla = lerTecla();
+        if (tecla == TECLA_REDIMENSIONOU) { forcarLimpezaDaTela(); continue; }
+        if (tecla == TECLA_CIMA || tecla == 'k') cursor = (cursor + total) % (total + 1);
+        if (tecla == TECLA_BAIXO || tecla == 'j') cursor = (cursor + 1) % (total + 1);
+        if (tecla == TECLA_ESC || tecla == 'e' || tecla == 'E' || tecla == 'x') break;
+        if (tecla == TECLA_ENTER || tecla == ' ') {
+            if (cursor == total) break;
+            std::string titulo = fichaDoBestiario(cursor).visto ? emMaiusculas(TIPOS_DE_MONSTRO[cursor].nome) : "???";
+            desenharPagina(titulo, linhasDaFicha(jogo, cursor), "Aperte qualquer tecla para voltar à lista.");
+            lerTecla();
+            forcarLimpezaDaTela();
+        }
+    }
+    forcarLimpezaDaTela();
+}
+
+// O terminal não tem zoom (o mapa já usa a janela toda).
+void mudarZoomDoMapa(int) {}

@@ -12,6 +12,7 @@
 #include "dicas.h"
 #include "opcoes.h"
 #include "tema.h"
+#include "bestiario.h"
 
 // =============================================================================
 // TABELAS
@@ -338,6 +339,8 @@ static void usarGolpe(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo, 
     }
 
     const Golpe& golpe = GOLPES[atacante.golpes[slot]];
+    // O golpe que o monstro usou passa a aparecer no bestiário.
+    if (!atacante.ehJogador && atacante.indice >= 1) registrarGolpe(b.monstros[atacante.indice - 1]->tipo, atacante.golpes[slot]);
     if (atacante.pp != nullptr && golpe.ppMaximo > 0) atacante.pp[slot]--;
     narrar(jogo, b, nome + " usa " + golpe.nome + "!");
 
@@ -834,6 +837,7 @@ static bool conferirDesmaios(Jogo& jogo, Batalha& b) {
         b.naLuta[i] = false;
         Monstro& m = *b.monstros[i];
         m.vivo = false;   // derrotado: some do mapa
+        registrarDerrota(m);
         tocarSom(SOM_DESMAIO);
         narrar(jogo, b, comMaiuscula(b.inimigos[i].nome) + " desmaiou!");
         int experiencia = tipoDe(m).experienciaBase * m.nivel / 6 * dificuldadeAtual().experiencia / 100;
@@ -887,6 +891,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
         b.inimigos[i].ataque = b.inimigos[i].ataque * bonusDoAmbiente(jogo.andar, b.inimigos[i].elemento) / 100;
         b.inimigos[i].indice = i + 1;
         b.naLuta[i] = true;
+        registrarAvistado(jogo, *participantes[i]);
         b.vidaMostrada[i + 1] = *b.inimigos[i].vida;
     }
     // Dois monstros da mesma espécie ganham uma letra: "o chacal A", "o chacal B".

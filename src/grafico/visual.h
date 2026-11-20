@@ -19,6 +19,10 @@ inline constexpr Color PERIGO = {243,104,121,255};
 void iniciarRecursos();
 void finalizarRecursos();
 void iniciarQuadro();
+// Desenho com zoom (o mapa): (x0, y0) é onde a origem do mundo cai na tela
+// virtual e z é o zoom. terminarZoom volta ao normal.
+void comecarZoom(float x0, float y0, float z);
+void terminarZoom();
 // Tela cheia (Opções ou F11): deixa a janela como opcoes().telaCheia pede.
 void aplicarTelaCheia();
 void alternarTelaCheia();   // troca, grava em opcoes.txt e aplica
@@ -32,6 +36,9 @@ void fundoEstrelado();
 void sprite(const char* const linhas[16], float x, float y, float pixel, float brilho = 1.0f, float alfa = 1.0f);
 // Igual ao sprite, mas sem a sombra no chão (ícones do painel e dos menus).
 void icone(const char* const linhas[16], float x, float y, float pixel, float brilho = 1.0f, float alfa = 1.0f);
+// Só o contorno cheio do desenho, todo numa cor (bestiário: monstro ainda
+// não encontrado).
+void silhueta(const char* const linhas[16], float x, float y, float pixel, Color cor);
 // Cor da roupa do herói (letra 'J' nos sprites), escolhida na criação.
 void definirCorDoHeroi(Color cor);
 // Só desenha dentro do retângulo (ex.: o mapa, quando a câmera desliza).

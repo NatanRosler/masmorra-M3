@@ -691,3 +691,52 @@ ficava fácil demais (97% de vitórias no nível 26, 99% no 30).
   Fácil: 93%; Difícil: 0% (bot que só desce).
 - **Dicas novas**: modo furtivo (ao ver um monstro distraído), campeão,
   gnomo vigia e sombra.
+
+## Tela de exploração em tela cheia e bestiário (v1.18)
+
+- **Mapa na tela toda** (`mapa()` em tela_grafica.cpp): tudo é desenhado em
+  "pixels do mundo" (a casa x fica em x * 24) e uma câmera com zoom
+  (`Ui::comecarZoom`, visual.cpp) aumenta e posiciona. O herói fica sempre no
+  meio da tela (`eixoDaCamera`), então nunca fica embaixo dos cartões.
+- **Zoom**: Longe (1×), Médio (1,5×, o padrão) e Perto (2×). Muda em Opções,
+  na roda do mouse e nas teclas `+` e `-` (`mudarZoomDoMapa`), fica gravado
+  em `opcoes.txt` (`zoom=`) e a câmera passa de um zoom para o outro devagar
+  (`zoomDoMapa`). No terminal não existe zoom.
+- **Cartões** (`hud`): só o essencial fica na tela.
+  - Canto de cima à esquerda: herói (nome, nível, elemento, vida, XP e as
+    vidas em corações; a borda pisca com vida baixa) e um aviso de pontos
+    livres.
+  - Logo abaixo: o monstro à vista mais perto (`monstroMaisPerto`), com nível,
+    elemento e contra o que ele é fraco. Some quando não há monstro à vista.
+  - Canto de cima à direita: andar, tema, moedas e pontos.
+  - Canto de baixo à esquerda: as 3 últimas mensagens, que somem sozinhas
+    depois de 7 s (`mensagensQueSomem`; o histórico completo continua no M).
+  - Canto de baixo à direita: botões I, C, Z, E, ? e M (clique ou tecla).
+  - **Tab segurado**: o painel completo de antes (`painelCompleto`), com
+    tempo, passos, monstros, itens, mochila e atributos.
+- **Bestiário** (`src/bestiario.h/.cpp`): o "álbum" dos monstros, que vale
+  para todas as partidas. Para cada espécie guarda se já foi vista, quantas
+  foram vencidas, quantos campeões, os golpes já vistos e os elementos com
+  que ela já apareceu.
+  - Quem registra: `atualizarVisao` (monstro à vista), `batalhar` (todos os
+    da batalha), `usarGolpe` (golpe de monstro) e `conferirDesmaios`
+    (vitória).
+  - O que aparece: antes de ver, só a silhueta e "???" (com os andares onde
+    aparece). Depois de ver: desenho, descrição e elementos. Depois de vencer
+    um: os atributos-base. Cada golpe aparece quando o monstro o usa.
+  - No jogo (tecla E), a ficha também mostra o elemento da espécie **nesta
+    partida** e contra o que ela é fraca, mas só se ela já apareceu nesta
+    partida (`Jogo::especiesVistasNaPartida`, que vai no save).
+  - Aba **Personagens**: o aventureiro e as 5 pessoas da masmorra (antes era
+    a página "Personagens" do menu, que o bestiário substituiu).
+  - **bestiario.txt**: uma linha por espécie, pelo nome
+    (`rato|visto=1|derrotados=12|campeoes=0|golpes=10,11|elementos=0,3`).
+    Linhas estranhas são ignoradas (testado com arquivo estragado). Só é
+    gravado depois de `carregarBestiario()`, que os dois `main.cpp` chamam:
+    os bots e os testes automáticos nunca gravam. Está no `.gitignore`.
+  - **Zerar bestiário** em Opções (pede confirmação: o primeiro Enter só
+    pergunta).
+  - No terminal: "Bestiário" no menu e tecla E, com a lista das espécies e a
+    ficha de cada uma (Enter).
+- **Save versão 4**: grava `especiesVistasNaPartida` no fim. Saves das
+  versões 1, 2 e 3 continuam sendo lidos (testado com saves reais).

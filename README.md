@@ -29,6 +29,9 @@ extraia. Não é preciso instalar nada.
 | Batalhar | ande na direção do monstro |
 | Mochila (usar / equipar) | `I` |
 | Ficha (distribuir pontos de atributo) | `C` |
+| Bestiário (monstros já encontrados) | `E` |
+| Todos os detalhes (vida, atributos, estatísticas) | segure `Tab` (versão gráfica) |
+| Zoom do mapa | roda do mouse, `+` e `-` (versão gráfica; também em Opções) |
 | Empurrar caixa / conversar | ande na direção dela / da pessoa |
 | Descansar | `Z`: recupera vida (mais rápido a cada 5 níveis; qualquer tecla para) |
 | Modo furtivo | segure `Shift` enquanto anda (versão gráfica) ou `F` para ligar/desligar |
@@ -73,7 +76,8 @@ src/
 | `src/cenario.h/.cpp` | Armadilhas escondidas e caixas que se empurram (mapa que muda) |
 | `src/npcs.h/.cpp` | Personagens que conversam, ajudam e mudam o mapa |
 | `src/dicas.h/.cpp` | Dicas: a caixa que explica cada novidade na primeira vez (e quando cada uma aparece) |
-| `src/opcoes.h/.cpp` | Opções (volumes, tela cheia, animações, dicas) gravadas em `opcoes.txt` |
+| `src/opcoes.h/.cpp` | Opções (volumes, tela cheia, zoom, animações, dicas) gravadas em `opcoes.txt` |
+| `src/bestiario.h/.cpp` | Bestiário: monstros já vistos e vencidos, gravado em `bestiario.txt` (v1.18) |
 | `src/salas.h/.cpp` | Salas especiais: fonte, altar de sangue, baú dourado (mímico), arena e o viajante perdido |
 | `src/tema.h/.cpp` | Temas dos andares: minas, caverna alagada (poças), vulcão (lava) e sala do trono |
 | `src/salvar.h/.cpp` | Salvar e continuar a partida (arquivo binário `save.dat`) |
@@ -81,7 +85,7 @@ src/
 | `src/pontuacao.h/.cpp` | Pontuação, ranking em arquivo (`ranking.txt`) e textos do menu |
 | `src/dificuldade.h/.cpp` | Tabela das dificuldades (Fácil, Médio, Difícil) |
 | `src/grafico/main.cpp` | Laço principal da versão gráfica, menu e pausa |
-| `src/grafico/tela_grafica.cpp` | Desenho do mapa, painéis e batalha em 2D |
+| `src/grafico/tela_grafica.cpp` | Desenho do mapa em tela cheia, cartões do canto, bestiário e batalha em 2D |
 | `src/grafico/terminal_raylib.cpp` | Teclado, mouse e janela (raylib) |
 | `src/grafico/menu_principal.cpp` | Menu principal e menu de pausa |
 | `src/grafico/visual.cpp/.h` | Cores, fontes, painéis e barras |

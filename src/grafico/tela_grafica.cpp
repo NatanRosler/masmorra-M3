@@ -18,12 +18,14 @@
 #include "tema.h"
 #include "efeitos.h"
 #include "opcoes.h"
+#include "bestiario.h"
 #include <algorithm>
 #include <cmath>
 #include <string>
 #include <vector>
 
 namespace {
+double zoomMudouEm=-10;   // quando o zoom do mapa mudou (aviso "Zoom: PERTO")
 constexpr int TAM = 24;
 constexpr int MX = 39;
 constexpr int MY = 122;
@@ -426,7 +428,8 @@ void desenharMonstroNoMapa(const Jogo& jogo,const Monstro& m,float px,float py) 
         }
     }
 }
-void hud(const Jogo& jogo) {
+// Tab segurado: o painel completo de antes (todas as informações).
+void painelCompleto(const Jogo& jogo) {
     const Jogador& j=jogo.jogador;
     definirCorDoHeroi(paraCor(CORES_DO_JOGADOR[j.cor]));
     painel({1001,122,400,505});
@@ -488,24 +491,156 @@ void hud(const Jogo& jogo) {
         std::string p=std::to_string(j.pontosLivres)+(j.pontosLivres==1?" ponto livre":" pontos livres")+": aperte C";
         texto(p,1054,566,19,OURO);
     }
-    painel({39,648,1362,120});
-    texto("MENSAGENS",61,662,19,OURO);
-    int n=(int)jogo.historico.size();
-    int primeira=std::max(0,n-2);
-    for(int i=primeira;i<n;i++) textoQueCabe(jogo.historico[i],61,690+32*(i-primeira),25,1320,corDaMensagem(jogo.tiposDoHistorico[i]));
-    painel({39,782,1362,76},PAINEL2);
-    texto("SETAS / WASD / HJKL: andar",61,796,19,APAGADO);
-    texto(jogo.furtivo?"FURTIVO (Shift / F)":"Shift / F: furtivo",61,812,15,jogo.furtivo?CIANO:APAGADO);
-    const char* rotulos[]={"[I] MOCHILA","[C] FICHA","[Z] DESCANSAR","[?] AJUDA","[M] HISTÓRICO"};
-    const int atalhos[]={'i','c','z','?','M'};
-    for(int i=0;i<5;i++) {
-        Rectangle r={392.0f+i*202,794,190,48};
-        bool sobre=mouseSobre(r);
-        painel(r,sobre?Color{40,56,84,255}:PAINEL,sobre?CIANO:Color{67,100,129,255});
-        textoCentro(rotulos[i],r.x+r.width/2,r.y+14,18,sobre?TEXTO:CIANO);
-        registrarAtalho(r,atalhos[i]);
+}
+// ---- Cartões da tela de exploração (v1.18) ---------------------------------
+// O mapa ocupa a tela toda; por cima ficam só cartões pequenos nos cantos.
+const Color FUNDO_DO_CARTAO={10,15,28,215};
+const Color BORDA_DO_CARTAO={70,95,125,210};
+void cartao(Rectangle r) {
+    DrawRectangleRounded(r,0.22f,8,FUNDO_DO_CARTAO);
+    DrawRectangleRoundedLinesEx(r,0.22f,8,1.6f,BORDA_DO_CARTAO);
+}
+void coracao(float x,float y,float t,Color cor) {
+    DrawCircleV({x-t*0.5f,y},t*0.55f,cor);
+    DrawCircleV({x+t*0.5f,y},t*0.55f,cor);
+    trianguloCheio({x-t*1.05f,y+t*0.15f},{x+t*1.05f,y+t*0.15f},{x,y+t*1.25f},cor);
+}
+// Monstro à vista mais perto do jogador (ou nullptr).
+const Monstro* monstroMaisPerto(const Jogo& jogo) {
+    const Andar& a=andarAtual(jogo);
+    const Monstro* melhor=nullptr; int menor=1<<30;
+    for(int i=0;i<a.numMonstros;i++) {
+        const Monstro& m=a.monstros[i];
+        if(!monstroAVista(jogo,m)) continue;
+        int dx=m.x-jogo.jogador.x, dy=m.y-jogo.jogador.y, d=dx*dx+dy*dy;
+        if(d<menor) { menor=d; melhor=&m; }
     }
-    texto(std::string("ESC: pausa   O: som ")+(somLigado()?"(ligado)":"(desligado)"),62,830,17,APAGADO);
+    return melhor;
+}
+// Mensagens no canto: cada uma aparece por uns segundos e some devagar.
+void mensagensQueSomem(const Jogo& jogo) {
+    static std::vector<double> chegou;
+    double agora=GetTime();
+    if(jogo.historico.size()<chegou.size()) chegou.clear();          // partida nova
+    while(chegou.size()<jogo.historico.size()) chegou.push_back(agora);
+    const double DURA=7.0, SOME=1.5;
+    int mostradas=0;
+    for(int i=(int)jogo.historico.size()-1;i>=0 && mostradas<3;i--) {
+        double idade=agora-chegou[i];
+        if(idade>DURA) break;
+        float alfa=idade>DURA-SOME ? (float)((DURA-idade)/SOME) : 1.0f;
+        float y=Ui::ALTURA-48.0f-mostradas*30;
+        Color cor=corDaMensagem(jogo.tiposDoHistorico[i]); cor.a=(unsigned char)(255*alfa);
+        textoQueCabe(jogo.historico[i],22,y+2,22,780,{0,0,0,(unsigned char)(200*alfa)});
+        textoQueCabe(jogo.historico[i],20,y,22,780,cor);
+        mostradas++;
+    }
+}
+void hud(const Jogo& jogo) {
+    const Jogador& j=jogo.jogador;
+    definirCorDoHeroi(paraCor(CORES_DO_JOGADOR[j.cor]));
+    float t=(float)GetTime();
+    // Sombra suave em cima e embaixo, para os cartões e as mensagens se lerem bem.
+    DrawRectangleGradientV(0,0,Ui::LARGURA,120,{6,9,18,150},{6,9,18,0});
+    DrawRectangleGradientV(0,Ui::ALTURA-150,Ui::LARGURA,150,{6,9,18,0},{6,9,18,170});
+
+    // ---- Herói (canto superior esquerdo) ----
+    Rectangle c={16,14,380,92};
+    cartao(c);
+    bool vidaBaixa=j.vida>0 && j.vida*4<=j.vidaMaxima;
+    if(vidaBaixa) {
+        float pulso=0.5f+0.5f*std::sin((float)relogioMs()/150.0f);
+        DrawRectangleRoundedLinesEx(c,0.22f,8,3.0f,multiplicar(PERIGO,0.4f+0.6f*pulso));
+    }
+    desenharSprite(HEROI,24,26,3.6f,jogo.furtivo?0.55f:1.0f);
+    texto(j.nome,92,22,22,OURO);
+    float xn=92+larguraDoTexto(j.nome,22)+10;
+    texto("Nv "+std::to_string(j.nivel),xn,25,18,CIANO);
+    etiquetaDeElemento(j.elemento,xn+larguraDoTexto("Nv "+std::to_string(j.nivel),18)+10,24,12);
+    barra(92,54,210,16,j.vida,j.vidaMaxima);
+    texto(std::to_string(j.vida)+"/"+std::to_string(j.vidaMaxima),310,52,17,vidaBaixa?PERIGO:TEXTO);
+    // Experiência: barrinha fina embaixo da vida.
+    int xpNivel=experienciaParaNivel(j.nivel), xpProximo=experienciaParaNivel(j.nivel+1);
+    float fracao=(j.nivel>=NIVEL_MAXIMO || xpProximo<=xpNivel) ? 1.0f
+                 : std::clamp((float)(j.experiencia-xpNivel)/(xpProximo-xpNivel),0.0f,1.0f);
+    DrawRectangleRounded({92,78,210,6},1,4,{28,38,60,255});
+    if(fracao>0) DrawRectangleRounded({92,78,std::max(6.0f,210*fracao),6},1,4,{110,175,255,255});
+    // Vidas: corações.
+    for(int v=0;v<j.vidas && v<5;v++) coracao(318+v*14,83,5.5f,{232,70,90,255});
+    float yChip=112;
+    if(j.pontosLivres>0) {
+        float pulso=0.7f+0.3f*std::sin(t*5);
+        Rectangle chip={16,yChip,250,28};
+        cartao(chip);
+        icone(ARTE_ICONE_PONTO_LIVRE.data(),24,yChip+6,1.0f,pulso);
+        texto("+"+std::to_string(j.pontosLivres)+(j.pontosLivres==1?" ponto livre: aperte C":" pontos livres: aperte C"),
+              46,yChip+5,16,multiplicar(OURO,pulso));
+        yChip+=34;
+    }
+
+    // ---- Monstro mais perto (só quando há um à vista) ----
+    const Monstro* m=monstroMaisPerto(jogo);
+    if(m) {
+        Rectangle cm={16,yChip,380,58};
+        cartao(cm);
+        if(m->campeao) DrawRectangleRoundedLinesEx(cm,0.22f,8,2.0f,{255,205,70,200});
+        desenharSprite(imagemMonstro(m->tipo),24,yChip+6,2.9f);
+        std::string nome=nomeDaEspecie(*m); nome[0]=(char)std::toupper((unsigned char)nome[0]);
+        texto(nome+"  Nv "+std::to_string(m->nivel),78,yChip+7,18,m->campeao?OURO:TEXTO);
+        float we=etiquetaDeElemento(m->elemento,78,yChip+31,11);
+        texto("fraco contra: "+elementosCom(m->elemento,4),78+we+8,yChip+33,14,APAGADO);
+    }
+
+    // ---- Andar e moedas (canto superior direito) ----
+    Rectangle ca={Ui::LARGURA-16.0f-290,14,290,92};
+    cartao(ca);
+    texto("ANDAR "+std::to_string(jogo.andar)+" / "+std::to_string(NUM_ANDARES),ca.x+18,ca.y+12,22,CIANO);
+    texto(FICHAS_DOS_TEMAS[temaDoAndar(jogo.andar)].nome,ca.x+18,ca.y+40,15,APAGADO);
+    icone(ARTE_ICONE_MOEDA.data(),ca.x+18,ca.y+64,1.0f);
+    texto(std::to_string(j.moedas),ca.x+40,ca.y+62,18,OURO);
+    icone(ARTE_ICONE_PONTOS.data(),ca.x+120,ca.y+64,1.0f);
+    texto(std::to_string(calcularPontuacao(jogo))+" pts",ca.x+142,ca.y+62,18,TEXTO);
+
+    // ---- Mensagens (canto inferior esquerdo) ----
+    mensagensQueSomem(jogo);
+
+    // ---- Atalhos (canto inferior direito) ----
+    const char* letras[]={"I","C","Z","E","?","M"};
+    const char* nomes[]={"mochila","ficha","descansar","bestiário","ajuda","mensagens"};
+    const int teclas[]={'i','c','z','e','?','M'};
+    const float PASSO=76;
+    float bx=Ui::LARGURA-16.0f-6*PASSO+4, by=Ui::ALTURA-16.0f-56;
+    for(int i=0;i<6;i++) {
+        Rectangle r={bx+i*PASSO,by,72,56};
+        bool sobre=mouseSobre(r);
+        DrawRectangleRounded(r,0.25f,6,sobre?Color{40,56,84,235}:FUNDO_DO_CARTAO);
+        DrawRectangleRoundedLinesEx(r,0.25f,6,1.4f,sobre?CIANO:BORDA_DO_CARTAO);
+        textoCentro(letras[i],r.x+r.width/2,r.y+6,24,sobre?TEXTO:CIANO);
+        textoCentro(nomes[i],r.x+r.width/2,r.y+36,12,APAGADO);
+        registrarAtalho(r,teclas[i]);
+    }
+    // Estado do jogador, logo acima dos atalhos.
+    std::string estado = jogo.descansando ? "zZz descansando" : jogo.furtivo ? "FURTIVO" : "";
+    if(!estado.empty()) textoCentro(estado,bx+3*PASSO-2,by-30,18,CIANO);
+    texto("Tab: detalhes   Esc: pausa",bx,by-52+(estado.empty()?24:0),13,{120,135,160,200});
+
+    // ---- Aviso do zoom (some sozinho) ----
+    double desdeOZoom=GetTime()-zoomMudouEm;
+    if(desdeOZoom<1.4) {
+        static const char* NOMES[3]={"LONGE","MÉDIO","PERTO"};
+        float alfa=desdeOZoom>1.0 ? (float)((1.4-desdeOZoom)/0.4) : 1.0f;
+        std::string s=std::string("Zoom: ")+NOMES[opcoes().zoomDoMapa];
+        float w=larguraDoTexto(s,22)+40;
+        Rectangle r={(Ui::LARGURA-w)/2,Ui::ALTURA-130.0f,w,40};
+        DrawRectangleRounded(r,0.4f,8,{10,15,28,(unsigned char)(220*alfa)});
+        textoCentro(s,Ui::LARGURA/2.0f,r.y+9,22,{109,222,209,(unsigned char)(255*alfa)});
+    }
+
+    // ---- Tab segurado: o painel completo ----
+    if(IsKeyDown(KEY_TAB)) {
+        DrawRectangle(0,0,Ui::LARGURA,Ui::ALTURA,{0,0,0,110});
+        painelCompleto(jogo);
+    }
 }
 // Mensagem importante em destaque no topo do mapa por alguns segundos.
 void faixaDeDestaque(const Jogo& jogo) {
@@ -514,8 +649,8 @@ void faixaDeDestaque(const Jogo& jogo) {
     float resta=(float)(jogo.faixaAte-agora);
     float alfa=std::min(1.0f,resta/500.0f);              // some devagar no fim
     Color cor=corDaMensagem(jogo.tipoDaFaixa);
-    float largura=std::min((float)CW*TAM-20,larguraDoTexto(jogo.faixa,24)+70);
-    Rectangle r={MX+(CW*TAM-largura)/2,(float)MY+14,largura,50};
+    float largura=std::min(900.0f,larguraDoTexto(jogo.faixa,24)+70);
+    Rectangle r={(Ui::LARGURA-largura)/2,112,largura,50};   // logo abaixo dos cartões do topo
     Color fundo=multiplicar(cor,0.25f); fundo.a=(unsigned char)(235*alfa);
     Color borda=cor; borda.a=(unsigned char)(255*alfa);
     DrawRectangleRounded(r,0.4f,8,fundo);
@@ -568,7 +703,7 @@ void atualizarPosicoesSuaves(const Jogo& jogo) {
 }
 // Gotas pingando na caverna e brasas subindo da lava (só onde o jogador vê).
 double ultimaParticulaDoAmbiente=0;
-void particulasDoAmbiente(const Jogo& jogo,const Andar& a,int cx,int cy) {
+void particulasDoAmbiente(const Jogo& jogo,const Andar& a,int cx,int cy,int nx,int ny) {
     int tema=temaDoAndar(jogo.andar);
     if(tema!=TEMA_CAVERNA && tema!=TEMA_VULCAO) return;
     double agora=GetTime();
@@ -576,7 +711,7 @@ void particulasDoAmbiente(const Jogo& jogo,const Andar& a,int cx,int cy) {
     ultimaParticulaDoAmbiente=agora;
     // Sorteia uma célula visível na tela.
     for(int tentativa=0;tentativa<12;tentativa++) {
-        int x=cx+GetRandomValue(0,CW), y=cy+GetRandomValue(0,CH);
+        int x=cx+GetRandomValue(0,nx), y=cy+GetRandomValue(0,ny);
         if(!dentroDoMapa(x,y) || !jogo.visivel[y][x]) continue;
         TipoCelula c=a.mapa.celulas[y][x];
         Efeitos::Particula p{};
@@ -610,8 +745,8 @@ void tituloDoTema() {
     if(t<0 || t>3.2f) return;
     float alfa = t<0.4f ? t/0.4f : (t>2.4f ? (3.2f-t)/0.8f : 1.0f);
     const FichaDoTema& f=FICHAS_DOS_TEMAS[temaDoTitulo];
-    float meioX=MX+CW*TAM/2.0f, y=MY+CH*TAM/2.0f-60;
-    DrawRectangle(MX,(int)y-14,CW*TAM,112,{8,12,24,(unsigned char)(170*alfa)});
+    float meioX=Ui::LARGURA/2.0f, y=Ui::ALTURA/2.0f-110;
+    DrawRectangle(0,(int)y-14,Ui::LARGURA,112,{8,12,24,(unsigned char)(170*alfa)});
     Color ouro=OURO; ouro.a=(unsigned char)(255*alfa);
     Color texto=TEXTO; texto.a=(unsigned char)(230*alfa);
     textoCentro(f.nome,meioX,y,40,ouro);
@@ -814,28 +949,52 @@ void desenharAmbientes(const Jogo& jogo,const Andar& a,float origemX,float orige
         ambienteDoViajante(c,raioDoAmbiente(a,n.x,n.y),f,vivo,t,n.x,n.y);
     }
 }
+// Zoom do mapa: casas de 24, 36 ou 48 pixels (Opções e +/-; padrão 36).
+// Zoom do mapa (Opções, roda do mouse, + e -). Muda devagar, sem pular.
+float zoomEscolhido() {
+    switch(opcoes().zoomDoMapa) { case 0: return 1.0f; case 2: return 2.0f; }
+    return 1.5f;
+}
+float zoomDoMapa() {
+    static float atual=-1;
+    static double ultimo=0;
+    float alvo=zoomEscolhido();
+    double agora=GetTime();
+    if(atual<0 || agora-ultimo>0.5) atual=alvo;
+    else atual+=(alvo-atual)*std::min(1.0f,(float)(agora-ultimo)*10.0f);
+    if(std::fabs(alvo-atual)<0.002f) atual=alvo;
+    ultimo=agora;
+    return atual;
+}
+// A câmera em um eixo: o herói fica sempre no meio da tela (assim ele nunca
+// fica embaixo dos cartões dos cantos). Perto da borda do mapa, aparece o
+// escuro de fora, mas no máximo meia tela.
+static float eixoDaCamera(float jogador,float vista,int tamanho) {
+    float centro=jogador+0.5f-vista/2.0f;
+    return std::clamp(centro,-vista/2.0f,(float)tamanho-vista/2.0f);
+}
 void mapa(const Jogo& jogo) {
-    titulo("EXPLORAÇÃO   |   O mapa se revela conforme você caminha");
-    painel({33,115,948,516}, {16,22,36,255});
     atualizarPosicoesSuaves(jogo);
     const Andar& a=andarAtual(jogo);
     definirCorDoHeroi(paraCor(CORES_DO_JOGADOR[jogo.jogador.cor]));
-    // Câmera com casas "quebradas": desliza junto com o jogador.
-    float camX=std::clamp(jogadorSuave.x-CW/2,0.0f,(float)(MAPA_LARGURA-CW));
-    float camY=std::clamp(jogadorSuave.y-CH/2,0.0f,(float)(MAPA_ALTURA-CH));
+    // O mapa ocupa a tela toda: tudo é desenhado em "pixels do mundo" (casa
+    // x fica em x*TAM) e o zoom da câmera aumenta na tela.
+    float z=zoomDoMapa(), tam=TAM*z;
+    float vistaW=Ui::LARGURA/tam, vistaH=Ui::ALTURA/tam;   // em casas
+    float camX=eixoDaCamera(jogadorSuave.x,vistaW,MAPA_LARGURA);
+    float camY=eixoDaCamera(jogadorSuave.y,vistaH,MAPA_ALTURA);
     int cx=(int)std::floor(camX), cy=(int)std::floor(camY);
-    int sobraX=(int)std::round((camX-cx)*TAM), sobraY=(int)std::round((camY-cy)*TAM);
-    Rectangle janela={(float)MX,(float)MY,(float)CW*TAM,(float)CH*TAM};
-    recortar(janela);
-    for(int iy=0;iy<=CH;iy++)for(int ix=0;ix<=CW;ix++)
-        tile(jogo,a,cx+ix,cy+iy,MX+ix*TAM-sobraX,MY+iy*TAM-sobraY);
+    int nx=(int)std::ceil(vistaW)+1, ny=(int)std::ceil(vistaH)+1;
+    Ui::comecarZoom(-camX*tam,-camY*tam,z);
+    for(int iy=0;iy<=ny;iy++)for(int ix=0;ix<=nx;ix++)
+        tile(jogo,a,cx+ix,cy+iy,(cx+ix)*TAM,(cy+iy)*TAM);
     // O chão em volta da fonte, do altar, do baú, do gongo e do viajante.
-    desenharAmbientes(jogo,a,MX-camX*TAM,MY-camY*TAM);
-    for(int iy=0;iy<=CH;iy++)for(int ix=0;ix<=CW;ix++)
-        tileObjetos(jogo,a,cx+ix,cy+iy,MX+ix*TAM-sobraX,MY+iy*TAM-sobraY);
+    desenharAmbientes(jogo,a,0,0);
+    for(int iy=0;iy<=ny;iy++)for(int ix=0;ix<=nx;ix++)
+        tileObjetos(jogo,a,cx+ix,cy+iy,(cx+ix)*TAM,(cy+iy)*TAM);
     // Placa "LOJA" em cima da porta da lojinha.
     if(a.loja.existe && a.descoberto[a.loja.portaY][a.loja.portaX]) {
-        float px=std::round(MX+(a.loja.portaX-camX)*TAM), py=std::round(MY+(a.loja.portaY-camY)*TAM);
+        float px=(float)a.loja.portaX*TAM, py=(float)a.loja.portaY*TAM;
         Rectangle placa={px-7,py-17,TAM+14.0f,16};
         DrawRectangleRec(placa,{120,80,40,255});
         DrawRectangleLinesEx(placa,1,OURO);
@@ -843,7 +1002,7 @@ void mapa(const Jogo& jogo) {
     }
     // Monstros visíveis e o jogador, nas posições suaves.
     auto naTela=[&](float x,float y,float& px,float& py){
-        px=std::round(MX+(x-camX)*TAM); py=std::round(MY+(y-camY)*TAM);
+        px=std::round(x*TAM); py=std::round(y*TAM);
     };
     for(int i=0;i<a.numMonstros;i++) {
         const Monstro& m=a.monstros[i];
@@ -862,17 +1021,15 @@ void mapa(const Jogo& jogo) {
     if(jogo.furtivo) {
         // Furtivo: o herói fica escuro e meio transparente, sem o brilho da tocha.
         desenharSprite(HEROI,hx+2,hy+1,1.25f,0.55f,0.7f);
-        textoCentro("furtivo",hx+12,hy-12,12,{180,190,230,220});
     } else {
         DrawCircle((int)hx+12,(int)hy+12,12,{220,205,141,55});
         desenharSprite(HEROI,hx+2,hy+1,1.25f,1.0f);
     }
-    particulasDoAmbiente(jogo,a,cx,cy);
+    particulasDoAmbiente(jogo,a,cx,cy,nx,ny);
     // Efeitos do mapa (lascas, espinhos, números) acompanham a câmera.
-    Efeitos::desenharParticulas(Efeitos::CAMADA_MAPA,MX-camX*TAM,MY-camY*TAM);
-    Efeitos::desenharTextosFlutuantes(Efeitos::CAMADA_MAPA,MX-camX*TAM,MY-camY*TAM);
-    pararDeRecortar();
-    DrawRectangleLinesEx(janela,2,{83,110,133,255});
+    Efeitos::desenharParticulas(Efeitos::CAMADA_MAPA,0,0);
+    Efeitos::desenharTextosFlutuantes(Efeitos::CAMADA_MAPA,0,0);
+    Ui::terminarZoom();
     tituloDoTema();
     faixaDeDestaque(jogo);
     hud(jogo);
@@ -1149,8 +1306,18 @@ void posicaoDaCamera(const Jogo& jogo,int& cameraX,int& cameraY) {
     cameraY=std::clamp(jogo.jogador.y-CAMERA_ALTURA/2,0,MAPA_ALTURA-CAMERA_ALTURA);
 }
 void forcarLimpezaDaTela() {}
+void mudarZoomDoMapa(int passo) {
+    int antes=opcoes().zoomDoMapa;
+    opcoes().zoomDoMapa=std::clamp(antes+passo,0,2);
+    zoomMudouEm=GetTime();
+    if(opcoes().zoomDoMapa!=antes) { salvarOpcoes(); tocarSom(SOM_MENU); }
+}
 void desenharJogo(const Jogo& jogo) {
     ultimoJogo=&jogo;
+    // Roda do mouse: zoom do mapa (as teclas + e - chegam pelo jogo.cpp).
+    float roda=GetMouseWheelMove();
+    if(roda>0.1f) mudarZoomDoMapa(+1);
+    if(roda<-0.1f) mudarZoomDoMapa(-1);
     Efeitos::trocarDeTela(TELA_MAPA);
     definirRedesenho([&jogo]{ desenharJogo(jogo); });
     Ui::iniciarQuadro();mapa(jogo);Ui::terminarQuadro();
@@ -1427,8 +1594,9 @@ void desenharAjuda(const Jogo& jogo) {
     const std::vector<std::string> linhas={
         "Setas / WASD / H J K L: andar     Diagonais: Y U B N",
         "Encoste nos monstros para começar a batalha",
-        "I: mochila      C: ficha (distribuir pontos de atributo)",
+        "I: mochila      C: ficha (distribuir pontos)      E: bestiário",
         "Z: descansar e recuperar vida      M: mensagens",
+        "Tab (segurado): todos os detalhes      Roda do mouse, + e -: zoom do mapa",
         "Shift (segurado) ou F: modo furtivo (lento, silencioso, ataque surpresa)",
         "Caixas: empurre contra um monstro para atordoá-lo; podem ter itens",
         "Espinhos vermelhos: armadilha! Empurre uma caixa em cima",
@@ -1436,7 +1604,7 @@ void desenharAjuda(const Jogo& jogo) {
         "O chefe final espera no 10o andar. Dele não dá para fugir",
         "Bolinha colorida no monstro = elemento dele nesta partida",
         "Semente desta partida: "+std::to_string(jogo.semente)};
-    for(size_t i=0;i<linhas.size();i++)texto(linhas[i],263,236+i*40,21,i%2?TEXTO:CIANO);
+    for(size_t i=0;i<linhas.size();i++)texto(linhas[i],263,232+i*37,21,i%2?TEXTO:CIANO);
     texto("Aperte qualquer tecla para retornar",263,700,20,OURO);Ui::terminarQuadro();
 }
 void desenharHistorico(const Jogo& jogo) {
@@ -1627,4 +1795,217 @@ void desenharCriacao(const Criacao& c) {
 
     texto("Setas: escolher e mudar valores   |   Enter: próximo   |   Esc: voltar ao menu",150,830,19,APAGADO);
     Ui::terminarQuadro();
+}
+
+// ---------------------------------------------------------------------------
+// BESTIÁRIO (tecla E no jogo e botão do menu principal)
+// À esquerda, as cartas (silhueta "???" até a espécie aparecer); à direita,
+// a ficha da carta escolhida. Duas abas: MONSTROS e PERSONAGENS.
+// ---------------------------------------------------------------------------
+namespace {
+struct Personagem { const Sprite* arte; const char* nome; const char* onde; const char* texto; };
+const Personagem PERSONAGENS[] = {
+    {&HEROI,"Aventureiro","você",
+     "Você escolhe o elemento, a cor e os atributos na criação. Vencendo monstros, sobe de nível e "
+     "ganha pontos para distribuir (tecla C)."},
+    {&EXPLORADORA,"Eldra, a exploradora","andar 1",
+     "Já desceu até o quarto andar antes de voltar ferida. Conta como a masmorra funciona e dá uma "
+     "poção para começar."},
+    {&MINEIRO,"Borin, o velho mineiro","andar 4",
+     "Conhece cada túnel das minas. Destranca a sala do tesouro do andar dele."},
+    {&ESPIRITO,"O espírito do guardião","andar 7",
+     "Avisa sobre o senhor das profundezas e cura as suas feridas antes da descida final."},
+    {&COMERCIANTE,"Garro, o comerciante","andares 3, 6 e 9",
+     "Vende poções, armas, escudos e itens de suporte, e compra o que você não quer mais."},
+    {&VIAJANTE,"Tobias, o viajante perdido","aparece por sorte",
+     "Está ferido. Troca um cristal mágico por uma Poção de Vida ou por umas moedas."},
+};
+const int NUM_PERSONAGENS = (int)(sizeof(PERSONAGENS)/sizeof(PERSONAGENS[0]));
+
+const int COLUNAS_DO_BESTIARIO = 4;
+Rectangle cartaDoBestiario(int i) {
+    int coluna=i%COLUNAS_DO_BESTIARIO, linha=i/COLUNAS_DO_BESTIARIO;
+    return {50.0f+coluna*184,122.0f+linha*172,170,160};
+}
+Rectangle abaDoBestiario(int aba) { return aba==0 ? Rectangle{410,32,260,48} : Rectangle{684,32,240,48}; }
+const Rectangle VOLTAR_DO_BESTIARIO={1150,828,240,50};
+
+void cartaoDoBestiario(Rectangle r,bool escolhido) {
+    bool sobre=mouseSobre(r);
+    DrawRectangleRounded(r,0.12f,8,escolhido?Color{38,52,80,255}:sobre?Color{31,42,65,255}:PAINEL);
+    DrawRectangleRoundedLinesEx(r,0.12f,8,escolhido?3.0f:1.5f,escolhido?OURO:sobre?CIANO:Color{65,88,113,255});
+}
+std::string comMaiusculaInicial(std::string s) {
+    if(!s.empty() && s[0]>='a' && s[0]<='z') s[0]=(char)(s[0]-'a'+'A');
+    return s;
+}
+// Barra de um atributo-base (0 a 100) na ficha.
+void barraDoAtributo(const char* nome,int valor,float x,float y) {
+    texto(nome,x,y,17,APAGADO);
+    DrawRectangleRounded({x+110,y+4,250,12},1,4,{28,38,60,255});
+    float f=std::clamp(valor/100.0f,0.0f,1.0f);
+    DrawRectangleRounded({x+110,y+4,std::max(8.0f,250*f),12},1,4,{110,175,255,255});
+    texto(std::to_string(valor),x+372,y,17,TEXTO);
+}
+
+void fichaDoMonstro(const Jogo* jogo,int tipo) {
+    Rectangle p={800,110,590,700};
+    painel(p,PAINEL);
+    const TipoMonstro& t=TIPOS_DE_MONSTRO[tipo];
+    const FichaDoBestiario& f=fichaDoBestiario(tipo);
+    float x=p.x+28, y=p.y+24;
+    DrawRectangleRounded({x,y,170,170},0.12f,8,{16,22,38,255});
+    if(!f.visto) {
+        silhueta(imagemMonstro(tipo).data(),x+13,y+12,9.0f,{52,64,88,255});
+        texto("???",x+200,y+20,38,APAGADO);
+        texto("Ainda não encontrado.",x+200,y+72,20,TEXTO);
+        textoQuebrado("Aparece: "+andaresDaEspecie(tipo),x+200,y+102,17,330,24,APAGADO);
+        textoQuebrado("Quando ele aparecer na sua frente, a ficha completa fica aqui: o que ele faz, "
+                      "os golpes que você já viu e quantos você venceu.",x,y+210,19,530,28,APAGADO);
+        return;
+    }
+    sprite(imagemMonstro(tipo).data(),x+13,y+8,9.0f);
+    texto(comMaiusculaInicial(t.nome),x+200,y+8,30,OURO);
+    texto(andaresDaEspecie(tipo),x+200,y+48,17,CIANO);
+    textoQuebrado(descricaoDaEspecie(tipo),x+200,y+76,16,330,22,TEXTO);
+    y+=196;
+
+    // Elemento: muda a cada partida.
+    if(jogo && vistaNaPartida(*jogo,tipo)) {
+        Elemento e=jogo->elementoDaEspecie[tipo];
+        texto("Nesta partida:",x,y,18,APAGADO);
+        float w=etiquetaDeElemento(e,x+140,y,14);
+        texto("fraco contra: "+elementosCom(e,4),x+150+w,y+1,17,TEXTO);
+    } else if(jogo) {
+        texto("Nesta partida: ainda não apareceu (o elemento é sorteado).",x,y,17,APAGADO);
+    } else {
+        texto("O elemento é sorteado a cada partida.",x,y,17,APAGADO);
+    }
+    y+=32;
+    texto("Já apareceu como:",x,y,18,APAGADO);
+    float ex=x+176;
+    for(int e=0;e<NUM_ELEMENTOS;e++) if(f.elementosVistos&(1<<e)) ex+=etiquetaDeElemento(e,ex,y,13)+8;
+    y+=44;
+
+    // Atributos: só depois de vencer um.
+    texto("ATRIBUTOS",x,y,19,OURO);
+    y+=30;
+    if(f.derrotados>0) {
+        barraDoAtributo("Vida",t.baseVida,x,y);
+        barraDoAtributo("Ataque",t.baseAtaque,x,y+26);
+        barraDoAtributo("Defesa",t.baseDefesa,x,y+52);
+        barraDoAtributo("Velocidade",t.baseVelocidade,x,y+78);
+        y+=112;
+    } else {
+        texto("Vença um para descobrir.",x,y,17,APAGADO);
+        y+=36;
+    }
+
+    // Golpes: cada um aparece depois que o monstro o usa.
+    texto("GOLPES",x,y,19,OURO);
+    y+=30;
+    int vistos=0;
+    for(int g=0;g<NUM_GOLPES;g++) {
+        if(!(f.golpesVistos&(1ULL<<g))) continue;
+        float w=etiquetaDeElemento(GOLPES[g].elemento,x,y,12);
+        texto(GOLPES[g].nome,x+w+10,y,17,TEXTO);
+        y+=26;
+        vistos++;
+    }
+    if(vistos==0) texto("??? (cada golpe aparece aqui quando ele usar na batalha)",x,y,17,APAGADO);
+    else for(int k=vistos;k<t.numGolpes;k++) { texto("???",x,y,17,APAGADO); y+=26; }
+
+    // Contagem.
+    float yb=p.y+p.height-50;
+    DrawLineEx({p.x+20,yb-12},{p.x+p.width-20,yb-12},1.5f,{65,88,113,255});
+    texto("Derrotados: "+std::to_string(f.derrotados),x,yb,20,TEXTO);
+    if(!(t.especial&CHEFE) && t.frequencia>0) {
+        coroinha(x+262,yb+17,1.6f);
+        texto("Campeões: "+std::to_string(f.campeoesDerrotados),x+274,yb,20,f.campeoesDerrotados>0?OURO:TEXTO);
+    }
+}
+
+void fichaDoPersonagem(int i) {
+    Rectangle p={800,110,590,700};
+    painel(p,PAINEL);
+    const Personagem& c=PERSONAGENS[i];
+    float x=p.x+28, y=p.y+24;
+    DrawRectangleRounded({x,y,170,170},0.12f,8,{16,22,38,255});
+    sprite(c.arte->data(),x+13,y+8,9.0f);
+    textoQuebrado(c.nome,x+200,y+8,28,330,34,OURO);
+    texto(c.onde,x+200,y+86,18,CIANO);
+    textoQuebrado(c.texto,x,y+210,21,530,30,TEXTO);
+}
+
+void desenharBestiario(const Jogo* jogo,int aba,int escolhido) {
+    fundoEstrelado();
+    texto("BESTIÁRIO",54,34,40,OURO);
+    for(int a=0;a<2;a++) {
+        Rectangle r=abaDoBestiario(a);
+        bool ativa=(a==aba), sobre=mouseSobre(r);
+        DrawRectangleRounded(r,0.25f,8,ativa?Color{52,66,96,255}:sobre?Color{31,42,65,255}:PAINEL);
+        DrawRectangleRoundedLinesEx(r,0.25f,8,ativa?2.5f:1.5f,ativa?OURO:sobre?CIANO:Color{65,88,113,255});
+        std::string nome = a==0 ? "MONSTROS  "+std::to_string(especiesVistas())+"/"+std::to_string(especiesDoBestiario())
+                                : "PERSONAGENS";
+        textoCentro(nome,r.x+r.width/2,r.y+12,22,ativa?OURO:TEXTO);
+    }
+    int total = aba==0 ? NUM_TIPOS_DE_MONSTRO : NUM_PERSONAGENS;
+    for(int i=0;i<total;i++) {
+        Rectangle r=cartaDoBestiario(i);
+        cartaoDoBestiario(r,i==escolhido);
+        if(aba==0) {
+            const FichaDoBestiario& f=fichaDoBestiario(i);
+            if(f.visto) {
+                sprite(imagemMonstro(i).data(),r.x+41,r.y+12,5.5f);
+                textoQueCabe(comMaiusculaInicial(TIPOS_DE_MONSTRO[i].nome),r.x+r.width/2-larguraDoTexto(comMaiusculaInicial(TIPOS_DE_MONSTRO[i].nome),17)/2,
+                             r.y+108,17,r.width-12,TEXTO);
+                if(f.derrotados>0) textoCentro(std::to_string(f.derrotados)+(f.derrotados==1?" derrotado":" derrotados"),
+                                               r.x+r.width/2,r.y+134,13,APAGADO);
+                if(f.campeoesDerrotados>0) coroinha(r.x+r.width-24,r.y+20,1.6f);
+            } else {
+                silhueta(imagemMonstro(i).data(),r.x+41,r.y+12,5.5f,{44,56,80,255});
+                textoCentro("???",r.x+r.width/2,r.y+110,20,APAGADO);
+            }
+        } else {
+            sprite(PERSONAGENS[i].arte->data(),r.x+41,r.y+12,5.5f);
+            textoQueCabe(PERSONAGENS[i].nome,r.x+8,r.y+108,16,r.width-16,TEXTO);
+            textoCentro(PERSONAGENS[i].onde,r.x+r.width/2,r.y+134,13,APAGADO);
+        }
+    }
+    if(aba==0) fichaDoMonstro(jogo,escolhido); else fichaDoPersonagem(escolhido);
+    texto("Setas / mouse: escolher    Tab: trocar de aba    Esc ou E: voltar",54,842,18,APAGADO);
+    bool sobre=mouseSobre(VOLTAR_DO_BESTIARIO);
+    DrawRectangleRounded(VOLTAR_DO_BESTIARIO,0.25f,8,sobre?Color{43,58,88,255}:PAINEL2);
+    DrawRectangleRoundedLinesEx(VOLTAR_DO_BESTIARIO,0.25f,8,1.5f,sobre?CIANO:Color{69,89,110,255});
+    textoCentro("VOLTAR",VOLTAR_DO_BESTIARIO.x+VOLTAR_DO_BESTIARIO.width/2,VOLTAR_DO_BESTIARIO.y+13,24,TEXTO);
+}
+}
+
+void mostrarBestiario(const Jogo* jogo) {
+    int aba=0, escolhido=0;
+    tocarSom(SOM_MENU);
+    auto clicou=[](Rectangle r){ return IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouseVirtual(),r); };
+    while(!WindowShouldClose()) {
+        Efeitos::trocarDeTela(55);
+        Ui::iniciarQuadro(); desenharBestiario(jogo,aba,escolhido); Ui::terminarQuadro();
+        while(GetCharPressed()!=0) {}   // as letras não sobram para o jogo depois
+        int total = aba==0 ? NUM_TIPOS_DE_MONSTRO : NUM_PERSONAGENS;
+        int antes=escolhido, abaAntes=aba;
+        if(IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_E) || IsKeyPressed(KEY_BACKSPACE) || clicou(VOLTAR_DO_BESTIARIO)) break;
+        if(IsKeyPressed(KEY_TAB)) aba=1-aba;
+        for(int a=0;a<2;a++) if(clicou(abaDoBestiario(a))) aba=a;
+        if(IsKeyPressed(KEY_RIGHT)||IsKeyPressedRepeat(KEY_RIGHT)||IsKeyPressed(KEY_D)) escolhido=std::min(total-1,escolhido+1);
+        if(IsKeyPressed(KEY_LEFT)||IsKeyPressedRepeat(KEY_LEFT)||IsKeyPressed(KEY_A)) escolhido=std::max(0,escolhido-1);
+        if(IsKeyPressed(KEY_DOWN)||IsKeyPressedRepeat(KEY_DOWN)||IsKeyPressed(KEY_S))
+            escolhido=std::min(total-1,escolhido+COLUNAS_DO_BESTIARIO);
+        if(IsKeyPressed(KEY_UP)||IsKeyPressedRepeat(KEY_UP)||IsKeyPressed(KEY_W))
+            escolhido=std::max(0,escolhido-COLUNAS_DO_BESTIARIO);
+        for(int i=0;i<total;i++) if(clicou(cartaDoBestiario(i))) escolhido=i;
+        if(aba!=abaAntes) escolhido=0;
+        if(escolhido!=antes || aba!=abaAntes) tocarSom(SOM_MENU);
+    }
+    // Mais um quadro: a tecla que fechou (Esc, E) não chega ao jogo.
+    Ui::iniciarQuadro(); desenharBestiario(jogo,aba,escolhido); Ui::terminarQuadro();
+    while(GetCharPressed()!=0) {}
+    tocarSom(SOM_MENU);
 }

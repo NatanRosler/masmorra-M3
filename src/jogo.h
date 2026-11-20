@@ -160,6 +160,7 @@ struct Jogo {
     int segundosDeDescanso;
 
     Elemento elementoDaEspecie[MAX_ESPECIES]; // sorteado a cada partida (Etapa 6)
+    int especiesVistasNaPartida;    // bit t = a espécie t já apareceu nesta partida (bestiário)
 
     int passos;                     // quantos passos o jogador já deu
     int monstrosMortos;

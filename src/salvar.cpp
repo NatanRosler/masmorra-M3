@@ -21,7 +21,8 @@ static const char* ARQUIVO_TEMPORARIO = "save.tmp";
 // mímico), itens de suporte (4 itens novos no fim da lista), Mochila de Couro
 // e Lanterna no jogador, estoque novo do Garro. Saves das versões 1 e 2
 // continuam sendo lidos (ver "SAVES ANTIGOS" mais abaixo).
-static const int VERSAO_DO_SAVE = 3;
+// Versão 4 (v1.18): no fim, as espécies já vistas na partida (bestiário).
+static const int VERSAO_DO_SAVE = 4;
 static const char ASSINATURA[8] = { 'M', 'A', 'S', 'M', 'O', 'R', 'R', 'A' };
 
 // =============================================================================
@@ -290,6 +291,7 @@ bool salvarPartida(const Jogo& jogo) {
         int tipo = (i < (int)jogo.tiposDoHistorico.size()) ? jogo.tiposDoHistorico[i] : MSG_NORMAL;
         g.bruto(tipo);
     }
+    g.bruto(jogo.especiesVistasNaPartida);             // versão 4 (bestiário)
     g.arquivo.write(ASSINATURA, sizeof(ASSINATURA));   // marca de fim: o arquivo está completo
     g.arquivo.close();
     if (!g.arquivo) return false;
@@ -365,6 +367,8 @@ bool carregarPartida(Jogo& jogo) {
         jogo.historico.push_back(texto);
         jogo.tiposDoHistorico.push_back(tipo);
     }
+    jogo.especiesVistasNaPartida = 0;
+    if (versao >= 4) l.bruto(jogo.especiesVistasNaPartida);
     char fim[8];
     if (!l.ok || !l.arquivo.read(fim, sizeof(fim))) return false;
     for (int i = 0; i < 8; i++) if (fim[i] != ASSINATURA[i]) return false;

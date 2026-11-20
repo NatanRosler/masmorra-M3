@@ -13,6 +13,7 @@ struct Opcoes {
     int volumeEfeitos;       // 0 a 10 (x 10%)
     bool telaCheia;          // só na versão gráfica (F11 também troca)
     bool animacaoRapida;     // animações da batalha na metade do tempo
+    int zoomDoMapa;          // 0 = longe (casas de 24 px), 1 = normal (36), 2 = perto (48)
     bool mostrarDicas;
     bool dicaVista[NUM_DICAS];
 };

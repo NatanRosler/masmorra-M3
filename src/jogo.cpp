@@ -8,6 +8,7 @@
 #include "pontuacao.h"
 #include "som.h"
 #include "dicas.h"
+#include "bestiario.h"
 #include <algorithm>
 
 Mapa& mapaAtual(Jogo& jogo) {
@@ -192,6 +193,10 @@ void atualizarVisao(Jogo& jogo) {
         ItemNoChao& item = andar.itens[i];
         if (item.ativo && jogo.visivel[item.y][item.x]) item.visto = true;
     }
+    // Monstros vistos entram no bestiário.
+    for (int i = 0; i < andar.numMonstros; i++) {
+        if (monstroAVista(jogo, andar.monstros[i])) registrarAvistado(jogo, andar.monstros[i]);
+    }
 
     // 4. Distância (BFS) de cada célula até o jogador: os monstros que estão
     //    caçando seguem esse "mapa" na direção dos números menores.
@@ -306,6 +311,7 @@ void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros) {
     jogo.descansando = false;
     jogo.furtivo = false;
     jogo.furtivoLigado = false;
+    jogo.especiesVistasNaPartida = 0;
     jogo.ataqueSurpresa = -1;
     jogo.msDeDescanso = 0;
     jogo.segundosDeDescanso = 0;
@@ -796,6 +802,9 @@ void processarTecla(Jogo& jogo, int tecla) {
     if (tecla == '?') { esperarTecla(jogo, desenharAjuda); return; }
     if (tecla == 'M') { esperarTecla(jogo, desenharHistorico); return; }
     if (tecla == 'c' || tecla == 'C') { jogo.descansando = false; abrirFicha(jogo); return; }
+    if (tecla == 'e' || tecla == 'E') { jogo.descansando = false; mostrarBestiario(&jogo); return; }
+    if (tecla == '+' || tecla == '=') { mudarZoomDoMapa(+1); return; }
+    if (tecla == '-') { mudarZoomDoMapa(-1); return; }
 
     // Teclas que não fazem nada são ignoradas (e não apagam as mensagens).
     int dx = 0, dy = 0;

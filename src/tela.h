@@ -31,6 +31,11 @@ void desenharJogo(const Jogo& jogo);
 // Célula do mapa que aparece no canto superior esquerdo da câmera.
 void posicaoDaCamera(const Jogo& jogo, int& cameraX, int& cameraY);
 void desenharAjuda(const Jogo& jogo);
+// Zoom do mapa (teclas + e -; só na versão gráfica, no terminal não faz nada).
+void mudarZoomDoMapa(int passo);
+// Bestiário (tecla E no jogo e botão do menu). Com jogo = nullptr (menu),
+// não mostra o elemento de cada espécie na partida.
+void mostrarBestiario(const Jogo* jogo);
 void desenharHistorico(const Jogo& jogo);
 // ---- Animações (só na versão gráfica; no terminal não fazem nada) ----------
 // A lógica só AVISA o que aconteceu; quem desenha a animação é a tela.

@@ -93,6 +93,18 @@ void iniciarQuadro() {
     Vector2 tremor=Efeitos::deslocamentoDoTremor();   // golpe crítico, armadilha...
     BeginMode2D({{d.x+tremor.x*e,d.y+tremor.y*e},{0,0},0.0f,e});
 }
+void comecarZoom(float x0, float y0, float z) {
+    EndMode2D();
+    float e=escala(); Vector2 d=deslocamento();
+    Vector2 tremor=Efeitos::deslocamentoDoTremor();
+    BeginMode2D({{d.x+(tremor.x+x0)*e,d.y+(tremor.y+y0)*e},{0,0},0.0f,e*z});
+}
+void terminarZoom() {
+    EndMode2D();
+    float e=escala(); Vector2 d=deslocamento();
+    Vector2 tremor=Efeitos::deslocamentoDoTremor();
+    BeginMode2D({{d.x+tremor.x*e,d.y+tremor.y*e},{0,0},0.0f,e});
+}
 void terminarQuadro() {
     Efeitos::desenharSobreposicoes();   // piscada, escurecimento, botão apertado
     EndMode2D(); EndDrawing();
@@ -165,6 +177,15 @@ void sprite(const char* const linhas[16], float x, float y, float pixel, float b
     if (alfa <= 0.01f) return;
     DrawEllipse((int)(x+pixel*8),(int)(y+pixel*16),pixel*7.2f,pixel*1.4f,{0,0,0,(unsigned char)(65*alfa)});
     icone(linhas,x,y,pixel,brilho,alfa);
+}
+void silhueta(const char* const linhas[16], float x, float y, float pixel, Color cor) {
+    for (int l=0;l<16;l++) {
+        if(!linhas[l]) continue;
+        for (int c=0;c<16 && linhas[l][c];c++) {
+            if (!pixelCor(linhas[l][c]).a) continue;
+            DrawRectangle((int)(x+c*pixel),(int)(y+l*pixel),std::max(1,(int)std::ceil(pixel)),std::max(1,(int)std::ceil(pixel)),cor);
+        }
+    }
 }
 void icone(const char* const linhas[16], float x, float y, float pixel, float brilho, float alfa) {
     if (alfa <= 0.01f) return;
