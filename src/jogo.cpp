@@ -48,7 +48,7 @@ static Andar& prepararAndar(Jogo& jogo, int numero) {
         a.numNpcs = 0;
         a.chavesGuardadas = 0;
         prepararSalaDaLoja(a, numero);   // antes dos monstros: lá dentro ninguém nasce
-        // Tema do andar: poças d'água (4-6) ou poças de lava (7-9).
+        // Tema do andar: poças d'água (4-6), lápides (7-9) ou poças de lava (10-12).
         decorarAndar(a, numero, misturar(jogo.semente, (uint32_t)numero + 4000));
         int chegadaX = a.escadas.chegadaSobeX, chegadaY = a.escadas.chegadaSobeY;
         if (jogo.comMonstros) {
@@ -74,6 +74,15 @@ static Andar& prepararAndar(Jogo& jogo, int numero) {
         a.gerado = true;
     }
     return a;
+}
+
+void voltarAoComecoDoAndar(Jogo& jogo, int numero) {
+    Andar& a = prepararAndar(jogo, numero);
+    jogo.andar = numero;
+    jogo.jogador.x = a.escadas.chegadaSobeX;
+    jogo.jogador.y = a.escadas.chegadaSobeY;
+    jogo.jogador.mochila[I_CHAVE] = a.chavesGuardadas;
+    if (numero > jogo.andarMaisFundo) jogo.andarMaisFundo = numero;
 }
 
 // -----------------------------------------------------------------------------
@@ -141,9 +150,9 @@ const Luz COR_LUZ_LAVA    = { 0.55f, 0.18f, 0.05f }; // vermelho fraco (cada cas
 const int RAIO_LUZ_TOCHA  = 7;
 
 // Como no Brogue, a luz do jogador enfraquece conforme ele desce:
-// raio 9 nos andares 1-2, 8 nos andares 3-4, ..., 5 nos andares 9-10.
+// raio 9 nos andares 1-3, 8 nos andares 4-6, ..., 5 no andar 13.
 int raioDaLuzDoJogador(const Jogo& jogo) {
-    int raio = 9 - (jogo.andar - 1) / 2;
+    int raio = 9 - (jogo.andar - 1) / 3;
     if (jogo.jogador.lanterna) raio += 2;
     return raio;
 }
@@ -197,7 +206,9 @@ void atualizarVisao(Jogo& jogo) {
     }
     // Monstros vistos entram no bestiário.
     for (int i = 0; i < andar.numMonstros; i++) {
-        if (monstroAVista(jogo, andar.monstros[i])) registrarAvistado(jogo, andar.monstros[i]);
+        const Monstro& m = andar.monstros[i];
+        bool disfarcado = (tipoDe(m).especial & DISFARCADO) && m.estado == DORMINDO;   // o fungo parado
+        if (monstroAVista(jogo, m) && !disfarcado) registrarAvistado(jogo, m);
     }
 
     // 4. Distância (BFS) de cada célula até o jogador: os monstros que estão
@@ -315,6 +326,7 @@ void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros) {
     jogo.furtivo = false;
     jogo.furtivoLigado = false;
     jogo.especiesVistasNaPartida = 0;
+    jogo.especiesEnfrentadasNaPartida = 0;
     jogo.encontrosComOChefe = 0;
     jogo.chefeAVista = false;
     jogo.ataqueSurpresa = -1;
@@ -653,6 +665,15 @@ static void depoisDoPasso(Jogo& jogo) {
                              multiplicadorDoPasso(andarAtual(jogo), jogo.jogador.x, jogo.jogador.y);
     // Furtivo: passos 1,5x mais demorados (é o preço do silêncio).
     if (jogo.furtivo) jogo.esperaDoJogadorMs = jogo.esperaDoJogadorMs * 3 / 2;
+    // Teia de aranha (v1.23): fica preso quase um segundo e a teia se rasga.
+    Andar& andar = andarAtual(jogo);
+    if (andar.mapa.celulas[jogo.jogador.y][jogo.jogador.x] == TEIA) {
+        andar.mapa.celulas[jogo.jogador.y][jogo.jogador.x] = CHAO;
+        jogo.esperaDoJogadorMs += 900;
+        tocarSom(SOM_ATORDOADO);
+        efeitoNoMapa(jogo, EFEITO_ATORDOAR, jogo.jogador.x, jogo.jogador.y, 0);
+        adicionarMensagem(jogo, "Você ficou preso numa teia de aranha!", MSG_PERIGO);
+    }
     if (jogo.batalhaPendente >= 0) resolverBatalha(jogo);
 }
 

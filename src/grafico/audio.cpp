@@ -206,6 +206,14 @@ void criarVozes() {
     b = {52, 46, 120, QUADRADA, 0.24f}; b.desafino = 1.06f; b.ruido = 0.12f;
     b.ecoMs = 160; b.ecos = 3; b.ecoGanho = 0.5f;
     criarVoz(VOZ_CHEFE, 1, 0.03f, b);
+    // v1.23
+    b = {1500, 1100, 22, QUADRADA_FINA, 0.10f}; b.ruido = 0.5f;           // aranha: chiado de patinhas
+    criarVoz(VOZ_ARANHA, 1, 0.06f, b);
+    criarVoz(VOZ_FUNGO, 1, 0.08f, {210, 260, 70, TRIANGULAR, 0.25f});      // fungo: "bloop" mole
+    b = {420, 380, 30, QUADRADA, 0.14f}; b.tremidoHz = 40; b.tremido = 0.7f;   // esqueleto: ossos batendo
+    criarVoz(VOZ_ESQUELETO, 1, 0.05f, b);
+    b = {700, 500, 45, TRIANGULAR, 0.16f}; b.ruido = 0.45f;               // salamandra: sibilo quente
+    criarVoz(VOZ_SALAMANDRA, 1, 0.06f, b);
 }
 
 // ---- Efeitos com "instrumentos" (v1.21) ---------------------------------------
@@ -356,6 +364,50 @@ void criarEfeitosComInstrumentos() {
         misturar(x, sino(2349, 0.9f, 0.18f, 2.0f, 1.2f, 3.5f), 0.2f);
         sons[SOM_PONTO_GANHO] = somDeAmostras(reverb(x, 1.0f, 0.35f), 0.55f);
     }
+    // ---- v1.23: estados novos ----
+    {   // Queimado: um sopro de fogo que cresce e uns estalos.
+        Amostras x = envelope(passaBanda(ruido(0.6f), 300, 2500), 0.08f, 5);
+        for (int i = 0; i < 7; i++) misturar(x, estalo(0.5f), acaso(0.05f, 0.5f));
+        sons[SOM_QUEIMADO] = somDeAmostras(reverb(x, 0.8f, 0.25f), 0.6f);
+    }
+    {   // Congelado: cristais tilintando subindo e um chiado frio.
+        Amostras x = envelope(passaAlta(ruido(0.5f), 5000), 0.02f, 6);
+        for (size_t i = 0; i < x.size(); i++) x[i] *= 0.3f;
+        const float notas[] = { 2093, 2637, 3136, 3951, 4186 };
+        for (int i = 0; i < 5; i++) misturar(x, sino(notas[i], 0.5f, 0.22f, 3.5f, 2.0f, 6), i * 0.05f);
+        sons[SOM_CONGELADO] = somDeAmostras(reverb(x, 1.2f, 0.4f), 0.6f);
+    }
+    {   // Degelo: o gelo racha e pinga.
+        Amostras x = envelope(passaAlta(ruido(0.08f), 2500), 0, 40);
+        for (int i = 0; i < 4; i++) misturar(x, gota(acaso(1400, 2200), 0.5f), 0.12f + i * acaso(0.08f, 0.14f));
+        sons[SOM_DEGELO] = somDeAmostras(reverb(x, 1.0f, 0.3f), 0.55f);
+    }
+    {   // Ofuscado: um brilho de sinos agudos que some.
+        Amostras x;
+        const float notas[] = { 2637, 3520, 4186, 3520 };
+        for (int i = 0; i < 4; i++) misturar(x, sino(notas[i], 0.7f, 0.2f, 2.0f, 0.8f, 4), i * 0.04f);
+        sons[SOM_OFUSCADO] = somDeAmostras(reverb(x, 1.4f, 0.45f), 0.55f);
+    }
+    {   // Atordoado: a pancada e três "piu" girando.
+        Amostras x = baque(110, 0.25f, 0.8f);
+        for (int i = 0; i < 3; i++) misturar(x, sino(1800 + i * 300, 0.18f, 0.25f, 1.0f, 0.3f, 10), 0.15f + i * 0.12f);
+        sons[SOM_ATORDOADO] = somDeAmostras(reverb(x, 0.9f, 0.3f), 0.55f);
+    }
+    {   // Folhas: farfalhar (ruído em rajadas curtas).
+        Amostras x;
+        for (int i = 0; i < 6; i++) misturar(x, envelope(passaBanda(ruido(0.12f), 2500, 7000), 0.01f, 25), i * 0.07f, 0.6f);
+        sons[SOM_FOLHAS] = somDeAmostras(reverb(x, 0.7f, 0.2f), 0.5f);
+    }
+    {   // Ossos se juntando: vários "toc" secos acelerando e um sino grave.
+        Amostras x;
+        float t = 0;
+        for (int i = 0; i < 9; i++) {
+            misturar(x, sino(acaso(600, 1000), 0.08f, 0.3f, 3.1f, 2.0f, 40), t);
+            t += 0.11f - i * 0.009f;
+        }
+        misturar(x, sino(110, 1.2f, 0.25f, 1.4f, 2.5f, 2.5f), t);
+        sons[SOM_REMONTA] = somDeAmostras(reverb(x, 1.3f, 0.4f), 0.6f);
+    }
 }
 
 void criarEfeitos() {
@@ -471,6 +523,26 @@ Amostras ambienteDoTrono() {
     misturar(x, sino(196, 4, 0.12f, 2.76f, 3, 0.9f), 3.5f);    // sino distante
     return emLoop(reverb(x, 2.0f, 0.55f), 1.0f);
 }
+// Cripta (v1.23): vento frio por corredores de pedra, sussurros longe, uma
+// corrente balançando e o "plic" de uma gota de vez em quando.
+Amostras ambienteDaCripta() {
+    const float D = 10;
+    Amostras x(TAXA * 10);
+    Amostras vento = passaBanda(ruido(D), 180, 900);
+    Amostras a = ressonancia(ruido(D), 620, 7), b = ressonancia(ruido(D), 980, 7);   // sussurros
+    for (size_t i = 0; i < x.size(); i++) {
+        float t = (float)i / TAXA;
+        float v = 0.5f + 0.5f * std::sin(PI2 * 0.07f * t + 1.3f);
+        float m = 0.5f + 0.5f * std::sin(PI2 * 0.4f * t + 2 * std::sin(PI2 * 0.13f * t));
+        x[i] = vento[i] * 0.22f * v * v + (a[i] + b[i]) * 0.035f * m * m * m +
+               std::sin(PI2 * 49 * t) * 0.05f * (0.7f + 0.3f * std::sin(PI2 * 0.05f * t));   // zumbido grave
+    }
+    for (float p = 1.2f; p < 9.0f; p += 3.7f) {   // corrente balançando: três tilintares metálicos
+        for (int k = 0; k < 3; k++) misturar(x, sino(acaso(900, 1300), 0.4f, 0.06f, 3.2f, 2.0f, 7), p + k * 0.13f);
+    }
+    misturar(x, gota(acaso(900, 1300), 0.12f), 6.4f);
+    return emLoop(reverb(x, 2.2f, 0.6f), 1.0f);
+}
 Amostras ambienteDaFonte() {
     Amostras x = passaBanda(ruido(6), 400, 2500);
     for (float& v : x) v *= 0.10f;
@@ -525,6 +597,20 @@ Amostras umPasso(int tipo) {
         }
         case PASSO_GNOMO:   x = pedra(0.25f, 160); misturar(x, sino(2637, 0.15f, 0.05f, 2, 1.5f, 20), 0.01f); break;
         case PASSO_MIMICO:  x = sino(180, 0.15f, 0.4f, 1.3f, 3, 25); misturar(x, envelope(passaBaixa(ruido(0.05f), 2000), 0, 60), 0, 0.5f); break;
+        case PASSO_ARANHA:      // oito patinhas: estalinhos rápidos
+            x = juntar({ estalo(0.12f), silencio(0.015f), estalo(0.1f), silencio(0.015f), estalo(0.12f), silencio(0.015f), estalo(0.1f) });
+            break;
+        case PASSO_FUNGO:       // "plof" mole
+            x = bolha(acaso(90, 120), 0.3f); misturar(x, envelope(passaBaixa(ruido(0.08f), 600), 0, 30), 0, 0.3f);
+            break;
+        case PASSO_ESQUELETO:   // osso batendo na pedra
+            x = pedra(0.35f, 180); misturar(x, sino(acaso(700, 900), 0.08f, 0.25f, 3.1f, 2, 40), 0.005f);
+            break;
+        case PASSO_SALAMANDRA:  // passos rápidos e um chiado de brasa
+            x = juntar({ envelope(passaAlta(ruido(0.03f), 1800), 0, 90), silencio(0.03f), envelope(passaAlta(ruido(0.03f), 1800), 0, 90) });
+            for (float& a : x) a *= 0.4f;
+            misturar(x, estalo(0.12f), 0.02f);
+            break;
         case PASSO_CHEFE: {
             x = baque(38, 0.6f, 1.0f);
             misturar(x, envelope(passaBaixa(ruido(0.4f), 300), 0, 10), 0, 0.6f);
@@ -540,6 +626,7 @@ void criarAmbientes() {
     ambientes[AMBIENTE_CAVERNA] = ambienteDaCaverna();
     ambientes[AMBIENTE_VULCAO] = ambienteDoVulcao();
     ambientes[AMBIENTE_TRONO] = ambienteDoTrono();
+    ambientes[AMBIENTE_CRIPTA] = ambienteDaCripta();
     // O ambiente fica baixinho, por baixo da música (pico perto de 1/3 da música).
     for (int a = 1; a < NUM_AMBIENTES; a++) normalizar(ambientes[a], 0.2f);
     somDaFonte = ambienteDaFonte(); normalizar(somDaFonte, 0.25f);

@@ -71,8 +71,9 @@ enum AnimacaoDaBatalha {
     ANIM_FUMACA,          // bomba de fumaça: a tela some numa nuvem cinza
 };
 // quem/alvo: 0 = jogador, 1 a 3 = inimigos.
+// golpe: índice em GOLPES (v1.23: cada tipo de golpe tem a sua animação; -1 = genérica).
 void animarBatalha(const Jogo& jogo, const Batalha& b, int animacao, int quem, int alvo,
-                   int elemento, int valor, bool critico);
+                   int elemento, int valor, bool critico, int golpe = -1);
 
 enum EfeitoNoMapa { EFEITO_ARMADILHA, EFEITO_ESPINHOS, EFEITO_ITEM, EFEITO_CAIXA, EFEITO_ATORDOAR, EFEITO_CURA,
                    EFEITO_MOEDAS, EFEITO_LAVA, EFEITO_CORNETA };

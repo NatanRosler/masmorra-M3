@@ -93,12 +93,12 @@ void registrarNoRanking(Jogo& jogo) {
 std::vector<std::string> textoDaHistoria(const std::string& nome) {
     return {
         "Há cem anos, o Senhor das Profundezas tomou a velha mina de Valdoria",
-        "e a transformou numa masmorra de dez andares. Desde então, criaturas",
+        "e a transformou numa masmorra de treze andares. Desde então, criaturas",
         "sobem pelos túneis e atacam a vila durante a noite.",
         "",
         "Muitos desceram para enfrentá-lo. Nenhum voltou.",
         "",
-        nome + ", agora é a sua vez. Desça até o décimo andar, derrote o",
+        nome + ", agora é a sua vez. Desça até o último andar, derrote o",
         "Senhor das Profundezas e liberte Valdoria.",
         "",
         "As portas da entrada se fecham atrás de você.",
@@ -121,7 +121,7 @@ std::vector<std::string> textoDoFinal(const Jogo& jogo) {
         "",
     };
     if (encontrou(jogo, NPC_ESPIRITO))
-        t.push_back("Lá no sétimo andar, uma luz azulada se apaga devagar. Aldric, enfim, pode descansar.");
+        t.push_back("Lá no décimo andar, uma luz azulada se apaga devagar. Aldric, enfim, pode descansar.");
     else
         t.push_back("Em algum lugar lá em cima, uma luz azulada se apaga devagar. O último guardião, enfim, pode "
                     "descansar.");
@@ -145,7 +145,7 @@ std::vector<std::string> textoDoFinal(const Jogo& jogo) {
     if (encontrou(jogo, NPC_COMERCIANTE)) saida += " E Garro, claro, já tinha montado uma banca ali do lado.";
     t.push_back(saida);
     t.push_back("");
-    t.push_back("Valdoria está livre. E a história de " + nome + ", que desceu os dez andares e voltou, vai ser "
+    t.push_back("Valdoria está livre. E a história de " + nome + ", que desceu os treze andares e voltou, vai ser "
                 "contada por mais cem anos.");
     return t;
 }
@@ -162,7 +162,7 @@ std::vector<std::string> falasDoChefe(const Jogo& jogo, bool primeiraVez) {
 
 std::vector<std::string> textoComoJogar() {
     return {
-        "OBJETIVO: chegar ao 10o andar e derrotar o Senhor das Profundezas.",
+        "OBJETIVO: chegar ao 13o andar e derrotar o Senhor das Profundezas.",
         "Vidas: 5 no Fácil, 3 no Médio e no Difícil. Ao perder uma, você volta",
         "para a entrada do andar.",
         "",
@@ -179,7 +179,7 @@ std::vector<std::string> textoComoJogar() {
         "Tela gráfica: segure Tab para ver tudo; roda do mouse, + e -: zoom do mapa.",
         "Sair salva a partida: use CONTINUAR no menu. Ao perder ou vencer, o save some.",
         QUEBRA_DE_PAGINA,
-        "Andares 4-6: poças d'água (passos lentos). Andares 7-9: lava (queima, desvie!).",
+        "Andares 4-6: poças d'água (passos lentos). 7-9: cripta (lápides). 10-12: lava (queima!).",
         "Surpresas: fonte (cura), altar (pacto), baú dourado (cuidado: pode morder!),",
         "gongo da arena (3 ondas de monstros por um prêmio) e o viajante perdido.",
         "",

@@ -182,9 +182,12 @@ void prepararEstoque(const Jogo& jogo, Npc& comerciante) {
     } else if (jogo.andar <= 6) {
         comerciante.estoque[0] = I_ESCUDO_DE_FERRO;
         comerciante.estoque[1] = I_CRISTAL_DE_VIDA;
-    } else {
+    } else if (jogo.andar <= 9) {
         comerciante.estoque[0] = I_ESPADA_LONGA;
         comerciante.estoque[1] = I_CRISTAL_DE_FORCA;
+    } else {   // andar 12 (v1.23): a última parada antes do chefe
+        comerciante.estoque[0] = I_ESCUDO_DE_TORRE;
+        comerciante.estoque[1] = I_CRISTAL_DE_VIDA;
     }
 }
 

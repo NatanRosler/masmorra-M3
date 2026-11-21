@@ -23,7 +23,12 @@ static const char* ARQUIVO_TEMPORARIO = "save.tmp";
 // continuam sendo lidos (ver "SAVES ANTIGOS" mais abaixo).
 // Versão 4 (v1.18): no fim, as espécies já vistas na partida (bestiário).
 // Versão 5 (v1.20): no fim, quantas vezes o chefe já apareceu (cena dele).
-static const int VERSAO_DO_SAVE = 5;
+// Versão 6 (v1.23): 13 andares (eram 10), 4 espécies novas antes do mímico,
+// 9 itens novos no fim da lista, espaço para 24 espécies (eram 16) e, no fim,
+// as espécies já enfrentadas na partida. Dos saves antigos, os andares 7 em
+// diante são descartados (lá agora é a cripta): quem estava neles volta para
+// o começo do andar 7.
+static const int VERSAO_DO_SAVE = 6;
 static const char ASSINATURA[8] = { 'M', 'A', 'S', 'M', 'O', 'R', 'R', 'A' };
 
 // =============================================================================
@@ -85,6 +90,13 @@ struct NpcAntigo {
 };
 const int ITENS_ANTIGOS = 26;     // I_CHAVE + 1: os itens de suporte vieram depois
 const int ESPECIES_ANTIGAS = 9;   // do rato à naga: depois vinham o mímico e o chefe
+// Versões 3 a 5 (v1.17 a v1.22):
+const int ITENS_V5 = 30;          // até o Pergaminho do Mapa
+const int ANDARES_V5 = 10;
+const int MAX_ESPECIES_V5 = 16;
+const int ESPECIES_V5 = 11;       // do rato à sombra; depois vinham o mímico (11) e o chefe (12)
+static int itensNoSave(int versao) { return versao < 3 ? ITENS_ANTIGOS : versao < 6 ? ITENS_V5 : NUM_TIPOS_DE_ITEM; }
+static int andaresNoSave(int versao) { return versao < 6 ? ANDARES_V5 : NUM_ANDARES; }
 
 // Tamanho das estruturas gravadas "brutas": se o jogo mudar, o save antigo
 // é recusado em vez de ser lido errado.
@@ -97,8 +109,8 @@ static void tamanhos(int t[12], int versao) {
     t[4] = (int)sizeof(Mapa);          t[5] = (int)sizeof(Escadas);
     t[6] = (int)sizeof(SalaDoTesouro); t[7] = (int)sizeof(SalaDaLoja);
     t[8] = MAPA_LARGURA;               t[9] = MAPA_ALTURA;
-    t[10] = antigo ? ITENS_ANTIGOS : NUM_TIPOS_DE_ITEM;
-    t[11] = NUM_ANDARES;
+    t[10] = itensNoSave(versao);
+    t[11] = andaresNoSave(versao);
 }
 
 static void lerMonstro(Leitor& l, Monstro& m, int versao) {
@@ -168,15 +180,17 @@ static void lerJogador(Leitor& l, Jogador& j, int versao) {
     l.bruto(j.golpes);
     l.bruto(j.pp);
     l.bruto(j.numGolpes);
-    if (versao >= 3) {
+    if (versao >= 6) {
         l.bruto(j.mochila);
     } else {
-        int antiga[ITENS_ANTIGOS];
-        l.bruto(antiga);
-        for (int i = 0; i < NUM_TIPOS_DE_ITEM; i++) j.mochila[i] = (i < ITENS_ANTIGOS) ? antiga[i] : 0;
+        // Saves antigos: a lista de itens era menor (os novos ficam com 0).
+        int antiga[NUM_TIPOS_DE_ITEM] = {};
+        int quantos = itensNoSave(versao);
+        for (int i = 0; i < quantos && l.ok; i++) l.bruto(antiga[i]);
+        for (int i = 0; i < NUM_TIPOS_DE_ITEM; i++) j.mochila[i] = antiga[i];
     }
-    int arma = l.numero(-1, NUM_TIPOS_DE_ITEM - 1);
-    int escudo = l.numero(-1, NUM_TIPOS_DE_ITEM - 1);
+    int arma = l.numero(-1, itensNoSave(versao) - 1);
+    int escudo = l.numero(-1, itensNoSave(versao) - 1);
     j.arma = (arma >= 0) ? &TIPOS_DE_ITEM[arma] : nullptr;
     j.escudo = (escudo >= 0) ? &TIPOS_DE_ITEM[escudo] : nullptr;
     l.bruto(j.bonusVida);
@@ -294,6 +308,7 @@ bool salvarPartida(const Jogo& jogo) {
     }
     g.bruto(jogo.especiesVistasNaPartida);             // versão 4 (bestiário)
     g.bruto(jogo.encontrosComOChefe);                  // versão 5 (cena do chefe)
+    g.bruto(jogo.especiesEnfrentadasNaPartida);        // versão 6 (elemento no bestiário)
     g.arquivo.write(ASSINATURA, sizeof(ASSINATURA));   // marca de fim: o arquivo está completo
     g.arquivo.close();
     if (!g.arquivo) return false;
@@ -318,7 +333,7 @@ static bool lerCabecalho(Leitor& l, std::string& nome, int& andar, int& nivel, i
     tamanhos(esperados, versao);
     for (int i = 0; i < 12; i++) if (lidos[i] != esperados[i]) return false;
     l.texto(nome);
-    andar = l.numero(1, NUM_ANDARES);
+    andar = l.numero(1, andaresNoSave(versao));
     nivel = l.numero(1, NIVEL_MAXIMO);
     dificuldade = l.numero(0, NUM_DIFICULDADES - 1);
     return l.ok;
@@ -350,8 +365,15 @@ bool carregarPartida(Jogo& jogo) {
     jogo.andar = andar;
     l.bruto(jogo.semente);
     l.bruto(jogo.sorte);
-    l.bruto(jogo.elementoDaEspecie);
-    for (int i = 0; i < NUM_ANDARES && l.ok; i++) lerAndar(l, jogo.andares[i], versao);
+    if (versao >= 6) {
+        l.bruto(jogo.elementoDaEspecie);
+    } else {
+        Elemento antigos[MAX_ESPECIES_V5];
+        l.bruto(antigos);
+        for (int i = 0; i < MAX_ESPECIES; i++) jogo.elementoDaEspecie[i] = (i < MAX_ESPECIES_V5) ? antigos[i] : NORMAL;
+    }
+    for (int i = 0; i < NUM_ANDARES; i++) jogo.andares[i].gerado = false;
+    for (int i = 0; i < andaresNoSave(versao) && l.ok; i++) lerAndar(l, jogo.andares[i], versao);
     if (l.ok) lerJogador(l, jogo.jogador, versao);
     l.bruto(jogo.tempoMs);
     l.bruto(jogo.passos);
@@ -374,10 +396,12 @@ bool carregarPartida(Jogo& jogo) {
     jogo.encontrosComOChefe = 0;
     jogo.chefeAVista = false;
     if (versao >= 5) l.bruto(jogo.encontrosComOChefe);
+    jogo.especiesEnfrentadasNaPartida = 0;
+    if (versao >= 6) l.bruto(jogo.especiesEnfrentadasNaPartida);
     char fim[8];
     if (!l.ok || !l.arquivo.read(fim, sizeof(fim))) return false;
     for (int i = 0; i < 8; i++) if (fim[i] != ASSINATURA[i]) return false;
-    if (!jogo.andares[jogo.andar - 1].gerado) return false;
+    if (!jogo.andares[jogo.andar - 1].gerado && !(versao < 6 && jogo.andar >= 7)) return false;
     if (versao < 3) {
         // As espécies mudaram de número: na versão 1 a tabela acabava no
         // chefe (índice 9); na 2, vinham o mímico (9) e o chefe (10); na 3,
@@ -406,6 +430,39 @@ bool carregarPartida(Jogo& jogo) {
                 int tipo = a.monstros[k].tipo;
                 if (tipo >= 0 && tipo < MAX_ESPECIES) a.monstros[k].tipo = novoNumero[tipo];
             }
+        }
+    }
+
+    if (versao >= 3 && versao < 6) {
+        // v1.23: as 4 espécies novas entraram antes do mímico e do chefe.
+        int novoNumero[MAX_ESPECIES];
+        for (int i = 0; i < MAX_ESPECIES; i++) novoNumero[i] = i;
+        novoNumero[ESPECIES_V5] = tipoDoMimico();
+        novoNumero[ESPECIES_V5 + 1] = tipoDoChefe();
+        Elemento antigos[MAX_ESPECIES];
+        for (int i = 0; i < MAX_ESPECIES; i++) antigos[i] = jogo.elementoDaEspecie[i];
+        sortearElementosDasEspecies(jogo, jogo.semente);   // as espécies novas ganham um elemento
+        for (int i = 0; i < ESPECIES_V5; i++) jogo.elementoDaEspecie[i] = antigos[i];
+        jogo.elementoDaEspecie[tipoDoMimico()] = antigos[ESPECIES_V5];
+        jogo.elementoDaEspecie[tipoDoChefe()] = TREVAS;   // o chefe agora é sempre de Trevas
+        for (int i = 0; i < NUM_ANDARES; i++) {
+            Andar& a = jogo.andares[i];
+            if (!a.gerado) continue;
+            for (int k = 0; k < a.numMonstros; k++) {
+                int tipo = a.monstros[k].tipo;
+                if (tipo >= 0 && tipo < MAX_ESPECIES) a.monstros[k].tipo = novoNumero[tipo];
+            }
+        }
+        // Cada espécie vista agora tem outro número: o bestiário da partida recomeça.
+        jogo.especiesVistasNaPartida = 0;
+    }
+    if (versao < 6) {
+        // Os andares 7 em diante mudaram (cripta, vulcão mais fundo, chefe no 13).
+        for (int i = 6; i < NUM_ANDARES; i++) jogo.andares[i].gerado = false;
+        if (jogo.andar >= 7) {
+            jogo.comMonstros = true;   // o andar 7 novo nasce com monstros
+            jogo.modoAutomatico = false;
+            voltarAoComecoDoAndar(jogo, 7);
         }
     }
 

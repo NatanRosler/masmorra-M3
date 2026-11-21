@@ -70,7 +70,7 @@ void titulo() {
 }
 void inicio(int cursor) {
     titulo();
-    texto("Explore dez andares, descubra itens e",151,279,25,TEXTO);
+    texto("Explore treze andares, descubra itens e",151,279,25,TEXTO);
     texto("enfrente criaturas em combates por turnos.",151,315,25,TEXTO);
     for(int i=0;i<numBotoes();i++) {
         Rectangle r=botaoDoMenu(i);

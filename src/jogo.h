@@ -19,7 +19,7 @@
 #include "salas.h"
 
 // Quantos andares a masmorra tem. O chefe final ficará no último.
-const int NUM_ANDARES = 10;
+const int NUM_ANDARES = 13;   // v1.23 (eram 10)
 
 // Atributos-base do jogador (como os de um monstro): os valores de verdade
 // crescem com o nível. Ver recalcularAtributos().
@@ -161,6 +161,7 @@ struct Jogo {
 
     Elemento elementoDaEspecie[MAX_ESPECIES]; // sorteado a cada partida (Etapa 6)
     int especiesVistasNaPartida;    // bit t = a espécie t já apareceu nesta partida (bestiário)
+    int especiesEnfrentadasNaPartida; // bit t = já lutou contra a espécie t (v1.23: o elemento aparece no bestiário)
     int encontrosComOChefe;         // quantas vezes o chefe já apareceu na sua frente (cena longa na 1a)
     bool chefeAVista;               // o chefe estava à vista no último passo (não vai no save)
 
@@ -191,6 +192,10 @@ struct Jogo {
 
 // O jogador está furtivo? (Shift segurado na versão gráfica ou a tecla F.)
 bool estaFurtivo(const Jogo& jogo);
+
+// Leva o jogador para a chegada do andar "numero" (gerando o andar se for
+// preciso). Usado ao carregar um save antigo cujos andares mudaram (v1.23).
+void voltarAoComecoDoAndar(Jogo& jogo, int numero);
 
 // Escolhas da tela de criação do personagem (Etapa 6).
 struct Criacao {

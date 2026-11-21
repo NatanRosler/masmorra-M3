@@ -78,6 +78,7 @@ if(MASMORRA_GRAFICO)
         src/grafico/menu_principal.cpp
         src/grafico/audio.cpp
         src/grafico/sintese.cpp
+        src/grafico/golpes_visuais.cpp
         src/grafico/efeitos.cpp
     )
     configurar_executavel(masmorra)

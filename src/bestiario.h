@@ -14,6 +14,7 @@
 // depois que o jogo chama carregarBestiario() (os dois main.cpp fazem isso).
 // -----------------------------------------------------------------------------
 #pragma once
+#include <bitset>
 
 #include <cstdint>
 #include <string>
@@ -25,7 +26,7 @@ struct FichaDoBestiario {
     bool visto;
     int derrotados;
     int campeoesDerrotados;
-    uint64_t golpesVistos;     // bit i = GOLPES[i] já foi visto
+    std::bitset<128> golpesVistos; // bit i = GOLPES[i] já foi visto (v1.23: mais de 64 golpes)
     int elementosVistos;       // bit e = já apareceu com o elemento e
 };
 
@@ -42,13 +43,17 @@ int especiesVistas();
 int especiesDoBestiario();
 
 // Chamadas pela lógica do jogo:
-void registrarAvistado(Jogo& jogo, const Monstro& m);      // apareceu na tela
+// apareceu na tela; naBatalha = começou uma luta com ele (só aí o elemento
+// dele nesta partida fica conhecido, v1.23)
+void registrarAvistado(Jogo& jogo, const Monstro& m, bool naBatalha = false);
 void registrarGolpe(int tipo, int golpe);                   // usou um golpe na batalha
 void registrarDerrota(const Monstro& m);                    // foi vencido
 
 // A espécie já apareceu NESTA partida? (Só então o bestiário mostra o
 // elemento dela nesta partida.)
 bool vistaNaPartida(const Jogo& jogo, int tipo);
+// Já lutou contra esta espécie nesta partida (o bestiário mostra o elemento)?
+bool enfrentadaNaPartida(const Jogo& jogo, int tipo);
 
 // Texto curto de cada espécie e em que andares ela aparece.
 std::string descricaoDaEspecie(int tipo);

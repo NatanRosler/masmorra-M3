@@ -44,7 +44,7 @@ O jogador só vê o que está **em linha reta** e **iluminado**.
 2. **Iluminação.** Cada fonte de luz (o próprio jogador e as tochas presas nas
    paredes) espalha uma cor RGB usando o mesmo cálculo de linha de visão, mais
    forte perto e mais fraca longe. As luzes se **somam**. A luz do jogador
-   diminui conforme ele desce (raio 9 no andar 1, raio 5 no andar 10).
+   diminui conforme ele desce (raio 9 nos andares 1-3, raio 5 no andar 13).
 3. **O que aparece na tela.** Uma célula é visível se está na linha de visão e
    recebe luz suficiente. A cor desenhada é a cor do objeto multiplicada pela
    cor da luz, convertida para a paleta de 256 cores do terminal.
@@ -294,8 +294,8 @@ linha de uma tabela; as regras leem `dificuldadeAtual()` em vez de números fixo
 
 | | Fácil | Médio | Difícil | Impossível (v1.22) |
 |---|---|---|---|---|
-| Vida dos monstros | −15% | +10% | +30% | +40% |
-| Ataque dos monstros (≈ dano) | 75% | 110% (95% até a v1.7, 100% até a v1.13) | 125% | 135% |
+| Vida dos monstros (v1.23) | −20% (era −15%) | 0% (era +10%) | +5% (era +30%) | +40% |
+| Ataque dos monstros (≈ dano, v1.23) | 60% (era 75%) | 75% (era 115%) | 85% (era 125%) | 135% |
 | Intervalo entre passos dos monstros | 130% (mais lentos) | 110% | 100% | 90% (mais rápidos) |
 | Dano das armadilhas | 6% da vida | 10% | 15% | 20% |
 | Experiência ganha | 150% | 125% | 100% | 100% |
@@ -886,3 +886,117 @@ Tudo continua gerado no código, sem nenhum arquivo de áudio.
   Antes desta versão o explorador chegava ao andar 10 em 97% (Médio) e 63%
   (Difícil). Os robôs jogam pior que uma pessoa (não fogem nem escolhem as
   lutas), então numa partida de verdade dá para ir mais longe.
+
+## 13 andares, cripta, elementos novos, golpes e animações (v1.23)
+
+**Masmorra com 13 andares** (`NUM_ANDARES`): minas (1-3), caverna alagada (4-6),
+**cripta** (7-9, nova), vulcão (10-12) e o salão do chefe (13).
+
+- **A cripta** (`TEMA_CRIPTA`, tema.cpp e tela_grafica.cpp): chão de lajes 2x2
+  com rachaduras, ossos e crânios; nichos com crânio nas paredes; teias nos
+  cantos; névoa rasteira (manchas claras que andam devagar, calculadas por senos
+  em cada quarto de casa); velas verdes (`TOCHA` desenhada como velas, e mais
+  velas colocadas em `decorarAndar`); **lápides** (`TUMULO`), que não deixam
+  passar mas não tapam a visão e nunca fecham um caminho (mesmo teste da lava);
+  e um som de ambiente próprio (vento frio, sussurros, corrente e uma gota).
+- O Garro aparece nos andares 3, 6, 9 e 12 (no 12 vende Escudo de Torre e
+  Cristal de Vida); o Aldric desceu para o andar 10; as falas e textos que
+  falavam do andar 10 passaram para o 13. O raio de luz cai 1 a cada 3 andares.
+- **Save versão 6**: 13 andares, 9 itens novos, 24 espécies e as espécies já
+  enfrentadas. Saves antigos continuam abrindo: dos andares 7 em diante nada é
+  aproveitado (eram vulcão e trono) e quem estava lá volta para o começo do
+  andar 7 (`voltarAoComecoDoAndar`).
+
+**4 monstros novos** (antes do mímico na tabela; os números do mímico e do
+chefe mudaram e o save antigo é convertido):
+
+| | Andares | O que faz |
+|---|---|---|
+| Aranha | 2-6 | `TECE_TEIA`: deixa teias (`TEIA`) por onde anda (30% por passo, até 18 por andar) e já nasce com algumas. Quem pisa fica preso 0,9 s. Na batalha, **Teia** faz perder a vez. |
+| Fungo | 4-6 | `DISFARCADO`: nasce parado e desenhado como um dos cogumelos de enfeite da caverna; só acorda com o jogador a 2 casas. **Esporos** dão sono. Não aparece no cartão do monstro nem no bestiário enquanto está disfarçado. |
+| Esqueleto | 7-9 | Sempre em dupla. `REMONTA`: derrotado, se monta de novo uma vez com 1/3 da vida (`Monstro::cornetas` = 1), a não ser que o último dano tenha sido de Fogo, Pedra ou Luz (`Batalha::ultimoElemento`). |
+| Salamandra | 10-12 | Rápida e `ANDA_NA_LAVA` (pode pisar na lava). Brasa e Labareda podem queimar. |
+
+A naga passou para 8-12, o ogro para 9-13, a sombra para 7-12 e o morcego para 6-12.
+
+**4 elementos novos: Gelo, Raio, Trevas e Luz** (sempre no fim das listas,
+porque o save guarda números). Tabela 10x10 (`TABELA_DE_EFICACIA`):
+
+| Golpe de | Causa o dobro em | Causa metade em |
+|---|---|---|
+| Normal | (ninguém) | (ninguém) |
+| Fogo | Planta, Gelo, Trevas | Fogo, Água, Pedra |
+| Água | Fogo, Pedra | Água, Planta, Gelo |
+| Planta | Água, Pedra | Fogo, Planta, Veneno |
+| Veneno | Luz | Veneno, Pedra |
+| Pedra | Fogo, Veneno, Raio | Planta |
+| Gelo | Água, Pedra | Fogo, Gelo |
+| Raio | Água, Gelo | Planta, Raio |
+| Trevas | Normal, Luz | Trevas |
+| Luz | Trevas | Luz |
+
+- O bônus do golpe do próprio elemento caiu de 50% para **30%**
+  (`BONUS_DO_PROPRIO_ELEMENTO`).
+- O elemento de cada espécie continua sorteado a cada partida, mas 7 em 10
+  vezes sai um elemento do tema dela (`sortearElementosDasEspecies`). O chefe
+  é sempre de Trevas, e o golpe dele (Golpe Sombrio) também.
+- O elemento **não aparece mais no mapa** (nem a bolinha, nem o cartão do
+  monstro, nem a cor da letra no console): só na batalha. O bestiário mostra o
+  elemento da partida só depois de lutar com a espécie
+  (`Jogo::especiesEnfrentadasNaPartida`).
+- A tela de criação resume o elemento escolhido (`resumoDoElemento`).
+
+**Golpes** (batalha.h): cada elemento tem a sua linha (níveis 12, 24 e 30) e
+todos aprendem Grito de Guerra (9), Golpe Duplo (18) e Foco (27)
+(`golpesDoNivel`):
+
+| Elemento | Nv 1 | Nv 12 | Nv 24 | Nv 30 |
+|---|---|---|---|---|
+| Normal | Golpe Forte | Investida | Fúria (3 golpes) | Golpe Final |
+| Fogo | Tocha | Labareda | Muralha de Fogo ★ | Inferno |
+| Água | Jato d'Água | Bolha Curativa | Onda ★ | Maremoto |
+| Planta | Chicote de Vinha | Folha Navalha | Tempestade de Folhas ★ | Semente Sanguessuga |
+| Veneno | Lâmina Venenosa | Nuvem Tóxica ★ | Ácido Corrosivo | Peste |
+| Pedra | Pedrada | Muralha de Pedra | Terremoto ★ | Avalanche |
+| Gelo | Rajada de Gelo | Armadura de Gelo | Nevasca ★ | Zero Absoluto |
+| Raio | Choque | Passo do Raio (prioridade) | Trovão | Tempestade ★ |
+| Trevas | Garra das Trevas | Pavor | Pulso das Trevas | Eclipse |
+| Luz | Raio de Luz | Cura de Luz | Clarão ★ | Julgamento |
+
+★ = em área (`Golpe::area`): o golpe do jogador acerta cada inimigo na luta.
+
+- **Estados novos** (`Status`): **queimado** (perde 1/16 por rodada e o ataque
+  cai para 3/4), **congelado** (perde 0 a 1 vez; golpe de Fogo derrete na hora),
+  **ofuscado** (−15 na chance de acertar), **atordoado** e **preso** (perdem a
+  próxima vez). Cada elemento é imune ao "seu" estado. Semente Sanguessuga tira
+  1/8 por rodada e cura o jogador. O Antídoto cura tudo.
+- Golpes que antes não deixavam efeito agora deixam: Tocha e Brasa queimam,
+  Pedrada e Esmagar atordoam, Chicote de Vinha prende.
+- **Armas**: Lança de Gelo, Martelo do Trovão, Foice das Trevas e Cetro de Luz,
+  e as 9 armas de elemento ganharam um efeito extra (`efeitoDaArma`): 10% de
+  queimar, baixar a defesa, envenenar, atordoar, congelar, paralisar ou
+  ofuscar; o Chicote de Espinhos cura 5% a cada golpe de Planta e a Foice suga
+  10% do dano. **Pergaminhos**: um por elemento.
+- **Animações** (`grafico/golpes_visuais.cpp`): cada golpe tem uma forma
+  (`formaDoGolpe`): impacto, corte, mordida, projétil, coluna, feixe, chicote,
+  nuvem, relâmpago, grito ou espiral, com o seu tempo e o momento em que acerta.
+  Os estados ficam desenhados no lutador (chamas, bloco de gelo, estrelas,
+  teia, brotinho da semente). Sons novos para cada estado e para o esqueleto.
+- O bestiário passou a ter 5 colunas (17 espécies) e `golpesVistos` virou um
+  `std::bitset<128>` (agora são mais de 64 golpes).
+
+**Equilíbrio** (robôs exploradores com Força e Agilidade, comprando na loja;
+"chega ao 13" = chega ao último andar):
+
+| | Fácil | Médio | Difícil | Impossível |
+|---|---|---|---|---|
+| Chega ao andar 13 (média dos 10 elementos) | 100% | 31% | 10% | 0% |
+| Andar médio onde termina | 13 | 10,4 | 9,2 | 2,7 |
+| Pior e melhor elemento (Médio) | | Gelo 21%, Pedra 42% | Gelo 1%, Veneno 18% | |
+
+Para chegar nisso: os monstros novos e os estados deixaram as lutas mais
+duras e a masmorra ficou 30% mais longa, então o ataque e a vida dos monstros
+no Fácil, Médio e Difícil caíram (ver a tabela das dificuldades); a regra dos
+"2 níveis abaixo" continua. A tabela de elementos e os temas foram ajustados
+até nenhum elemento ficar mais de ~11 pontos longe da média no Médio (antes
+Veneno chegava ao fim em 49% e Planta em 1%).

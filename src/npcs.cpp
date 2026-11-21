@@ -10,7 +10,7 @@
 const FichaNpc FICHAS_DOS_NPCS[NUM_TIPOS_DE_NPC] = {
     { "Eldra, a exploradora",   '&', { 120, 210, 230 }, 1, 0 },
     { "Borin, o velho mineiro", '&', { 230, 170,  90 }, 4, 0 },
-    { "Aldric, o espírito guardião", '&', { 200, 200, 255 }, 7, 0 },
+    { "Aldric, o espírito guardião", '&', { 200, 200, 255 }, 10, 0 },   // v1.23: era o andar 7
     { "Garro, o comerciante",   '$', { 255, 205,  70 }, 3, 3 },   // andares 3, 6 e 9
     { "Tobias, o viajante perdido", '&', { 200, 160, 255 }, 0, 0 }, // sorteado em salas.cpp
 };
@@ -293,7 +293,7 @@ void conversarComNpc(Jogo& jogo, int indice) {
                     "\"Dica de graça, porque gostei da sua cara: os monstros carregam moedas. Algumas caixas "
                     "também. Junte tudo!\"",
                     "",
-                    "\"Vou descendo junto com você. Me procure no sexto e no nono andar... se eu ainda estiver "
+                    "\"Vou descendo junto com você. Me procure no sexto, no nono e no décimo segundo andar... se eu ainda estiver "
                     "inteiro, claro!\"",
                 };
             } else if (jogo.andar < NUM_ANDARES - 1) {
@@ -497,7 +497,7 @@ void conversarComNpc(Jogo& jogo, int indice) {
             falas.push_back("\"Quando o Senhor das Profundezas subiu, eu fiquei para segurá-lo aqui embaixo. "
                             "Segurei por cem anos. Mas não consigo mais.\"");
             falas.push_back("");
-            falas.push_back("\"Ele espera no décimo andar. Dele não se foge: só se vence. E, quando estiver "
+            falas.push_back("\"Ele espera no décimo terceiro andar. Dele não se foge: só se vence. E, quando estiver "
                             "ferido, vai ficar furioso. Não se assuste.\"");
             falas.push_back("");
             falas.push_back("\"Ainda tenho força para uma última coisa. Fique parado.\"");

@@ -21,7 +21,10 @@ enum TipoCelula {
     PORTA_TRANCADA,// só abre com uma chave
     CAIXA,         // obstáculo: dá para empurrar (ou quebrar); não bloqueia a visão
     POCA,          // poça d'água da caverna alagada (andares 4-6): passa, mas devagar
-    LAVA           // profundezas vulcânicas (7-9): dá para passar, mas queima
+    LAVA,          // profundezas vulcânicas: dá para passar, mas queima
+    // v1.23
+    TUMULO,        // lápide da cripta: não dá para passar, mas não tapa a visão
+    TEIA           // teia de aranha: dá para passar, mas quem pisa fica preso um instante
 };
 
 struct Mapa {

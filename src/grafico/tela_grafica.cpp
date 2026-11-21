@@ -16,6 +16,8 @@
 #include "salas_sprites.h"
 #include "monstros_sprites.h"
 #include "tema.h"
+#include "icones_elementos.h"
+#include "golpes_visuais.h"
 #include "efeitos.h"
 #include "opcoes.h"
 #include "bestiario.h"
@@ -117,6 +119,10 @@ const Sprite& imagemMonstro(int tipo) {
         case 'M':return MIMICO;
         case 'G':return GNOMO;
         case 'W':return SOMBRA;
+        case 'a':return ARANHA;
+        case 'f':return FUNGO;
+        case 'e':return ESQUELETO;
+        case 's':return SALAMANDRA;
     }
     return GOBLIN;
 }
@@ -134,18 +140,22 @@ void desenharSprite(const Sprite& sp,float x,float y,float pixel,float iluminaca
 // Identificação de cada tela, para o escurecimento ao trocar de uma para outra.
 enum IdDaTela { TELA_MAPA = 1, TELA_BATALHA, TELA_CRIACAO, TELA_MORTE, TELA_AVISO, TELA_PAGINA = 100 };
 // Etiqueta colorida com o nome do elemento (ex.: [ FOGO ]).
+// v1.23: com o símbolo do elemento antes do nome.
 float etiquetaDeElemento(int elemento,float x,float y,float tam=16) {
     std::string nome = emMaiusculas(NOMES_DOS_ELEMENTOS[elemento]);
-    float w = std::max(60.0f, (float)nome.size()*tam*0.62f+24);
+    float icone=(tam+8)/9.0f*0.82f;          // tamanho do pixel do símbolo
+    float w = std::max(60.0f, larguraDoTexto(nome,tam)+icone*9+30);
     DrawRectangleRounded({x,y,w,tam+8},0.5f,6,multiplicar(corDoElemento(elemento),0.45f));
     DrawRectangleRoundedLinesEx({x,y,w,tam+8},0.5f,6,1.2f,corDoElemento(elemento));
-    textoCentro(nome,x+w/2,y+3,tam,TEXTO);
+    iconeDoElemento(elemento,x+8,y+(tam+8-icone*9)/2,icone);
+    textoCentro(nome,x+8+icone*9+(w-8-icone*9)/2,y+3,tam,TEXTO);
     return w;
 }
 void etiquetaDeStatus(int status,float x,float y) {
     if (status==SEM_STATUS) return;
-    const char* nomes[]={"","ENVENENADO","DORMINDO","PARALISADO"};
-    Color cores[]={TEXTO,{185,95,215,255},{120,150,230,255},{235,200,70,255}};
+    const char* nomes[]={"","ENVENENADO","DORMINDO","PARALISADO","QUEIMADO","CONGELADO","OFUSCADO","ATORDOADO","PRESO"};
+    Color cores[]={TEXTO,{185,95,215,255},{120,150,230,255},{235,200,70,255},{255,130,60,255},{150,220,255,255},
+                   {255,240,190,255},{255,210,90,255},{215,220,230,255}};
     DrawRectangleRounded({x,y,128,24},0.5f,6,multiplicar(cores[status],0.4f));
     textoCentro(nomes[status],x+64,y+3,15,cores[status]);
 }
@@ -210,11 +220,12 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
     auto tipo=a.mapa.celulas[y][x];
     int tema=temaDoAndar(jogo.andar);
     // Cores do chão e da parede de cada tema: minas, caverna, vulcão, trono.
-    const Color CHAO_DO_TEMA[NUM_TEMAS]={{72,64,60,255},{52,70,74,255},{66,50,46,255},{70,74,92,255}};
-    const Color PAREDE_DO_TEMA[NUM_TEMAS]={{121,102,90,255},{78,108,116,255},{92,58,52,255},{118,124,150,255}};
+    const Color CHAO_DO_TEMA[NUM_TEMAS]={{72,64,60,255},{52,70,74,255},{56,63,64,255},{66,50,46,255},{70,74,92,255}};
+    const Color PAREDE_DO_TEMA[NUM_TEMAS]={{121,102,90,255},{78,108,116,255},{90,96,104,255},{92,58,52,255},{118,124,150,255}};
     Color chao=agora?CHAO_DO_TEMA[tema]:Color{24,33,55,255};
     Color parede=agora?PAREDE_DO_TEMA[tema]:Color{40,49,70,255};
     Color cor= (tipo==PAREDE || tipo==TOCHA) ? parede : chao;
+    bool cripta=(tema==TEMA_CRIPTA);
     if(agora)cor=iluminarComCor(cor,jogo.luz[y][x],claridade);
     DrawRectangle(px,py,TAM,TAM,cor);
     if(tipo==PAREDE || tipo==TOCHA) {
@@ -227,6 +238,15 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
             float pulso=0.7f+0.3f*std::sin((float)GetTime()*2+x+y);
             DrawLine(px+3,py+4,px+9,py+10,multiplicar({255,120,40,255},pulso));
             DrawLine(px+9,py+10,px+8,py+18,multiplicar({255,120,40,255},pulso));
+        }
+        // Cripta: nichos do ossuário com um crânio dentro.
+        if(cripta && tipo==PAREDE && (x*7+y*11)%6==0 && ehPassavel(a.mapa,x,y+1)) {
+            DrawRectangle(px+5,py+7,14,13,multiplicar({22,24,30,255},claridade));
+            DrawRectangle(px+5,py+6,14,2,multiplicar({120,126,134,255},claridade));
+            Color osso=multiplicar({214,206,182,255},agora?claridade:0.4f);
+            DrawCircle(px+12,py+13,4.5f,osso);
+            DrawRectangle(px+10,py+16,5,3,osso);
+            DrawRectangle(px+9,py+12,2,2,{20,20,26,255}); DrawRectangle(px+13,py+12,2,2,{20,20,26,255});
         }
         // Caverna: musgo verde-azulado em algumas paredes.
         if(tema==TEMA_CAVERNA && agora && (x*11+y*5)%4==0)
@@ -277,6 +297,56 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
                 DrawLine((int)cxp-5+k*2,oy,(int)cxp+3+k*2,oy,multiplicar({120,190,240,255},f*(0.7f+0.3f*onda)));
             }
         }
+    } else if(cripta && (tipo==CHAO || tipo==TUMULO) && !a.zonaSegura[y][x]) {
+        // Cripta: lajes grandes (2x2 casas) com rejunte, rachaduras e ossos.
+        Color rejunte=multiplicar({34,37,42,255},claridade);
+        if(x%2==0) DrawLine(px,py,px,py+TAM,rejunte);
+        if(y%2==0) DrawLine(px,py,px+TAM,py,rejunte);
+        if((x*31+y*17)%9==0) {   // rachadura
+            Color r=multiplicar({30,32,36,255},claridade);
+            DrawLine(px+4,py+6,px+10,py+11,r); DrawLine(px+10,py+11,px+9,py+18,r); DrawLine(px+10,py+11,px+16,py+13,r);
+        }
+        if((x*13+y*29)%23==0 && tipo==CHAO) {   // osso largado
+            Color o=multiplicar({200,192,170,255},agora?claridade:0.4f);
+            DrawLine(px+7,py+15,px+16,py+10,o); DrawLine(px+7,py+16,px+16,py+11,o);
+            DrawCircle(px+7,py+14,1.6f,o); DrawCircle(px+7,py+17,1.6f,o);
+            DrawCircle(px+16,py+9,1.6f,o); DrawCircle(px+17,py+12,1.6f,o);
+        } else if((x*7+y*41)%37==0 && tipo==CHAO) {   // crânio pequeno
+            Color o=multiplicar({205,198,176,255},agora?claridade:0.4f);
+            DrawCircle(px+12,py+12,4,o); DrawRectangle(px+10,py+15,5,2,o);
+            DrawRectangle(px+10,py+11,2,2,{25,25,30,255}); DrawRectangle(px+13,py+11,2,2,{25,25,30,255});
+        }
+        if(tipo==TUMULO) {
+            // Lápide: pedra com o topo redondo (ou em cruz), musgo e sombra.
+            float f=agora?claridade:0.42f;
+            Color pedra=multiplicar({128,134,140,255},f), escura=multiplicar({78,82,90,255},f);
+            DrawEllipse(px+12,py+21,9,2.5f,{10,12,16,120});
+            if((x+y*3)%3==0) {
+                DrawRectangle(px+10,py+3,4,18,pedra); DrawRectangle(px+5,py+7,14,4,pedra);
+                DrawRectangleLines(px+10,py+3,4,18,escura);
+                DrawRectangle(px+8,py+19,8,3,escura);
+            } else {
+                DrawCircle(px+12,py+9,6,pedra); DrawRectangle(px+6,py+9,12,12,pedra);
+                DrawRectangle(px+5,py+19,14,3,escura);
+                DrawLine(px+9,py+11,px+15,py+11,escura); DrawLine(px+9,py+14,px+15,py+14,escura); DrawLine(px+9,py+17,px+13,py+17,escura);
+                if((x*5+y)%2==0) DrawRectangle(px+6,py+16,4,4,multiplicar({70,110,80,255},f));   // musgo
+                if((x*3+y*7)%4==0) DrawLine(px+15,py+5,px+13,py+10,escura);                       // trinca
+            }
+        }
+        // Teia no canto da sala (parede em cima e à esquerda).
+        if(tipo==CHAO && a.mapa.celulas[y-1][x]==PAREDE && a.mapa.celulas[y][x-1]==PAREDE && (x+y)%2==0) {
+            Color w=multiplicar({190,196,204,255},agora?claridade:0.4f); w.a=150;
+            DrawLine(px,py,px+14,py+14,w); DrawLine(px,py,px+16,py+5,w); DrawLine(px,py,px+5,py+16,w);
+            DrawLine(px+5,py+2,px+2,py+5,w); DrawLine(px+10,py+3,px+3,py+10,w); DrawLine(px+14,py+5,px+5,py+14,w);
+        }
+        // Névoa rasteira: manchas claras e macias que andam devagar pelo chão.
+        float t=(float)GetTime();
+        for(int sy=0;sy<2;sy++) for(int sx=0;sx<2;sx++) {
+            float gx=(x*2+sx)*0.21f, gy=(y*2+sy)*0.29f;
+            float n=std::sin(gx+t*0.35f)*std::cos(gy-t*0.22f)+0.6f*std::sin(gx*0.7f-gy*0.9f+t*0.5f);
+            float alfa=std::clamp((n-0.2f)*60.0f,0.0f,62.0f)*(agora?1.0f:0.45f);
+            if(alfa>1) { Color c={185,205,210,(unsigned char)alfa}, f=c; f.a=0; DrawCircleGradient(px+sx*12+6,py+sy*12+6,11,c,f); }
+        }
     } else if(tema==TEMA_TRONO && tipo==CHAO && agora) {
         // Sala do trono: chão polido em xadrez, com o tapete até o chefe.
         if((x+y)%2==0) DrawRectangle(px,py,TAM,TAM,multiplicar({86,90,112,255},claridade));
@@ -295,6 +365,16 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
     } else {
         DrawRectangleLines(px,py,TAM,TAM,multiplicar({39,43,56,255},claridade));
         if((x*31+y*17)%7==0) DrawLine(px+7,py+13,px+11,py+17,multiplicar({108,101,94,255},claridade));
+        // Caverna (v1.23): cogumelos de enfeite. O fungo disfarçado é igualzinho.
+        if(tema==TEMA_CAVERNA && tipo==CHAO && (x*17+y*31)%19==0)
+            desenharSprite(FUNGO_QUIETO,px+2,py+1,1.25f,agora?claridade:0.35f);
+    }
+    if(tipo==TEIA) {
+        // Teia de aranha no chão (v1.23): raios e anéis brancos.
+        Color w=multiplicar({225,230,240,255},agora?claridade:0.4f); w.a=200;
+        float cx=px+12.0f, cy=py+12.0f;
+        for(int k=0;k<8;k++) { float an=k*0.785f; DrawLineEx({cx,cy},{cx+std::cos(an)*12,cy+std::sin(an)*12},1.2f,w); }
+        DrawCircleLines((int)cx,(int)cy,4,w); DrawCircleLines((int)cx,(int)cy,8,w); DrawCircleLines((int)cx,(int)cy,11.5f,w);
     }
     if(tipo==PAREDE && encostaNaLoja(a,x,y)) {
         // Prateleira de mercadorias na parede da lojinha: frascos coloridos.
@@ -321,12 +401,26 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
         float t=(float)GetTime();
         float tremula=std::sin(t*11.0f+x*1.7f)*1.5f+std::sin(t*17.0f+y*2.3f)*1.0f;
         // A chama tem a cor do tema (azul na sala do trono, vermelha no vulcão).
-        const Color BRILHO[NUM_TEMAS]={{255,173,48,0},{150,220,255,0},{255,90,40,0},{110,150,255,0}};
-        const Color CHAMA[NUM_TEMAS]={{255,211,96,255},{200,240,255,255},{255,150,80,255},{170,200,255,255}};
+        const Color BRILHO[NUM_TEMAS]={{255,173,48,0},{150,220,255,0},{140,255,190,0},{255,90,40,0},{110,150,255,0}};
+        const Color CHAMA[NUM_TEMAS]={{255,211,96,255},{200,240,255,255},{190,255,215,255},{255,150,80,255},{170,200,255,255}};
         Color b=BRILHO[tema]; Color fora=b; b.a=(unsigned char)(140+tremula*10);
-        DrawRectangle(px+10,py+13,4,9,{105,75,50,255});
-        DrawCircleGradient(px+12,py+8,11+tremula,b,fora);
-        DrawCircle(px+12,(int)(py+8-tremula*0.4f),4+tremula*0.3f,CHAMA[tema]);
+        if(tema==TEMA_CRIPTA) {
+            // Velas derretidas numa prateleira, com chama verde-clara.
+            DrawRectangle(px+3,py+17,18,3,{70,66,62,255});
+            DrawCircleGradient(px+12,py+10,12+tremula,b,fora);
+            int alt[3]={7,10,5};
+            for(int k=0;k<3;k++) {
+                int vx=px+5+k*6, h=alt[(x+y+k)%3];
+                DrawRectangle(vx,py+17-h,4,h,{226,220,196,255});
+                DrawRectangle(vx-1,py+16,6,2,{210,204,180,255});
+                float tk=std::sin((float)GetTime()*13.0f+k*2.1f+x)*0.8f;
+                DrawCircle(vx+2,(int)(py+14-h+tk*0.3f),2.0f+tk*0.2f,CHAMA[tema]);
+            }
+        } else {
+            DrawRectangle(px+10,py+13,4,9,{105,75,50,255});
+            DrawCircleGradient(px+12,py+8,11+tremula,b,fora);
+            DrawCircle(px+12,(int)(py+8-tremula*0.4f),4+tremula*0.3f,CHAMA[tema]);
+        }
     } else if(tipo==CAIXA) {
         // Caixa de madeira (dá para empurrar).
         float f = agora ? claridade : 0.45f;
@@ -425,8 +519,9 @@ void desenharMonstroNoMapa(const Jogo& jogo,const Monstro& m,float px,float py) 
     if(m.campeao) auraDeCampeao(px+12,py+12,17,t);
     // A sombra é meio transparente e tremula (some de vez se não estiver à vista).
     float alfa=(tipoDe(m).especial & SOMBRIO) ? 0.55f+0.2f*std::sin(t*3+m.x) : 1.0f;
-    desenharSprite(imagemMonstro(m.tipo),px+2,py+1,1.25f,claridade,alfa);
-    DrawCircle((int)px+21,(int)py+4,3.5f,corDoElemento(m.elemento));   // elemento sorteado
+    // O fungo parado parece só mais um cogumelo do cenário.
+    bool disfarcado=(tipoDe(m).especial & DISFARCADO) && m.estado==DORMINDO;
+    desenharSprite(disfarcado?FUNGO_QUIETO:imagemMonstro(m.tipo),px+2,py+1,1.25f,claridade,alfa);
     if(m.campeao) coroinha(px+12,py+1,1.3f);
     // Gnomo que parou de fugir: "!" vermelho em cima (vai lutar).
     if((tipoDe(m).especial & VIGIA) && m.cornetas>=2) textoCentro("!",px+20,py-8+std::sin(t*6)*1.5f,15,PERIGO);
@@ -523,6 +618,7 @@ const Monstro* monstroMaisPerto(const Jogo& jogo) {
     for(int i=0;i<a.numMonstros;i++) {
         const Monstro& m=a.monstros[i];
         if(!monstroAVista(jogo,m)) continue;
+        if((tipoDe(m).especial & DISFARCADO) && m.estado==DORMINDO) continue;   // o fungo parado não se entrega
         int dx=m.x-jogo.jogador.x, dy=m.y-jogo.jogador.y, d=dx*dx+dy*dy;
         if(d<menor) { menor=d; melhor=&m; }
     }
@@ -598,8 +694,8 @@ void hud(const Jogo& jogo) {
         desenharSprite(imagemMonstro(m->tipo),24,yChip+6,2.9f);
         std::string nome=nomeDaEspecie(*m); nome[0]=(char)std::toupper((unsigned char)nome[0]);
         texto(nome+"  Nv "+std::to_string(m->nivel),78,yChip+7,18,m->campeao?OURO:TEXTO);
-        float we=etiquetaDeElemento(m->elemento,78,yChip+31,11);
-        texto("fraco contra: "+elementosCom(m->elemento,4),78+we+8,yChip+33,14,APAGADO);
+        // v1.23: o elemento só aparece na batalha.
+        texto(m->campeao?"campeão: mais forte que o normal":"o elemento só se descobre na batalha",78,yChip+33,14,APAGADO);
     }
 
     // ---- Andar e moedas (canto superior direito) ----
@@ -1001,6 +1097,10 @@ std::vector<std::string> gritosDaEspecie(char simbolo) {
         case 'W': return {"...shhh...","...aqui..."};
         case 'M': return {"NHAC!","Nhac nhac!"};
         case 'S': return {"Venha... eu espero."};
+        case 'a': return {"Tsc tsc tsc!","Sssk!"};
+        case 'f': return {"Blup!","Esporos!"};
+        case 'e': return {"Clac clac!","Ossos... novos..."};
+        case 's': return {"Fssss!","Queima!"};
     }
     return {"!"};
 }
@@ -1246,6 +1346,7 @@ void spriteDoLutador(const Batalha& b,int quem,const Sprite& arte) {
     const Lutador& l=(quem==0)?b.jogador:b.inimigos[quem-1];
     if(l.ehCampeao) coroinha(x+8*p+an.dx,y+an.dy+2.2f*p,p*0.6f);   // coroa na cabeça
     iconeDeStatus(l.status,x+8*p+an.dx,y+an.dy-6);
+    GolpesVisuais::desenharEstado(l.status,l.semente,{x+8*p+an.dx,y+8*p+an.dy},8*p);   // estados da v1.23
 }
 // Escudo erguido (golpe Escudo): um escudo azulado brilhando na frente do herói.
 void escudoErguidoNaBatalha(const Batalha& b) {
@@ -1419,7 +1520,7 @@ void sonsDoMapa(const Jogo& jogo) {
     const Andar& a=andarAtual(jogo);
     const Jogador& j=jogo.jogador;
     // O som do andar, conforme o tema.
-    static const Ambiente DO_TEMA[NUM_TEMAS]={AMBIENTE_MINAS,AMBIENTE_CAVERNA,AMBIENTE_VULCAO,AMBIENTE_TRONO};
+    static const Ambiente DO_TEMA[NUM_TEMAS]={AMBIENTE_MINAS,AMBIENTE_CAVERNA,AMBIENTE_CRIPTA,AMBIENTE_VULCAO,AMBIENTE_TRONO};
     tocarAmbiente(DO_TEMA[temaDoAndar(jogo.andar)]);
     // Fonte e altar: mais altos quanto mais perto (até umas 9 casas).
     float fonte=0, altar=0;
@@ -1492,12 +1593,17 @@ void desenharBatalha(const Jogo& jogo,const Batalha& b) {
 // Cada uma roda por uma fração de segundo, desenhando a batalha quadro a
 // quadro com os lutadores deslocados, e depois devolve o controle.
 // ---------------------------------------------------------------------------
-void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,int elemento,int valor,bool critico) {
+void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,int elemento,int valor,bool critico,int golpe) {
     if(jogo.modoAutomatico) return;
     double duracao=0.5;
+    // v1.23: cada tipo de golpe tem o seu desenho e o seu tempo.
+    int forma = golpe>=0 ? GolpesVisuais::formaDoGolpe(golpe) : GolpesVisuais::F_IMPACTO;
+    bool encosta = GolpesVisuais::encosta(forma);
+    float acerto = golpe>=0 ? GolpesVisuais::momentoDoAcerto(forma) : 0.25f;
     switch(tipo) {
         case ANIM_ENTRADA: duracao=0.65; break;
-        case ANIM_GOLPE:   duracao=0.55; break;
+        case ANIM_GOLPE:   duracao=golpe>=0 ? GolpesVisuais::duracaoDaForma(forma) : 0.55; break;
+        case ANIM_ERRO:    duracao=golpe>=0 ? GolpesVisuais::duracaoDaForma(forma) : 0.5; break;
         case ANIM_BLOQUEIO: duracao=0.6; break;
         case ANIM_FURIA:   duracao=1.1;  break;
         case ANIM_FUMACA:  duracao=1.0;  break;
@@ -1525,9 +1631,10 @@ void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,
             for(int i=1;i<=MAX_INIMIGOS;i++) animacao[i].dx=520*(1-suavizar(t));
             break;
         case ANIM_GOLPE: case ANIM_ERRO: {
-            // Bote: quem ataca avança e volta.
-            if(t<0.4f) animacao[quem].dx=direcao*70*std::sin(3.14159f*t/0.4f);
-            if(t>=0.25f && !disparou) {
+            // Bote: quem ataca avança e volta (só nos golpes de contato).
+            if(t<0.4f && encosta) animacao[quem].dx=direcao*70*std::sin(3.14159f*t/0.4f);
+            if(t<0.3f && !encosta) animacao[quem].dy=-8*std::sin(3.14159f*t/0.3f);   // pulinho ao lançar
+            if(t>=acerto && !disparou) {
                 disparou=true;
                 if(tipo==ANIM_ERRO) {
                     Efeitos::textoFlutuante("ERROU",centroAlvo.x,centroAlvo.y-70,{190,195,205,255},30,Efeitos::CAMADA_TELA);
@@ -1539,11 +1646,11 @@ void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,
                                                 cor,critico?50:36,Efeitos::CAMADA_TELA,1.0);
                     }
                     if(critico) { Efeitos::tremer(10,0.35); Efeitos::piscar(WHITE,0.12); }
-                    else if(valor>0) Efeitos::tremer(3,0.15);
+                    else if(valor>0) Efeitos::tremer(golpe==G_TERREMOTO?9:3,golpe==G_TERREMOTO?0.4:0.15);
                 }
             }
-            if(t>=0.25f) {
-                float u=(t-0.25f)/0.75f;
+            if(t>=acerto) {
+                float u=(t-acerto)/(1-acerto);
                 if(tipo==ANIM_ERRO) {
                     // O alvo dá um pulinho para o lado.
                     animacao[alvo].dx=-direcao*30*std::sin(3.14159f*std::min(1.0f,u*1.5f));
@@ -1635,7 +1742,14 @@ void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,
             animacao[quem].dy=-14*std::fabs(std::sin(3.14159f*t*2));   // dois pulinhos de alegria
             break;
         }
-        Ui::iniciarQuadro();telaBatalha(jogo,b);Ui::terminarQuadro();
+        Ui::iniciarQuadro();telaBatalha(jogo,b);
+        // O desenho do golpe por cima da cena (sai um pouco à frente de quem ataca).
+        if((tipo==ANIM_GOLPE || tipo==ANIM_ERRO) && golpe>=0) {
+            float x,y,p; posicaoDoSprite(b,alvo,x,y,p);
+            Vector2 origem={centroQuem.x+direcao*60+animacao[quem].dx,centroQuem.y-20+animacao[quem].dy};
+            GolpesVisuais::desenharGolpe(golpe,origem,centroAlvo,t,8*p);
+        }
+        Ui::terminarQuadro();
     }
     for(int i=0;i<=MAX_INIMIGOS;i++) animacao[i]={0,0,1};
     if(tipo==ANIM_FUMACA) animacao[0].alfa=0;   // o herói já sumiu (a batalha vai acabar)
@@ -1760,8 +1874,8 @@ void desenharAjuda(const Jogo& jogo) {
         "Caixas: empurre contra um monstro para atordoá-lo; podem ter itens",
         "Espinhos vermelhos: armadilha! Empurre uma caixa em cima",
         "Pessoas com '!': ande até elas para conversar",
-        "O chefe final espera no 10o andar. Dele não dá para fugir",
-        "Bolinha colorida no monstro = elemento dele nesta partida",
+        "O chefe final espera no "+std::to_string(NUM_ANDARES)+"o andar. Dele não dá para fugir",
+        "O elemento de cada monstro só aparece quando a batalha começa",
         "Semente desta partida: "+std::to_string(jogo.semente)};
     for(size_t i=0;i<linhas.size();i++)texto(linhas[i],263,232+i*37,21,i%2?TEXTO:CIANO);
     texto("Aperte qualquer tecla para retornar",263,700,20,OURO);Ui::terminarQuadro();
@@ -1950,7 +2064,7 @@ void desenharCriacao(const Criacao& c) {
     texto("Resiste a: "+elementosCom(e,1),800,640,22,TEXTO);
     std::string dica;
     if(c.linha==LINHA_NOME) dica="Digite o nome (até 12 letras). Backspace apaga.";
-    else if(c.linha==LINHA_ELEMENTO) dica="Golpes do seu elemento causam 50% a mais de dano.";
+    else if(c.linha==LINHA_ELEMENTO) dica=resumoDoElemento((Elemento)c.elemento,true);
     else if(c.linha==LINHA_COR) dica="A cor da roupa do seu personagem.";
     else if(c.linha==LINHA_DIFICULDADE) dica = dificuldadeLiberada(c.dificuldade) ? DIFICULDADES[c.dificuldade].descricao
                                                 : "Trancado: vença o Difícil para liberar o modo Impossível.";
@@ -1980,20 +2094,21 @@ const Personagem PERSONAGENS[] = {
      "poção e manda você procurar o Borin."},
     {&MINEIRO,"Borin, o velho mineiro","andar 4",
      "Cavou estes túneis por quarenta anos. Resmunga muito, mas destranca a sala do tesouro do andar dele."},
-    {&ESPIRITO,"Aldric, o espírito guardião","andar 7",
+    {&ESPIRITO,"Aldric, o espírito guardião","andar 10",
      "O último guardião da mina: segurou o Senhor das Profundezas por cem anos. Cura as suas feridas "
      "antes da descida final."},
-    {&COMERCIANTE,"Garro, o comerciante","andares 3, 6 e 9",
+    {&COMERCIANTE,"Garro, o comerciante","andares 3, 6, 9 e 12",
      "Vende poções, armas, escudos e itens de suporte, e compra o que você não quer mais."},
     {&VIAJANTE,"Tobias, o viajante perdido","aparece por sorte",
      "Está ferido. Troca um cristal mágico por uma Poção de Vida ou por umas moedas."},
 };
 const int NUM_PERSONAGENS = (int)(sizeof(PERSONAGENS)/sizeof(PERSONAGENS[0]));
 
-const int COLUNAS_DO_BESTIARIO = 4;
+// v1.23: 5 colunas (são 17 espécies).
+const int COLUNAS_DO_BESTIARIO = 5;
 Rectangle cartaDoBestiario(int i) {
     int coluna=i%COLUNAS_DO_BESTIARIO, linha=i/COLUNAS_DO_BESTIARIO;
-    return {50.0f+coluna*184,122.0f+linha*172,170,160};
+    return {50.0f+coluna*148,122.0f+linha*168,138,158};
 }
 Rectangle abaDoBestiario(int aba) { return aba==0 ? Rectangle{410,32,260,48} : Rectangle{684,32,240,48}; }
 const Rectangle VOLTAR_DO_BESTIARIO={1150,828,240,50};
@@ -2051,13 +2166,13 @@ void fichaDoMonstro(const Jogo* jogo,int tipo) {
     y+=196;
 
     // Elemento: muda a cada partida.
-    if(jogo && vistaNaPartida(*jogo,tipo)) {
+    if(jogo && enfrentadaNaPartida(*jogo,tipo)) {
         Elemento e=jogo->elementoDaEspecie[tipo];
         texto("Nesta partida:",x,y,18,APAGADO);
         float w=etiquetaDeElemento(e,x+140,y,14);
         texto("fraco contra: "+elementosCom(e,4),x+150+w,y+1,17,TEXTO);
     } else if(jogo) {
-        texto("Nesta partida: ainda não apareceu (o elemento é sorteado).",x,y,17,APAGADO);
+        texto("Nesta partida: lute com ele para descobrir o elemento.",x,y,17,APAGADO);
     } else {
         texto("O elemento é sorteado a cada partida.",x,y,17,APAGADO);
     }
@@ -2086,7 +2201,7 @@ void fichaDoMonstro(const Jogo* jogo,int tipo) {
     y+=30;
     int vistos=0;
     for(int g=0;g<NUM_GOLPES;g++) {
-        if(!(f.golpesVistos&(1ULL<<g))) continue;
+        if(!f.golpesVistos.test(g)) continue;
         float w=etiquetaDeElemento(GOLPES[g].elemento,x,y,12);
         texto(GOLPES[g].nome,x+w+10,y,17,TEXTO);
         y+=26;
@@ -2136,18 +2251,18 @@ void desenharBestiario(const Jogo* jogo,int aba,int escolhido) {
         if(aba==0) {
             const FichaDoBestiario& f=fichaDoBestiario(i);
             if(f.visto) {
-                sprite(imagemMonstro(i).data(),r.x+41,r.y+12,5.5f);
+                sprite(imagemMonstro(i).data(),r.x+(r.width-88)/2,r.y+12,5.5f);
                 textoQueCabe(comMaiusculaInicial(TIPOS_DE_MONSTRO[i].nome),r.x+r.width/2-larguraDoTexto(comMaiusculaInicial(TIPOS_DE_MONSTRO[i].nome),17)/2,
                              r.y+108,17,r.width-12,TEXTO);
                 if(f.derrotados>0) textoCentro(std::to_string(f.derrotados)+(f.derrotados==1?" derrotado":" derrotados"),
                                                r.x+r.width/2,r.y+134,13,APAGADO);
                 if(f.campeoesDerrotados>0) coroinha(r.x+r.width-24,r.y+20,1.6f);
             } else {
-                silhueta(imagemMonstro(i).data(),r.x+41,r.y+12,5.5f,{44,56,80,255});
+                silhueta(imagemMonstro(i).data(),r.x+(r.width-88)/2,r.y+12,5.5f,{44,56,80,255});
                 textoCentro("???",r.x+r.width/2,r.y+110,20,APAGADO);
             }
         } else {
-            sprite(PERSONAGENS[i].arte->data(),r.x+41,r.y+12,5.5f);
+            sprite(PERSONAGENS[i].arte->data(),r.x+(r.width-88)/2,r.y+12,5.5f);
             textoQueCabe(PERSONAGENS[i].nome,r.x+8,r.y+108,16,r.width-16,TEXTO);
             textoCentro(PERSONAGENS[i].onde,r.x+r.width/2,r.y+134,13,APAGADO);
         }

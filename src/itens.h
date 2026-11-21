@@ -46,6 +46,9 @@ enum IdItem {
     // v1.17: no fim da lista, para os números dos itens antigos não mudarem
     // (o save guarda os itens pelo número).
     I_MOCHILA_DE_COURO, I_LANTERNA, I_BOMBA_DE_FUMACA, I_PERGAMINHO_DO_MAPA,
+    // v1.23: armas e pergaminhos dos elementos novos (também no fim)
+    I_LANCA_DE_GELO, I_MARTELO_DO_TROVAO, I_FOICE_DAS_TREVAS, I_CETRO_DE_LUZ,
+    I_PERGAMINHO_DE_NORMAL, I_PERGAMINHO_DE_GELO, I_PERGAMINHO_DE_RAIO, I_PERGAMINHO_DE_TREVAS, I_PERGAMINHO_DE_LUZ,
     NUM_TIPOS_DE_ITEM
 };
 
@@ -74,6 +77,9 @@ struct TipoItem {
 };
 
 extern const TipoItem TIPOS_DE_ITEM[NUM_TIPOS_DE_ITEM];
+
+// v1.23: o pergaminho de cada elemento (na ordem do enum Elemento).
+extern const int PERGAMINHO_DO_ELEMENTO[NUM_ELEMENTOS];
 
 // Um item caído num andar.
 struct ItemNoChao {

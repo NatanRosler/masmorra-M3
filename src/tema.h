@@ -5,9 +5,11 @@
 //   andares 1-3  MINAS                 pedra marrom e tochas (como sempre)
 //   andares 4-6  CAVERNA ALAGADA       poças d'água: andar nelas é 2x mais lento;
 //                                      monstros de Água batem 20% mais forte
-//   andares 7-9  PROFUNDEZAS VULCÂNICAS poças de lava que queimam (e
+//   andares 7-9  A CRIPTA ESQUECIDA    lápides (obstáculos que não tapam a
+//                                      visão), velas verdes e névoa (v1.23)
+//   andares 10-12 PROFUNDEZAS VULCÂNICAS poças de lava que queimam (e
 //                                      iluminam); monstros de Fogo +20%
-//   andar 10     SALA DO TRONO         onde o Senhor das Profundezas espera
+//   andar 13     SALA DO TRONO         onde o Senhor das Profundezas espera
 // -----------------------------------------------------------------------------
 #pragma once
 
@@ -16,7 +18,7 @@
 
 struct Andar;
 
-enum Tema { TEMA_MINAS, TEMA_CAVERNA, TEMA_VULCAO, TEMA_TRONO, NUM_TEMAS };
+enum Tema { TEMA_MINAS, TEMA_CAVERNA, TEMA_CRIPTA, TEMA_VULCAO, TEMA_TRONO, NUM_TEMAS };
 
 struct FichaDoTema {
     const char* nome;          // "CAVERNA ALAGADA"

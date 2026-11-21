@@ -4,6 +4,7 @@
 // opcoes.txt (opcoes.cpp).
 // -----------------------------------------------------------------------------
 #include "dicas.h"
+#include "tema.h"
 #include "opcoes.h"
 #include "jogo.h"
 #include "itens.h"
@@ -22,7 +23,7 @@ struct TextoDaDica {
 static const TextoDaDica DICAS[NUM_DICAS] = {
     { "Bem-vindo à masmorra!",
       "Ande com as setas, WASD ou HJKL. O mapa começa escuro e se revela conforme você explora. "
-      "Desça pelas escadas até o 10º andar. A tecla ? mostra todos os comandos." },
+      "Desça pelas escadas até o 13º andar. A tecla ? mostra todos os comandos." },
     { "Vida baixa",
       "Aperte Z para descansar: a vida e os PP voltam aos poucos (mais rápido a cada 5 níveis). "
       "Um monstro aparecendo interrompe o descanso." },
@@ -73,13 +74,13 @@ static const TextoDaDica DICAS[NUM_DICAS] = {
       "fica furioso. Dele não dá para fugir: leve poções e use o golpe Escudo." },
     { "Batalha",
       "Escolha LUTAR e um golpe. Golpes gastam PP (descansar recupera). O elemento importa: "
-      "Fogo > Planta > Água > Fogo. A bolinha colorida no mapa mostra o elemento do monstro." },
+      "Fogo > Planta > Água > Fogo. O elemento do monstro só aparece quando a batalha começa." },
     { "Escudo",
       "O golpe Escudo age antes de todos e pode bloquear os ataques da rodada (com um escudo "
       "melhor, a chance é maior). Ótimo contra grupos e com a vida baixa." },
     { "Status",
-      "Veneno tira vida a cada rodada; sono faz perder a vez, e a paralisia, às vezes. "
-      "O Antídoto cura os três." },
+      "Veneno e queimadura tiram vida a cada rodada (queimado também bate mais fraco); sono e "
+      "gelo fazem perder a vez; a paralisia, às vezes; ofuscado erra mais. O Antídoto cura todos." },
     { "Modo furtivo",
       "Segure Shift enquanto anda (ou aperte F para ligar e desligar): os passos ficam lentos, "
       "mas silenciosos. Chegando assim num monstro distraído, ele perde a 1ª rodada!" },
@@ -92,6 +93,15 @@ static const TextoDaDica DICAS[NUM_DICAS] = {
     { "A sombra",
       "Sombras só aparecem de perto (2 casas) ou na luz das tochas. Na batalha são difíceis de "
       "acertar, mas têm pouca vida. Uma lanterna ajuda a vê-las antes." },
+    { "Teia de aranha",
+      "Quem pisa numa teia fica preso quase um segundo (e a aranha aproveita). Dá para desviar: "
+      "a teia aparece no chão como uma rede branca." },
+    { "A cripta",
+      "As lápides não deixam passar, mas não tapam a visão. Aqui muitos monstros são de Trevas: "
+      "golpes de Luz e de Fogo são os melhores contra eles." },
+    { "Esqueleto",
+      "Derrotado, o esqueleto se monta de novo uma vez, com 1/3 da vida. Se o golpe final "
+      "for de Fogo, Pedra ou Luz, ele cai de vez na primeira." },
 };
 
 const char* tituloDaDica(Dica dica) { return DICAS[dica].titulo; }
@@ -199,8 +209,10 @@ Dica proximaDica(const Jogo& jogo) {
         const Armadilha& t = a.armadilhas[i];
         if (t.ativa && t.descoberta && jogo.visivel[t.y][t.x] && dicaPendente(DICA_ARMADILHA)) return DICA_ARMADILHA;
     }
+    if (dicaPendente(DICA_CRIPTA) && temaDoAndar(jogo.andar) == TEMA_CRIPTA) return DICA_CRIPTA;
     bool querCaixa = dicaPendente(DICA_CAIXA), querPoca = dicaPendente(DICA_POCA), querLava = dicaPendente(DICA_LAVA);
-    if (querCaixa || querPoca || querLava) {
+    bool querTeia = dicaPendente(DICA_TEIA);
+    if (querCaixa || querPoca || querLava || querTeia) {
         for (int y = 0; y < MAPA_ALTURA; y++) {
             for (int x = 0; x < MAPA_LARGURA; x++) {
                 if (!jogo.visivel[y][x]) continue;
@@ -208,6 +220,7 @@ Dica proximaDica(const Jogo& jogo) {
                 if (querCaixa && celula == CAIXA) return DICA_CAIXA;
                 if (querPoca && celula == POCA) return DICA_POCA;
                 if (querLava && celula == LAVA) return DICA_LAVA;
+                if (querTeia && celula == TEIA) return DICA_TEIA;
             }
         }
     }

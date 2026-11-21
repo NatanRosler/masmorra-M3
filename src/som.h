@@ -60,6 +60,14 @@ enum Som {
     // v1.22
     SOM_ESPINHOS,        // armadilha de espinhos: lâminas de metal saltando e uma pancada
     SOM_PONTO_GANHO,     // ganhou um ponto de atributo (subiu de nível)
+    // v1.23: estados novos da batalha
+    SOM_QUEIMADO,        // fogo pegando ("fwoosh") e estalos
+    SOM_CONGELADO,       // cristais de gelo se formando
+    SOM_DEGELO,          // gelo rachando e pingando
+    SOM_OFUSCADO,        // brilho agudo de sinos
+    SOM_ATORDOADO,       // pancada e passarinhos (atordoado ou preso)
+    SOM_FOLHAS,          // folhas farfalhando (Semente Sanguessuga)
+    SOM_REMONTA,         // ossos se juntando (o esqueleto se monta de novo)
     NUM_SONS
 };
 
@@ -69,6 +77,7 @@ enum Voz {
     VOZ_NARRADOR, VOZ_HEROI, VOZ_ELDRA, VOZ_BORIN, VOZ_ALDRIC, VOZ_GARRO, VOZ_TOBIAS,
     VOZ_RATO, VOZ_KOBOLD, VOZ_CHACAL, VOZ_MACACO, VOZ_SAPO, VOZ_GOBLIN, VOZ_MORCEGO,
     VOZ_OGRO, VOZ_NAGA, VOZ_GNOMO, VOZ_SOMBRA, VOZ_MIMICO, VOZ_CHEFE,
+    VOZ_ARANHA, VOZ_FUNGO, VOZ_ESQUELETO, VOZ_SALAMANDRA,   // v1.23
     NUM_VOZES
 };
 
@@ -87,7 +96,9 @@ enum Musica {
 };
 
 // Som de ambiente de cada tema de andar (toca em loop por baixo da música).
-enum Ambiente { SEM_AMBIENTE, AMBIENTE_MINAS, AMBIENTE_CAVERNA, AMBIENTE_VULCAO, AMBIENTE_TRONO, NUM_AMBIENTES };
+enum Ambiente { SEM_AMBIENTE, AMBIENTE_MINAS, AMBIENTE_CAVERNA, AMBIENTE_VULCAO, AMBIENTE_TRONO,
+                AMBIENTE_CRIPTA,   // v1.23
+                NUM_AMBIENTES };
 
 // Passos: do herói (conforme o chão) e de cada espécie de monstro.
 enum Passo {
@@ -95,6 +106,7 @@ enum Passo {
     PASSO_PEDRA, PASSO_AGUA, PASSO_TAPETE, PASSO_FURTIVO,
     PASSO_RATO, PASSO_KOBOLD, PASSO_CHACAL, PASSO_MACACO, PASSO_SAPO, PASSO_GOBLIN, PASSO_MORCEGO,
     PASSO_OGRO, PASSO_NAGA, PASSO_GNOMO, PASSO_MIMICO, PASSO_CHEFE,
+    PASSO_ARANHA, PASSO_FUNGO, PASSO_ESQUELETO, PASSO_SALAMANDRA,   // v1.23
     NUM_PASSOS
 };
 
@@ -105,6 +117,8 @@ inline Passo passoDoMonstro(char simbolo) {
         case 'm': return PASSO_MACACO;  case 't': return PASSO_SAPO;    case 'g': return PASSO_GOBLIN;
         case 'v': return PASSO_MORCEGO; case 'O': return PASSO_OGRO;    case 'N': return PASSO_NAGA;
         case 'G': return PASSO_GNOMO;   case 'M': return PASSO_MIMICO;  case 'S': return PASSO_CHEFE;
+        case 'a': return PASSO_ARANHA;  case 'f': return PASSO_FUNGO;   case 'e': return PASSO_ESQUELETO;
+        case 's': return PASSO_SALAMANDRA;
     }
     return SEM_PASSO;
 }
@@ -126,6 +140,8 @@ inline Voz vozDoMonstro(char simbolo) {
         case 'v': return VOZ_MORCEGO; case 'O': return VOZ_OGRO;    case 'N': return VOZ_NAGA;
         case 'G': return VOZ_GNOMO;   case 'W': return VOZ_SOMBRA;  case 'M': return VOZ_MIMICO;
         case 'S': return VOZ_CHEFE;
+        case 'a': return VOZ_ARANHA;  case 'f': return VOZ_FUNGO;   case 'e': return VOZ_ESQUELETO;
+        case 's': return VOZ_SALAMANDRA;
     }
     return VOZ_NARRADOR;
 }

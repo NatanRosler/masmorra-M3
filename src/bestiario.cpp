@@ -16,6 +16,7 @@
 
 static const char* ARQUIVO_DO_BESTIARIO = "bestiario.txt";
 static FichaDoBestiario fichas[MAX_ESPECIES];
+static_assert(NUM_GOLPES <= 128, "golpesVistos guarda até 128 golpes");
 static bool podeGravar = false;   // só depois de carregarBestiario()
 
 const FichaDoBestiario& fichaDoBestiario(int tipo) {
@@ -36,7 +37,7 @@ static void gravar() {
                 << "|derrotados=" << f.derrotados << "|campeoes=" << f.campeoesDerrotados << "|golpes=";
         bool primeiro = true;
         for (int g = 0; g < NUM_GOLPES; g++) {
-            if (!(f.golpesVistos & (1ULL << g))) continue;
+            if (!f.golpesVistos.test(g)) continue;
             arquivo << (primeiro ? "" : ",") << g;
             primeiro = false;
         }
@@ -89,7 +90,7 @@ void carregarBestiario() {
                 std::string item;
                 while (std::getline(lista, item, ',')) {
                     int n = numero(item, 1000);
-                    if (chave == "golpes" && n >= 0 && n < NUM_GOLPES) f.golpesVistos |= 1ULL << n;
+                    if (chave == "golpes" && n >= 0 && n < NUM_GOLPES) f.golpesVistos.set(n);
                     if (chave == "elementos" && n >= 0 && n < NUM_ELEMENTOS) f.elementosVistos |= 1 << n;
                 }
             }
@@ -111,12 +112,13 @@ int especiesVistas() {
 }
 int especiesDoBestiario() { return NUM_TIPOS_DE_MONSTRO; }
 
-void registrarAvistado(Jogo& jogo, const Monstro& m) {
+void registrarAvistado(Jogo& jogo, const Monstro& m, bool naBatalha) {
     if (m.tipo < 0 || m.tipo >= NUM_TIPOS_DE_MONSTRO) return;
     jogo.especiesVistasNaPartida |= 1 << m.tipo;
+    if (naBatalha) jogo.especiesEnfrentadasNaPartida |= 1 << m.tipo;
     FichaDoBestiario& f = fichas[m.tipo];
-    int bit = 1 << (int)m.elemento;
-    if (f.visto && (f.elementosVistos & bit)) return;   // nada de novo
+    int bit = naBatalha ? 1 << (int)m.elemento : 0;   // o elemento só se descobre na batalha
+    if (f.visto && (f.elementosVistos & bit) == bit) return;   // nada de novo
     f.visto = true;
     f.elementosVistos |= bit;
     gravar();
@@ -125,8 +127,8 @@ void registrarAvistado(Jogo& jogo, const Monstro& m) {
 void registrarGolpe(int tipo, int golpe) {
     if (tipo < 0 || tipo >= NUM_TIPOS_DE_MONSTRO || golpe < 0 || golpe >= NUM_GOLPES) return;
     FichaDoBestiario& f = fichas[tipo];
-    if (f.golpesVistos & (1ULL << golpe)) return;
-    f.golpesVistos |= 1ULL << golpe;
+    if (f.golpesVistos.test(golpe)) return;
+    f.golpesVistos.set(golpe);
     gravar();
 }
 
@@ -141,6 +143,10 @@ void registrarDerrota(const Monstro& m) {
 
 bool vistaNaPartida(const Jogo& jogo, int tipo) {
     return tipo >= 0 && tipo < NUM_TIPOS_DE_MONSTRO && (jogo.especiesVistasNaPartida & (1 << tipo));
+}
+
+bool enfrentadaNaPartida(const Jogo& jogo, int tipo) {
+    return tipo >= 0 && tipo < NUM_TIPOS_DE_MONSTRO && (jogo.especiesEnfrentadasNaPartida & (1 << tipo));
 }
 
 std::string descricaoDaEspecie(int tipo) {
@@ -158,8 +164,12 @@ std::string descricaoDaEspecie(int tipo) {
         case 'G': return "Ao ver você, sopra a corneta e chama os monstros das salas vizinhas. "
                          "Na primeira vez foge; na segunda, fica e luta.";
         case 'W': return "Só aparece de perto (2 casas) ou na luz das tochas. Difícil de acertar.";
+        case 'a': return "Tece teias por onde passa: quem pisa fica preso um instante. A Teia faz perder a vez.";
+        case 'f': return "Fica parado entre os cogumelos da caverna e só acorda a 2 casas. Os Esporos dão sono.";
+        case 'e': return "Anda em dupla. Derrotado, se monta de novo uma vez (com 1/3 da vida), a não ser que o golpe final seja de Fogo, Pedra ou Luz.";
+        case 's': return "Rápida, e a lava não a queima: corta caminho por cima das poças. Os golpes de fogo queimam.";
         case 'M': return "Parece um baú dourado... até você tentar abrir.";
-        case 'S': return "Espera no fim do andar 10. Fica mais forte junto com você e, com "
+        case 'S': return "Espera no fim do andar 13. Fica mais forte junto com você e, com "
                          "metade da vida, fica furioso.";
     }
     return "";
@@ -168,7 +178,7 @@ std::string descricaoDaEspecie(int tipo) {
 std::string andaresDaEspecie(int tipo) {
     if (tipo < 0 || tipo >= NUM_TIPOS_DE_MONSTRO) return "";
     const TipoMonstro& t = TIPOS_DE_MONSTRO[tipo];
-    if (t.especial & CHEFE) return "andar 10 (chefe final)";
+    if (t.especial & CHEFE) return "andar 13 (chefe final)";
     if (t.frequencia == 0) return "dentro de baús, em qualquer andar";
     return "andares " + std::to_string(t.andarMinimo) + " a " + std::to_string(t.andarMaximo);
 }

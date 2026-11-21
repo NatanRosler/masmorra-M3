@@ -17,7 +17,7 @@ namespace Efeitos {
 enum Camada { CAMADA_TELA, CAMADA_MAPA };
 
 // Formatos de partícula.
-enum Forma { BOLINHA, ANEL, QUADRADO, ESTRELA, FOLHA, FAISCA };
+enum Forma { BOLINHA, ANEL, QUADRADO, ESTRELA, FOLHA, FAISCA, RELAMPAGO };
 
 struct Particula {
     float x, y, vx, vy, gravidade;
@@ -30,7 +30,8 @@ struct Particula {
 };
 
 // Partículas do elemento de um golpe (0 = Normal, 1 = Fogo, 2 = Água,
-// 3 = Planta, 4 = Veneno, 5 = Pedra), espalhadas a partir de (x, y).
+// 3 = Planta, 4 = Veneno, 5 = Pedra, 6 = Gelo, 7 = Raio, 8 = Trevas,
+// 9 = Luz), espalhadas a partir de (x, y).
 void explosaoDoElemento(int elemento, float x, float y, int camada, float forca = 1.0f);
 // Brilho subindo (cura em verde, nível em dourado...).
 void brilhoSubindo(float x, float y, Color cor, int quantidade, int camada);

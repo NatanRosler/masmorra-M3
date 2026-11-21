@@ -1,7 +1,7 @@
 # MASMORRA
 
 Roguelike em C++ inspirado no **Brogue**, feito para a disciplina de
-Algoritmos e Programação II da UNIVALI (M3). São dez andares gerados
+Algoritmos e Programação II da UNIVALI (M3). São treze andares gerados
 automaticamente, uma visão que revela o mapa conforme você anda, itens,
 monstros e batalhas por turnos no estilo dos Pokémon antigos.
 
@@ -79,7 +79,7 @@ src/
 | `src/opcoes.h/.cpp` | Opções (volumes de música, efeitos e ambiente, tela cheia, zoom, animações, velocidade do texto, dicas) gravadas em `opcoes.txt` |
 | `src/bestiario.h/.cpp` | Bestiário: monstros já vistos e vencidos, gravado em `bestiario.txt` (v1.18) |
 | `src/salas.h/.cpp` | Salas especiais: fonte, altar de sangue, baú dourado (mímico), arena e o viajante perdido |
-| `src/tema.h/.cpp` | Temas dos andares: minas, caverna alagada (poças), vulcão (lava) e sala do trono |
+| `src/tema.h/.cpp` | Temas dos andares: minas, caverna alagada (poças), cripta (lápides, v1.23), vulcão (lava) e sala do trono |
 | `src/salvar.h/.cpp` | Salvar e continuar a partida (arquivo binário `save.dat`) |
 | `src/loja.h/.cpp` | Moedas e a loja do Garro, o comerciante (comprar e vender) |
 | `src/pontuacao.h/.cpp` | Pontuação, ranking em arquivo (`ranking.txt`) e textos do menu |
@@ -96,6 +96,8 @@ src/
 | `src/grafico/sprites.h`, `extra_sprites.h` | Personagens em pixel art (16 x 16) |
 | `src/som.h`, `src/grafico/audio.cpp` | Sons, músicas, vozes, ambientes e passos, gerados no código (sem arquivos de áudio) |
 | `src/grafico/sintese.cpp/.h` | "Instrumentos" dos ambientes e efeitos: ruído filtrado, harpa, sinos e reverb (v1.21) |
+| `src/grafico/golpes_visuais.cpp/.h` | Animação de cada tipo de golpe e desenho dos estados no lutador (v1.23) |
+| `src/grafico/icones_elementos.h` | Símbolo de cada um dos 10 elementos (v1.23) |
 | `src/console/` | A mesma coisa para o terminal: `main.cpp`, `tela.cpp`, `terminal.cpp` |
 
 Mais detalhes:
@@ -148,7 +150,7 @@ publicar → Run workflow**.
 ## Etapas
 
 - [x] **1. Base**: movimento em 8 direções, tela sem piscar, multiplataforma
-- [x] **2. Geração procedural**: salas, cavernas, atalhos, 10 andares, escadas, semente
+- [x] **2. Geração procedural**: salas, cavernas, atalhos, 13 andares (eram 10 até a v1.22), escadas, semente
 - [x] **3. Visão**: campo de visão, iluminação, tochas, memória do mapa, câmera
 - [x] **4. Monstros**: 9 espécies, estados, perseguição por BFS e rastro de cheiro
 - [x] **4b. Batalha em turnos**: golpes com PP, elementos, status, níveis, 3 vidas, até 3 inimigos
@@ -156,7 +158,7 @@ publicar → Run workflow**.
 - [x] **Versão gráfica 2D**: janela com raylib, pixel art, menu principal e pausa
 - [x] **6. Personagem**: criação (nome, elemento, cor, 5 pontos), 1 ponto por nível (Força, Constituição, Destreza, Agilidade) e elementos dos monstros sorteados a cada partida
 - [x] **7. Mapa vivo**: armadilhas que ferem jogador e monstros, caixas que se empurram ou quebram, ogros que despedaçam caixas
-- [x] **8. História**: abertura, 3 NPCs (um deles destranca a sala do tesouro), chefe final no andar 10 e tela de vitória
+- [x] **8. História**: abertura, 3 NPCs (um deles destranca a sala do tesouro), chefe final no andar 13 e tela de vitória
 - [x] **Som (v1.1)**: efeitos e 4 músicas (menu, masmorra, batalha, chefe) gerados no código
 - [x] **Dificuldades (v1.2)**: Fácil, Médio e Difícil, escolhidos na criação do personagem; Impossível (v1.22), liberado ao vencer o Difícil
 - [x] **v1.4**: caixas com itens (poções, armas, cristais) e caixa empurrada contra um monstro o deixa atordoado

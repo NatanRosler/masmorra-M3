@@ -28,6 +28,11 @@ enum Elemento {
     PLANTA,
     VENENO,
     PEDRA,
+    // v1.23
+    GELO,
+    RAIO,
+    TREVAS,
+    LUZ,
     NUM_ELEMENTOS
 };
 
@@ -42,7 +47,13 @@ enum Status {
     SEM_STATUS,
     ENVENENADO,   // perde 1/8 da vida máxima no fim de cada rodada
     ADORMECIDO,   // não age por 1 a 3 rodadas
-    PARALISADO    // velocidade cai para 1/4 e, em 1/4 das vezes, não consegue agir
+    PARALISADO,   // velocidade cai para 1/4 e, em 1/4 das vezes, não consegue agir
+    // v1.23
+    QUEIMADO,     // perde 1/16 da vida por rodada e o ataque cai para 3/4
+    CONGELADO,    // não age por 1 ou 2 rodadas (um golpe de Fogo derrete o gelo na hora)
+    OFUSCADO,     // a chance de acertar cai 20 pontos
+    ATORDOADO,    // perde a próxima vez
+    PRESO         // preso numa teia ou numa vinha: perde a próxima vez
 };
 
 extern const char* NOMES_DOS_STATUS[];
@@ -58,7 +69,17 @@ enum EfeitoGolpe {
     BAIXA_ATAQUE,    // diminui o ataque do alvo
     BAIXA_DEFESA,    // diminui a defesa do alvo
     DRENAR,          // quem usou recupera metade do dano causado
-    DOIS_GOLPES      // acerta duas vezes
+    DOIS_GOLPES,     // acerta duas vezes
+    // v1.23
+    QUEIMAR,
+    CONGELAR,
+    OFUSCAR,
+    ATORDOAR,
+    PRENDER,
+    CURAR,           // quem usou recupera "chanceDoEfeito" % da vida máxima
+    SANGUESSUGA,     // planta uma semente: o alvo perde 1/8 da vida por rodada e você recupera
+    FOCO,            // o próximo golpe de quem usou é crítico com certeza
+    TRES_GOLPES      // acerta três vezes
 };
 
 struct Golpe {
@@ -70,6 +91,7 @@ struct Golpe {
     EfeitoGolpe efeito;
     int chanceDoEfeito;  // em %, para golpes que causam dano e às vezes um efeito
     int prioridade;      // 1 = age antes mesmo de quem é mais rápido
+    bool area;           // v1.23: acerta todos os inimigos de uma vez (só faz diferença para o jogador)
 };
 
 // Os golpes do jogo. Os monstros e o jogador guardam o ÍNDICE do golpe nesta tabela.
@@ -82,6 +104,20 @@ enum IdGolpe {
     // Etapa 6: golpe inicial do elemento Planta e golpes elementais dos monstros
     G_CHICOTE_DE_VINHA, G_INVESTIDA, G_LABAREDA, G_BOLHA, G_ESPINHOS, G_ACIDO,
     G_PEDREGULHO, G_GOLPE_SOMBRIO,
+    // v1.23: a linha de golpes de cada elemento (sempre no FIM da lista: o
+    // save guarda o número do golpe) e os golpes dos monstros novos
+    G_FOCO,
+    G_FURIA, G_GOLPE_FINAL,
+    G_MURALHA_DE_FOGO, G_INFERNO,
+    G_BOLHA_CURATIVA, G_ONDA, G_MAREMOTO,
+    G_SEMENTE_SANGUESSUGA, G_TEMPESTADE_DE_FOLHAS,
+    G_NUVEM_TOXICA, G_ACIDO_CORROSIVO, G_PESTE,
+    G_MURALHA_DE_PEDRA, G_TERREMOTO, G_AVALANCHE,
+    G_RAJADA_DE_GELO, G_ARMADURA_DE_GELO, G_NEVASCA, G_ZERO_ABSOLUTO,
+    G_CHOQUE, G_PASSO_DO_RAIO, G_TROVAO, G_TEMPESTADE,
+    G_GARRA_DAS_TREVAS, G_PAVOR, G_PULSO_DAS_TREVAS, G_ECLIPSE,
+    G_RAIO_DE_LUZ, G_CURA_DE_LUZ, G_CLARAO, G_JULGAMENTO,
+    G_SOPRO_FRIO, G_FAISCA, G_TOQUE_SOMBRIO, G_LAMPEJO, G_TEIA, G_ESPOROS,
     NUM_GOLPES
 };
 
@@ -105,6 +141,19 @@ int golpeInicialDoElemento(Elemento e);
 // "forte" = para as espécies dos andares mais fundos.
 int golpeElementalDosMonstros(Elemento e, bool forte);
 
+// v1.23: golpes que o jogador aprende subindo de nível. Cada elemento tem a
+// sua linha (níveis 12, 24 e 30) e todos aprendem os gerais (9, 18 e 27).
+// Devolve quantos golpes ele aprende exatamente neste nível (até 2) em "golpes".
+int golpesDoNivel(Elemento e, int nivel, int golpes[2]);
+
+// v1.23: resumo de um elemento para a tela de criação: golpe inicial,
+// bônus, contra quem é forte, de quem leva o dobro e a que resiste.
+// curto = só o bônus e contra quem é forte (a tela gráfica já mostra o resto).
+std::string resumoDoElemento(Elemento e, bool curto = false);
+
+// Bônus de quem usa um golpe do próprio elemento, em % (30 = +30%).
+const int BONUS_DO_PROPRIO_ELEMENTO = 30;
+
 // ---- Quem está lutando ---------------------------------------------------------
 // Um Lutador é a "ficha de batalha" do jogador ou do monstro. A vida e os PP
 // são PONTEIROS para os valores de verdade (guardados no Jogador ou no
@@ -121,7 +170,9 @@ struct Lutador {
     int estagioAtaque, estagioDefesa;
 
     Status status;
-    int rodadasDormindo;
+    int rodadasDormindo;     // dormindo ou congelado: quantas rodadas ainda
+    bool semente;            // v1.23: Semente Sanguessuga plantada neste lutador
+    bool focado;             // v1.23: o próximo golpe é crítico (Foco)
 
     int golpes[MAX_GOLPES];  // índices na tabela GOLPES
     int numGolpes;
@@ -166,6 +217,7 @@ struct Batalha {
     Lutador inimigos[MAX_INIMIGOS];
     Monstro* monstros[MAX_INIMIGOS];   // os monstros do mapa que estão lutando
     bool naLuta[MAX_INIMIGOS];         // false = desmaiou ou fugiu
+    int ultimoElemento[MAX_INIMIGOS];  // v1.23: elemento do último dano em cada inimigo (esqueleto)
     int numInimigos;
     int vidaMostrada[1 + MAX_INIMIGOS]; // [0] jogador, [1..3] inimigos: anima as barras
     int tentativasDeFuga;

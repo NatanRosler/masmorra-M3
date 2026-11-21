@@ -20,6 +20,8 @@ enum Dica {
     DICA_BATALHA, DICA_ESCUDO, DICA_STATUS,
     // v1.17, no mapa (no fim: opcoes.txt guarda as vistas pela posição)
     DICA_FURTIVO, DICA_CAMPEAO, DICA_GNOMO, DICA_SOMBRA,
+    // v1.23 (também no fim)
+    DICA_TEIA, DICA_CRIPTA, DICA_ESQUELETO,
     NUM_DICAS
 };
 

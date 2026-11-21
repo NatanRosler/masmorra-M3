@@ -88,7 +88,7 @@ const TipoMonstro TIPOS_DE_MONSTRO[] = {
         "      |##|",
         "      /  \\",
         "     ^    ^" },
-      3, 10, 25, 0 },
+      3, 9, 25, 0 },
 
     { "morcego vampiro", "o", 'v', { 165, 120, 190 }, NORMAL,
       55, 60, 45, 95,   95,
@@ -100,7 +100,7 @@ const TipoMonstro TIPOS_DE_MONSTRO[] = {
         "   \\___/ \\v/ \\___/",
         "",
         "" },
-      4, 9, 20, RAPIDO | ERRATICO },
+      6, 12, 20, RAPIDO | ERRATICO },
 
     { "ogro", "o", 'O', { 175, 135, 75 }, PEDRA,
        90,  80, 70, 35, 160,
@@ -112,7 +112,7 @@ const TipoMonstro TIPOS_DE_MONSTRO[] = {
         "   /|________|\\",
         "  (_|  |  |  |_)",
         "     _|    |_" },
-      6, 10, 15, QUEBRA_CAIXAS },
+      9, 13, 15, QUEBRA_CAIXAS },
 
     { "naga", "a", 'N', { 70, 185, 165 }, AGUA,
       95, 75, 80, 70,  180,
@@ -124,7 +124,7 @@ const TipoMonstro TIPOS_DE_MONSTRO[] = {
         "       \\___   ___)",
         "           \\_/~~",
         "" },
-      8, 10, 10, 0 },
+      8, 12, 10, 0 },
 
     // O GNOMO VIGIA: fraco, mas quando vê o jogador sopra a corneta e acorda
     // os monstros da sala dele e das salas vizinhas. Na 1a vez foge para
@@ -139,7 +139,7 @@ const TipoMonstro TIPOS_DE_MONSTRO[] = {
         "      (\\__/)=(__/",
         "      /|  |\\",
         "       d  b" },
-      3, 8, 12, VIGIA },
+      3, 9, 12, VIGIA },
 
     // A SOMBRA: só aparece de perto (2 casas) ou perto de uma tocha.
     // Na batalha é difícil de acertar, mas tem pouca vida.
@@ -153,7 +153,57 @@ const TipoMonstro TIPOS_DE_MONSTRO[] = {
         "      \\ ~  ~ /",
         "       ~ ~~ ~",
         "" },
-      5, 10, 12, SOMBRIO },
+      7, 12, 12, SOMBRIO },
+
+    // ---- v1.23: um monstro novo para cada tema ----------------------------------
+    // A ARANHA tece teias pelo mapa; na batalha, a Teia faz perder a vez.
+    { "aranha", "a", 'a', { 150, 120, 200 }, VENENO,
+      45, 65, 40, 80,   75,
+      { G_FERRAO_VENENOSO, G_TEIA, G_MORDIDA }, 3,
+      { "   \\  _  //",
+        "  \\ (o o) //",
+        "   =(  V  )=",
+        "  // (___) \\",
+        "   //     \\",
+        "",
+        "" },
+      2, 6, 18, TECE_TEIA },
+    // O FUNGO fica parado entre os cogumelos da caverna até o jogador chegar perto.
+    { "fungo", "o", 'f', { 120, 180, 255 }, PLANTA,
+      70, 50, 65, 25,   80,
+      { G_ESPOROS, G_ESPINHOS, G_ACIDO }, 3,
+      { "    .-'~~'-.",
+        "   / o  O  o\\",
+        "  '-.______.-'",
+        "     | o o|",
+        "     |  ~ |",
+        "    _|____|_",
+        "" },
+      4, 6, 15, DISFARCADO },
+    // O ESQUELETO anda em dupla e se monta de novo uma vez.
+    { "esqueleto", "o", 'e', { 225, 225, 210 }, NORMAL,
+      40, 60, 55, 45,  110,
+      { G_INVESTIDA, G_GOLPE_DUPLO, G_ROSNADO }, 3,
+      { "      .-.",
+        "     (o.o)  |",
+        "      |=|  -+-",
+        "     /|=|\\/ |",
+        "      |=|",
+        "     _/ \\_",
+        "" },
+      7, 9, 24, EM_BANDO | REMONTA },
+    // A SALAMANDRA é rápida e anda por cima da lava.
+    { "salamandra", "a", 's', { 255, 140, 60 }, FOGO,
+      60, 70, 50, 95,  140,
+      { G_BRASA, G_LABAREDA, G_ATAQUE_RAPIDO }, 3,
+      { "",
+        "  ~)        __",
+        " (~(  ____ /o \\",
+        "  \\_/    \\__/",
+        "    /_/  /_/",
+        "",
+        "" },
+      10, 12, 20, RAPIDO | ANDA_NA_LAVA },
 
     // O MÍMICO: um baú dourado que morde. Nunca aparece por sorteio
     // (frequência 0): só nasce quando o jogador abre o baú errado (salas.cpp).
@@ -181,7 +231,7 @@ const TipoMonstro TIPOS_DE_MONSTRO[] = {
         "   /   \\|^^^^^^|/   \\",
         "  /  /\\  \\____/  /\\  \\",
         "    /  \\        /  \\" },
-      10, 10, 0, CHEFE | QUEBRA_CAIXAS },
+      13, 13, 0, CHEFE | QUEBRA_CAIXAS },
 };
 const int NUM_TIPOS_DE_MONSTRO = sizeof(TIPOS_DE_MONSTRO) / sizeof(TIPOS_DE_MONSTRO[0]);
 
@@ -192,6 +242,10 @@ const CorRGB CORES_DOS_ELEMENTOS[NUM_ELEMENTOS] = {
     {  90, 200,  90 },  // Planta
     { 185,  95, 215 },  // Veneno
     { 175, 140, 100 },  // Pedra
+    { 150, 225, 250 },  // Gelo
+    { 245, 210,  40 },  // Raio
+    { 120, 112, 175 },  // Trevas
+    { 255, 245, 205 },  // Luz
 };
 
 int tipoDoChefe() {
@@ -206,24 +260,27 @@ int tipoDoMimico() {
 // =============================================================================
 // ELEMENTOS SORTEADOS (Etapa 6)
 // =============================================================================
+// v1.23: o elemento de cada espécie puxa para o tema dos andares onde ela
+// vive (7 em 10 vezes um elemento "da casa"; senão, qualquer um). Assim as
+// minas têm mais Pedra e Raio, a caverna mais Água e Gelo, a cripta mais
+// Trevas, o vulcão mais Fogo. O chefe final é sempre de Trevas.
 void sortearElementosDasEspecies(Jogo& jogo, uint32_t semente) {
     GeradorAleatorio g;
     iniciarGerador(g, semente);
-    int saco[NUM_ELEMENTOS];
-    int restantes = 0;
-    // A tabela já está em ordem de andar (do rato ao chefe).
+    static const Elemento DO_TEMA[NUM_TEMAS][4] = {
+        { PEDRA, RAIO, NORMAL, VENENO },    // minas
+        { AGUA, PLANTA, GELO, NORMAL },     // caverna
+        { TREVAS, VENENO, GELO, NORMAL },   // cripta
+        { FOGO, PEDRA, TREVAS, RAIO },      // vulcão
+        { TREVAS, TREVAS, FOGO, PEDRA },    // trono
+    };
     for (int tipo = 0; tipo < NUM_TIPOS_DE_MONSTRO; tipo++) {
-        if (restantes == 0) {
-            // Saco novo com os 6 elementos embaralhados (Fisher-Yates).
-            for (int e = 0; e < NUM_ELEMENTOS; e++) saco[e] = e;
-            for (int e = NUM_ELEMENTOS - 1; e > 0; e--) {
-                int k = sortear(g, 0, e);
-                int tmp = saco[e]; saco[e] = saco[k]; saco[k] = tmp;
-            }
-            restantes = NUM_ELEMENTOS;
-        }
-        jogo.elementoDaEspecie[tipo] = (Elemento)saco[--restantes];
+        const TipoMonstro& t = TIPOS_DE_MONSTRO[tipo];
+        int tema = temaDoAndar((t.andarMinimo + t.andarMaximo) / 2);
+        Elemento e = chance(g, 70) ? DO_TEMA[tema][sortear(g, 0, 3)] : (Elemento)sortear(g, 0, NUM_ELEMENTOS - 1);
+        jogo.elementoDaEspecie[tipo] = e;
     }
+    jogo.elementoDaEspecie[tipoDoChefe()] = TREVAS;
 }
 
 void golpesDoMonstro(const Monstro& m, int golpes[MAX_GOLPES], int& numGolpes) {
@@ -388,7 +445,7 @@ void povoarAndar(Andar& andar, int numeroDoAndar, uint32_t semente,
         if (tipo < 0) break;
         // 2 em cada 3 monstros começam dormindo; os outros vagam.
         EstadoMonstro estado = chance(g, 67) ? DORMINDO : VAGANDO;
-        // Nível: cerca de 2 por andar (andar 1: níveis 1 a 3; andar 10: 19 a 21).
+        // Nível: cerca de 2 por andar (andar 1: níveis 1 a 3; andar 12: 23 a 25).
         int nivel = 2 * numeroDoAndar + sortear(g, -1, 1);
 
         for (int tentativa = 0; tentativa < 300; tentativa++) {
@@ -399,10 +456,17 @@ void povoarAndar(Andar& andar, int numeroDoAndar, uint32_t semente,
             if (monstroEm(andar, x, y) >= 0) continue;
 
             criarMonstro(andar, tipo, x, y, nivel, estado);
+            // A aranha já começa com umas teias em volta.
+            if (TIPOS_DE_MONSTRO[tipo].especial & TECE_TEIA) {
+                for (int d = 0; d < 8; d += 3) tecerTeia(andar, x + 2 * DIRECOES_DX[d], y + 2 * DIRECOES_DY[d]);
+            }
+            // O fungo nasce sempre parado (disfarçado).
+            if (TIPOS_DE_MONSTRO[tipo].especial & DISFARCADO) andar.monstros[andar.numMonstros - 1].estado = DORMINDO;
 
             // Espécies em bando ganham um companheiro ao lado (às vezes dois).
             if (TIPOS_DE_MONSTRO[tipo].especial & EM_BANDO) {
                 int extras = chance(g, 25) ? 2 : 1;
+                if (TIPOS_DE_MONSTRO[tipo].especial & REMONTA) extras = 1;   // esqueletos andam sempre em dupla
                 for (int d = 0; d < 8 && extras > 0 && andar.numMonstros < MAX_MONSTROS; d++) {
                     int nx = x + DIRECOES_DX[d], ny = y + DIRECOES_DY[d];
                     if (andar.mapa.celulas[ny][nx] != CHAO || andar.zonaSegura[ny][nx]) continue;
@@ -469,13 +533,14 @@ void ajustarNivelDoChefe(Monstro& chefe, int nivelDoJogador) {
 // =============================================================================
 
 // O monstro pode pisar em (x, y)? (sem paredes, escadas, outros monstros ou o jogador)
-static bool celulaLivre(const Jogo& jogo, int x, int y) {
+static bool celulaLivre(const Jogo& jogo, const Monstro& m, int x, int y) {
     const Andar& andar = andarAtual(jogo);
     if (!ehPassavel(andar.mapa, x, y) || ehEscada(andar.mapa, x, y)) return false;
     if (x == jogo.jogador.x && y == jogo.jogador.y) return false;
     if (npcEm(andar, x, y) >= 0) return false;
     if (andar.zonaSegura[y][x]) return false;   // a lojinha do comerciante
-    if (andar.mapa.celulas[y][x] == LAVA) return false;   // monstros não pisam na lava
+    // Monstros não pisam na lava (a salamandra pisa).
+    if (andar.mapa.celulas[y][x] == LAVA && !(tipoDe(m).especial & ANDA_NA_LAVA)) return false;
     if (especialEm(andar, x, y) >= 0) return false;       // fonte, altar, baú, gongo
     return monstroEm(andar, x, y) < 0;
 }
@@ -508,7 +573,7 @@ static bool moverParaMelhorVizinho(Jogo& jogo, Monstro& m,
         int dx = DIRECOES_DX[d], dy = DIRECOES_DY[d];
         int nx = m.x + dx, ny = m.y + dy;
         if (!podeMover(mapa, m.x, m.y, dx, dy)) continue;
-        if (!celulaLivre(jogo, nx, ny)) continue;
+        if (!celulaLivre(jogo, m, nx, ny)) continue;
 
         int v = valores[ny][nx];
         if (v == INALCANCAVEL) continue;
@@ -531,7 +596,7 @@ static void moverAoAcaso(Jogo& jogo, Monstro& m) {
     for (int k = 0; k < 8; k++) {
         int d = (primeira + k) % 8;
         int dx = DIRECOES_DX[d], dy = DIRECOES_DY[d];
-        if (podeMover(mapa, m.x, m.y, dx, dy) && celulaLivre(jogo, m.x + dx, m.y + dy)) {
+        if (podeMover(mapa, m.x, m.y, dx, dy) && celulaLivre(jogo, m, m.x + dx, m.y + dy)) {
             m.x += dx;
             m.y += dy;
             return;
@@ -787,6 +852,18 @@ static bool agirUmaVez(Jogo& jogo, Monstro& m, int indice) {
     if (m.estado == DORMINDO) {
         bool acorda = jogo.furtivo ? (distancia <= 2 && chance(jogo.sorte, 10))
                                    : (distancia <= alcance / 2 && chance(jogo.sorte, 33));
+        // O fungo disfarçado só "acorda" quando o jogador chega a 2 casas (e aí sempre).
+        if (t.especial & DISFARCADO) {
+            int dx = std::abs(jogo.jogador.x - m.x), dy = std::abs(jogo.jogador.y - m.y);
+            acorda = (dx > dy ? dx : dy) <= 2;
+            if (vejoJogador && acorda) {
+                m.estado = CACANDO;
+                m.turnosSemVerJogador = 0;
+                tocarSom(SOM_FOLHAS);
+                adicionarMensagem(jogo, "Aquele cogumelo se mexeu! Era um fungo!", MSG_PERIGO);
+            }
+            return false;
+        }
         if (vejoJogador && acorda) {
             m.estado = CACANDO;
             m.turnosSemVerJogador = 0;
@@ -860,6 +937,22 @@ static bool agirUmaVez(Jogo& jogo, Monstro& m, int indice) {
     return false;
 }
 
+// Uma teia em (x, y), se for um chão comum (longe de portas e escadas, fora
+// da lojinha) e o andar ainda não estiver cheio de teias.
+const int MAX_TEIAS_POR_ANDAR = 18;
+void tecerTeia(Andar& andar, int x, int y) {
+    if (!dentroDoMapa(x, y) || andar.mapa.celulas[y][x] != CHAO || andar.zonaSegura[y][x]) return;
+    for (int d = 0; d < 8; d++) {
+        TipoCelula c = andar.mapa.celulas[y + DIRECOES_DY[d]][x + DIRECOES_DX[d]];
+        if (c == PORTA || c == PORTA_TRANCADA || c == ESCADA_DESCE || c == ESCADA_SOBE) return;
+    }
+    int teias = 0;
+    for (int yy = 0; yy < MAPA_ALTURA; yy++)
+        for (int xx = 0; xx < MAPA_LARGURA; xx++) teias += andar.mapa.celulas[yy][xx] == TEIA;
+    if (teias >= MAX_TEIAS_POR_ANDAR) return;
+    andar.mapa.celulas[y][x] = TEIA;
+}
+
 int intervaloDoMonstro(const Monstro& m) {
     const TipoMonstro& t = tipoDe(m);
     int velocidade = atributoPeloNivel(t.baseVelocidade, m.nivel);
@@ -894,6 +987,9 @@ void agirMonstros(Jogo& jogo, int ms) {
             if (agirUmaVez(jogo, m, i)) return; // batalha: os outros esperam
             // Andou para cima de uma armadilha?
             if (m.x != antesX || m.y != antesY) armadilhaPegaMonstro(jogo, m);
+            // A aranha deixa uma teia onde estava (às vezes).
+            if ((tipoDe(m).especial & TECE_TEIA) && (m.x != antesX || m.y != antesY) && chance(jogo.sorte, 30))
+                tecerTeia(andar, antesX, antesY);
         }
     }
 }

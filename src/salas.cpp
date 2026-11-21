@@ -217,7 +217,7 @@ static int itemDoBau(Jogo& jogo) {
     if (r <= 30) return I_POCAO_GRANDE;
     if (r <= 40) return I_ETER;
     if (r <= 50) return chance(jogo.sorte, 50) ? I_BOMBA_DE_FUMACA : I_PERGAMINHO_DO_MAPA;
-    if (r <= 65) return I_PERGAMINHO_DE_FOGO + sortear(jogo.sorte, 0, 4);
+    if (r <= 65) return PERGAMINHO_DO_ELEMENTO[sortear(jogo.sorte, 0, NUM_ELEMENTOS - 1)];
     std::vector<int> opcoes;
     for (int i = 0; i < NUM_TIPOS_DE_ITEM; i++) {
         const TipoItem& t = TIPOS_DE_ITEM[i];

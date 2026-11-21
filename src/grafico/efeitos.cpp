@@ -87,6 +87,25 @@ void explosaoDoElemento(int elemento, float x, float y, int camada, float forca)
         case 5:  // Pedra: pedrinhas que caem
             jorrar(x, y - 60, n, 20, 90, -PI * 0.9f, -PI * 0.1f, {180, 145, 105, 255}, 8, 0.7, QUADRADO, 600, camada);
             break;
+        case 6:  // Gelo: cristais girando, um anel frio e flocos caindo devagar
+            jorrar(x, y, n, 80, 200, 0, 2 * PI, {180, 235, 255, 255}, 7, 0.55, ESTRELA, 0, camada);
+            jorrar(x, y, 2, 2, 6, 0, 2 * PI, {150, 220, 255, 255}, 34, 0.5, ANEL, 0, camada);
+            jorrar(x, y - 40, n / 2, 10, 50, -PI, 0, {240, 250, 255, 255}, 3, 1.1, BOLINHA, 70, camada);
+            break;
+        case 7:  // Raio: o relâmpago cai do alto e solta faíscas amarelas
+            jorrar(x, y, 1, 0, 0, 0, 0, {255, 245, 150, 255}, 120, 0.28, RELAMPAGO, 0, camada);
+            jorrar(x, y, n, 180, 320, 0, 2 * PI, {255, 230, 80, 255}, 6, 0.3, FAISCA, 0, camada);
+            jorrar(x, y, n / 2, 60, 140, 0, 2 * PI, {255, 255, 230, 255}, 4, 0.25, ESTRELA, 0, camada);
+            break;
+        case 8:  // Trevas: fumaça escura que sobe e anéis roxos
+            jorrar(x, y, n, 20, 70, 0, 2 * PI, {45, 30, 70, 230}, 15, 0.9, BOLINHA, -30, camada);
+            jorrar(x, y, n / 2, 40, 100, 0, 2 * PI, {170, 130, 235, 255}, 6, 0.7, ANEL, -20, camada);
+            break;
+        case 9:  // Luz: raios brancos e um clarão dourado
+            jorrar(x, y, n, 150, 260, 0, 2 * PI, {255, 250, 215, 255}, 6, 0.45, FAISCA, 0, camada);
+            jorrar(x, y, 2, 2, 8, 0, 2 * PI, {255, 225, 140, 255}, 40, 0.5, ANEL, 0, camada);
+            jorrar(x, y, n / 2, 40, 120, 0, 2 * PI, {255, 215, 110, 255}, 5, 0.6, ESTRELA, -40, camada);
+            break;
         default: // Normal: estrelas de impacto
             jorrar(x, y, n, 120, 260, 0, 2 * PI, {255, 245, 200, 255}, 7, 0.4, ESTRELA, 0, camada);
             break;
@@ -132,6 +151,16 @@ void desenharParticulas(int camada, float deslocX, float deslocY) {
             case ESTRELA:  DrawPoly({x, y}, 4, s, (p.giro + t * 8) * 57.3f, c); break;
             case FOLHA:    DrawEllipse((int)x, (int)y, s, s * 0.45f, c); break;
             case FAISCA:   DrawPoly({x, y}, 4, s * 0.8f, 45, c); break;
+            case RELAMPAGO: {   // zigue-zague do alto (y - tamanho) até o ponto
+                float h = p.tamanho, x0 = x, y0 = y - h;
+                for (int k = 1; k <= 6; k++) {
+                    float x1 = x + (k < 6 ? ((k % 2) ? 14.0f : -10.0f) : 0.0f), y1 = y - h + h * k / 6.0f;
+                    DrawLineEx({x0, y0}, {x1, y1}, 9, comAlfa(p.cor, resta * 0.5f));
+                    DrawLineEx({x0, y0}, {x1, y1}, 5, comAlfa({255, 255, 255, 255}, resta));
+                    x0 = x1; y0 = y1;
+                }
+                break;
+            }
             default:       DrawCircleV({x, y}, s, c); break;
         }
     }

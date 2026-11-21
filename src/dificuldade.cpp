@@ -7,11 +7,11 @@ const Dificuldade DIFICULDADES[NUM_DIFICULDADES] = {
     //  vida  ataque lentidão armadilha  XP  vidas poções pontos loja  campeões   folga  chefe
     //                                                                (% e máx.)  nível  +nível
     { "Fácil",   "Monstros fracos e lentos, 5 vidas e 6 poções. Para conhecer o jogo.",
-         -15,    75,    130,      6,     150,   5,    6,     50,   75,   6, 1,      -1,    1 },
+         -20,    60,    130,      6,     150,   5,    6,     50,   75,   6, 1,      -1,    1 },
     { "Médio",   "3 vidas e 3 poções. Do andar 3 em diante, os monstros ficam no máximo 2 níveis abaixo de você.",
-         10,    115,    110,     10,     125,   3,    3,    100,  100,  12, 2,       2,    1 },
+          0,    75,    110,     10,     125,   3,    3,    100,  100,  12, 2,       2,    1 },
     { "Difícil", "Monstros fortes, 3 vidas e 3 poções. Do andar 3 em diante, no máximo 2 níveis abaixo de você.",
-         30,    125,    100,     15,     100,   3,    3,    150,  125,  18, 3,       2,    1 },
+          5,    85,    100,     15,     100,   3,    3,    150,  125,  18, 3,       2,    1 },
     { "Impossível", "Ninguém voltou. Você vai ser o primeiro? 1 vida, 1 poção e, do andar 3 em diante, monstros sempre do seu nível.",
          40,    135,     90,     20,     100,   1,    1,    200,  150,  25, 4,       0,    3 },
 };

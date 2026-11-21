@@ -22,7 +22,7 @@ void colocar(Mapa& mapa, int x, int y, TipoCelula tipo) {
 bool ehPassavel(const Mapa& mapa, int x, int y) {
     if (!dentroDoMapa(x, y)) return false;
     TipoCelula t = mapa.celulas[y][x];
-    return t == CHAO || t == PORTA || t == ESCADA_DESCE || t == ESCADA_SOBE || t == POCA || t == LAVA;
+    return t == CHAO || t == PORTA || t == ESCADA_DESCE || t == ESCADA_SOBE || t == POCA || t == LAVA || t == TEIA;
 }
 
 // Paredes, tochas e escadas (que ficam dentro da parede) bloqueiam a visão.
@@ -32,7 +32,7 @@ bool ehPassavel(const Mapa& mapa, int x, int y) {
 bool ehOpaco(const Mapa& mapa, int x, int y) {
     if (!dentroDoMapa(x, y)) return true;
     TipoCelula t = mapa.celulas[y][x];
-    return t != CHAO && t != CAIXA && t != POCA && t != LAVA;
+    return t != CHAO && t != CAIXA && t != POCA && t != LAVA && t != TUMULO && t != TEIA;
 }
 
 bool ehEscada(const Mapa& mapa, int x, int y) {

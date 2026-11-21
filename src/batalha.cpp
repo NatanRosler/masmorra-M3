@@ -1,5 +1,6 @@
 // batalha.cpp
 #include "batalha.h"
+#include <algorithm>
 #include "jogo.h"
 #include "monstros.h"
 #include "tela.h"
@@ -18,21 +19,26 @@
 // TABELAS
 // =============================================================================
 const char* NOMES_DOS_ELEMENTOS[NUM_ELEMENTOS] = {
-    "Normal", "Fogo", "Água", "Planta", "Veneno", "Pedra"
+    "Normal", "Fogo", "Água", "Planta", "Veneno", "Pedra", "Gelo", "Raio", "Trevas", "Luz"
 };
 
-const char* NOMES_DOS_STATUS[] = { "", "envenenado", "dormindo", "paralisado" };
+const char* NOMES_DOS_STATUS[] = { "", "envenenado", "dormindo", "paralisado",
+                                   "queimado", "congelado", "ofuscado", "atordoado", "preso" };
 
 // Eficácia em METADES (1 = metade do dano, 2 = normal, 4 = dobro).
 // Linha = elemento do golpe; coluna = elemento de quem recebe.
 static const int TABELA_DE_EFICACIA[NUM_ELEMENTOS][NUM_ELEMENTOS] = {
-    //              Normal Fogo Água Planta Veneno Pedra
-    /* Normal */  {   2,    2,   2,    2,     2,     1  },
-    /* Fogo   */  {   2,    1,   1,    4,     2,     1  },
-    /* Água   */  {   2,    4,   1,    1,     2,     4  },
-    /* Planta */  {   2,    1,   4,    1,     1,     4  },
-    /* Veneno */  {   2,    2,   2,    4,     1,     1  },
-    /* Pedra  */  {   2,    4,   2,    2,     2,     2  },
+    //              Normal Fogo Água Planta Veneno Pedra  Gelo Raio Trevas Luz
+    /* Normal */  {   2,   2,   2,   2,   2,   2,   2,   2,   2,   2 },
+    /* Fogo   */  {   2,   1,   1,   4,   2,   1,   4,   2,   4,   2 },
+    /* Água   */  {   2,   4,   1,   1,   2,   4,   1,   2,   2,   2 },
+    /* Planta */  {   2,   1,   4,   1,   1,   4,   2,   2,   2,   2 },
+    /* Veneno */  {   2,   2,   2,   2,   1,   1,   2,   2,   2,   4 },
+    /* Pedra  */  {   2,   4,   2,   1,   4,   2,   2,   4,   2,   2 },
+    /* Gelo   */  {   2,   1,   4,   2,   2,   4,   1,   2,   2,   2 },
+    /* Raio   */  {   2,   2,   4,   1,   2,   2,   4,   1,   2,   2 },
+    /* Trevas */  {   4,   2,   2,   2,   2,   2,   2,   2,   1,   4 },
+    /* Luz    */  {   2,   2,   2,   2,   2,   2,   2,   2,   4,   1 },
 };
 
 int eficacia(Elemento ataque, Elemento defesa) {
@@ -41,47 +47,89 @@ int eficacia(Elemento ataque, Elemento defesa) {
 
 const Golpe GOLPES[NUM_GOLPES] = {
     //  nome               elemento poder prec  PP  efeito        chance prior.
-    { "Golpe",             NORMAL,  40,  100,   0, SEM_EFEITO,      0,  0 },
-    { "Escudo",            NORMAL,   0,  100,  10, SOBE_DEFESA,   100,  2 },
-    { "Golpe Forte",       NORMAL,  65,   85,  10, SEM_EFEITO,      0,  0 },
-    { "Tocha",             FOGO,    55,  100,  12, SEM_EFEITO,      0,  0 },
-    { "Jato d'Água",       AGUA,    55,  100,  12, SEM_EFEITO,      0,  0 },
-    { "Grito de Guerra",   NORMAL,   0,  100,  10, SOBE_ATAQUE,   100,  0 },
-    { "Pó do Sono",        PLANTA,   0,   75,   8, ADORMECER,     100,  0 },
-    { "Lâmina Venenosa",   VENENO,  60,  100,  10, ENVENENAR,      30,  0 },
-    { "Golpe Duplo",       NORMAL,  25,   90,  10, DOIS_GOLPES,   100,  0 },
-    { "Pedrada",           PEDRA,   65,   90,  10, SEM_EFEITO,      0,  0 },
+    { "Golpe",             NORMAL,  40,  100,   0, SEM_EFEITO,      0,  0, false },
+    { "Escudo",            NORMAL,   0,  100,  10, SOBE_DEFESA,   100,  2, false },
+    { "Golpe Forte",       NORMAL,  65,   90,  10, SEM_EFEITO,      0,  0, false },
+    { "Tocha",             FOGO,    55,  100,  12, QUEIMAR,        10,  0, false },
+    { "Jato d'Água",       AGUA,    60,  100,  12, SEM_EFEITO,      0,  0, false },
+    { "Grito de Guerra",   NORMAL,   0,  100,  10, SOBE_ATAQUE,   100,  0, false },
+    { "Pó do Sono",        PLANTA,   0,   75,   8, ADORMECER,     100,  0, false },
+    { "Lâmina Venenosa",   VENENO,  55,  100,  12, ENVENENAR,      30,  0, false },
+    { "Golpe Duplo",       NORMAL,  25,   90,  10, DOIS_GOLPES,   100,  0, false },
+    { "Pedrada",           PEDRA,   55,   95,  12, ATORDOAR,       10,  0, false },
     // Golpes dos monstros (eles não gastam PP)
-    { "Mordida",           NORMAL,  45,  100,   0, SEM_EFEITO,      0,  0 },
-    { "Rosnado",           NORMAL,   0,  100,   0, BAIXA_ATAQUE,  100,  0 },
-    { "Ataque Rápido",     NORMAL,  40,  100,   0, SEM_EFEITO,      0,  1 },
-    { "Arranhão",          NORMAL,  40,  100,   0, SEM_EFEITO,      0,  0 },
-    { "Folha Navalha",     PLANTA,  65,   95,   0, SEM_EFEITO,      0,  0 },
-    { "Língua Grudenta",   NORMAL,  30,  100,   0, PARALISAR,      30,  0 },
-    { "Ferrão Venenoso",   VENENO,  25,  100,   0, ENVENENAR,      40,  0 },
-    { "Sugar Sangue",      NORMAL,  45,  100,   0, DRENAR,        100,  0 },
-    { "Esmagar",           PEDRA,   70,   80,   0, SEM_EFEITO,      0,  0 },
-    { "Rugido",            NORMAL,   0,  100,   0, BAIXA_DEFESA,  100,  0 },
-    { "Chicote d'Água",    AGUA,    65,   95,   0, SEM_EFEITO,      0,  0 },
-    { "Hipnose",           NORMAL,   0,   60,   0, ADORMECER,     100,  0 },
-    { "Brasa",             FOGO,    45,  100,   0, SEM_EFEITO,      0,  0 },
+    { "Mordida",           NORMAL,  45,  100,   0, SEM_EFEITO,      0,  0, false },
+    { "Rosnado",           NORMAL,   0,  100,   0, BAIXA_ATAQUE,  100,  0, false },
+    { "Ataque Rápido",     NORMAL,  40,  100,   0, SEM_EFEITO,      0,  1, false },
+    { "Arranhão",          NORMAL,  40,  100,   0, SEM_EFEITO,      0,  0, false },
+    { "Folha Navalha",     PLANTA,  70,   95,  10, SEM_EFEITO,      0,  0, false },
+    { "Língua Grudenta",   NORMAL,  30,  100,   0, PARALISAR,      30,  0, false },
+    { "Ferrão Venenoso",   VENENO,  25,  100,   0, ENVENENAR,      40,  0, false },
+    { "Sugar Sangue",      NORMAL,  45,  100,   0, DRENAR,        100,  0, false },
+    { "Esmagar",           PEDRA,   70,   80,   0, ATORDOAR,       10,  0, false },
+    { "Rugido",            NORMAL,   0,  100,   0, BAIXA_DEFESA,  100,  0, false },
+    { "Chicote d'Água",    AGUA,    65,   95,   0, SEM_EFEITO,      0,  0, false },
+    { "Hipnose",           NORMAL,   0,   60,   0, ADORMECER,     100,  0, false },
+    { "Brasa",             FOGO,    45,  100,   0, QUEIMAR,        10,  0, false },
     // Golpe inicial de quem escolhe Planta
-    { "Chicote de Vinha",  PLANTA,  55,  100,  12, SEM_EFEITO,      0,  0 },
+    { "Chicote de Vinha",  PLANTA,  60,  100,  12, PRENDER,        10,  0, false },
     // Golpes elementais dos monstros (ver golpeElementalDosMonstros)
-    { "Investida",         NORMAL,  65,   90,   0, SEM_EFEITO,      0,  0 },
-    { "Labareda",          FOGO,    65,   90,   0, SEM_EFEITO,      0,  0 },
-    { "Bolha",             AGUA,    45,  100,   0, SEM_EFEITO,      0,  0 },
-    { "Espinhos",          PLANTA,  45,  100,   0, SEM_EFEITO,      0,  0 },
-    { "Ácido",             VENENO,  65,   90,   0, ENVENENAR,      20,  0 },
-    { "Pedregulho",        PEDRA,   45,   95,   0, SEM_EFEITO,      0,  0 },
+    { "Investida",         NORMAL,  80,   90,  10, SEM_EFEITO,      0,  0, false },
+    { "Labareda",          FOGO,    70,   90,  10, QUEIMAR,        20,  0, false },
+    { "Bolha",             AGUA,    45,  100,   0, SEM_EFEITO,      0,  0, false },
+    { "Espinhos",          PLANTA,  45,  100,   0, SEM_EFEITO,      0,  0, false },
+    { "Ácido",             VENENO,  65,   90,   0, ENVENENAR,      20,  0, false },
+    { "Pedregulho",        PEDRA,   45,   95,   0, SEM_EFEITO,      0,  0, false },
     // Golpe do chefe final
-    { "Golpe Sombrio",     NORMAL,  80,   90,   0, SEM_EFEITO,      0,  0 },
+    { "Golpe Sombrio",     TREVAS,  80,   90,   0, SEM_EFEITO,      0,  0, false },
+    // ---- v1.23 -------------------------------------------------------------
+    //  nome                 elemento poder prec  PP  efeito     chance prior. área
+    { "Foco",              NORMAL,   0,  100,   5, FOCO,          100,  0, false },
+    { "Fúria",             NORMAL,  25,   90,   8, TRES_GOLPES,   100,  0, false },
+    { "Golpe Final",       NORMAL, 100,   85,   5, SEM_EFEITO,      0,  0, false },
+    { "Muralha de Fogo",   FOGO,    55,   95,   8, QUEIMAR,        10,  0, true },
+    { "Inferno",           FOGO,    95,   80,   5, QUEIMAR,        30,  0, false },
+    { "Bolha Curativa",    AGUA,     0,  100,   6, CURAR,          30,  0, false },
+    { "Onda",              AGUA,    60,   95,   8, SEM_EFEITO,      0,  0, true },
+    { "Maremoto",          AGUA,   100,   85,   5, SEM_EFEITO,      0,  0, false },
+    { "Semente Sanguessuga", PLANTA, 0,   90,   8, SANGUESSUGA,   100,  0, false },
+    { "Tempestade de Folhas", PLANTA, 70, 90,   6, SEM_EFEITO,      0,  0, true },
+    { "Nuvem Tóxica",      VENENO,  40,   90,   8, ENVENENAR,      30,  0, true },
+    { "Ácido Corrosivo",   VENENO,  65,   95,  10, BAIXA_DEFESA,   30,  0, false },
+    { "Peste",             VENENO,  90,   85,   5, ENVENENAR,      50,  0, false },
+    { "Muralha de Pedra",  PEDRA,    0,  100,   8, SOBE_DEFESA,   100,  0, false },
+    { "Terremoto",         PEDRA,   70,   90,   6, SEM_EFEITO,      0,  0, true },
+    { "Avalanche",         PEDRA,   95,   85,   5, ATORDOAR,       20,  0, false },
+    { "Rajada de Gelo",    GELO,    60,  100,  12, CONGELAR,       10,  0, false },
+    { "Armadura de Gelo",  GELO,     0,  100,   8, SOBE_DEFESA,   100,  0, false },
+    { "Nevasca",           GELO,    60,   90,   8, CONGELAR,       10,  0, true },
+    { "Zero Absoluto",     GELO,    95,   80,   5, CONGELAR,       20,  0, false },
+    { "Choque",            RAIO,    55,  100,  12, PARALISAR,      10,  0, false },
+    { "Passo do Raio",     RAIO,    45,  100,  12, SEM_EFEITO,      0,  1, false },
+    { "Trovão",            RAIO,    80,   85,   8, PARALISAR,      20,  0, false },
+    { "Tempestade",        RAIO,    70,   85,   5, PARALISAR,      10,  0, true },
+    { "Garra das Trevas",  TREVAS,  50,  100,  12, DRENAR,        100,  0, false },
+    { "Pavor",             TREVAS,   0,   90,   8, BAIXA_ATAQUE,  100,  0, false },
+    { "Pulso das Trevas",  TREVAS,  65,   95,   8, DRENAR,        100,  0, false },
+    { "Eclipse",           TREVAS,  95,   85,   5, BAIXA_DEFESA,   20,  0, false },
+    { "Raio de Luz",       LUZ,     50,  100,  12, OFUSCAR,         5,  0, false },
+    { "Cura de Luz",       LUZ,      0,  100,   3, CURAR,          25,  0, false },
+    { "Clarão",            LUZ,     55,   95,   8, OFUSCAR,        10,  0, true },
+    { "Julgamento",        LUZ,    100,   85,   5, SEM_EFEITO,      0,  0, false },
+    // Golpes dos monstros (elementos novos e espécies novas)
+    { "Sopro Frio",        GELO,    45,  100,   0, CONGELAR,       10,  0, false },
+    { "Faísca",            RAIO,    45,  100,   0, PARALISAR,      10,  0, false },
+    { "Toque Sombrio",     TREVAS,  45,  100,   0, DRENAR,        100,  0, false },
+    { "Lampejo",           LUZ,     45,  100,   0, OFUSCAR,        10,  0, false },
+    { "Teia",              NORMAL,   0,   90,   0, PRENDER,       100,  0, false },
+    { "Esporos",           PLANTA,   0,   80,   0, ADORMECER,     100,  0, false },
 };
 
 // Golpe que o jogador já sabe ao ser criado, conforme o elemento escolhido.
 int golpeInicialDoElemento(Elemento e) {
     static const int GOLPE_INICIAL[NUM_ELEMENTOS] = {
-        G_GOLPE_FORTE, G_TOCHA, G_JATO_DAGUA, G_CHICOTE_DE_VINHA, G_LAMINA_VENENOSA, G_PEDRADA
+        G_GOLPE_FORTE, G_TOCHA, G_JATO_DAGUA, G_CHICOTE_DE_VINHA, G_LAMINA_VENENOSA, G_PEDRADA,
+        G_RAJADA_DE_GELO, G_CHOQUE, G_GARRA_DAS_TREVAS, G_RAIO_DE_LUZ
     };
     return GOLPE_INICIAL[e];
 }
@@ -90,8 +138,10 @@ int golpeInicialDoElemento(Elemento e) {
 // espécie vira o golpe deste elemento: o fraco (poder 45) para as espécies
 // dos primeiros andares e o forte (poder 65-70) para as dos andares fundos.
 int golpeElementalDosMonstros(Elemento e, bool forte) {
-    static const int FRACO[NUM_ELEMENTOS] = { G_MORDIDA, G_BRASA, G_BOLHA, G_ESPINHOS, G_FERRAO_VENENOSO, G_PEDREGULHO };
-    static const int FORTE[NUM_ELEMENTOS] = { G_INVESTIDA, G_LABAREDA, G_CHICOTE_DAGUA, G_FOLHA_NAVALHA, G_ACIDO, G_ESMAGAR };
+    static const int FRACO[NUM_ELEMENTOS] = { G_MORDIDA, G_BRASA, G_BOLHA, G_ESPINHOS, G_FERRAO_VENENOSO, G_PEDREGULHO,
+                                              G_SOPRO_FRIO, G_FAISCA, G_TOQUE_SOMBRIO, G_LAMPEJO };
+    static const int FORTE[NUM_ELEMENTOS] = { G_INVESTIDA, G_LABAREDA, G_CHICOTE_DAGUA, G_FOLHA_NAVALHA, G_ACIDO, G_ESMAGAR,
+                                              G_NEVASCA, G_TROVAO, G_PULSO_DAS_TREVAS, G_CLARAO };
     return forte ? FORTE[e] : FRACO[e];
 }
 
@@ -100,17 +150,52 @@ struct GolpeAprendido {
     int nivel;
     int golpe;
 };
+// v1.23: os gerais (todo mundo) e a linha de cada elemento.
 static const GolpeAprendido APRENDIZADO[] = {
-    {  7, G_TOCHA },
-    {  9, G_GOLPE_FORTE },
-    { 11, G_JATO_DAGUA },
-    { 13, G_GRITO_DE_GUERRA },
-    { 15, G_PO_DO_SONO },
-    { 18, G_LAMINA_VENENOSA },
-    { 21, G_GOLPE_DUPLO },
-    { 24, G_PEDRADA },
+    {  9, G_GRITO_DE_GUERRA },
+    { 18, G_GOLPE_DUPLO },
+    { 27, G_FOCO },
 };
 static const int NUM_APRENDIZADOS = sizeof(APRENDIZADO) / sizeof(APRENDIZADO[0]);
+static const int NIVEIS_DA_LINHA[3] = { 12, 24, 30 };
+static const int LINHA_DO_ELEMENTO[NUM_ELEMENTOS][3] = {
+    { G_INVESTIDA,        G_FURIA,               G_GOLPE_FINAL },          // Normal
+    { G_LABAREDA,         G_MURALHA_DE_FOGO,     G_INFERNO },              // Fogo
+    { G_BOLHA_CURATIVA,   G_ONDA,                G_MAREMOTO },             // Água
+    { G_FOLHA_NAVALHA,    G_TEMPESTADE_DE_FOLHAS, G_SEMENTE_SANGUESSUGA }, // Planta
+    { G_NUVEM_TOXICA,     G_ACIDO_CORROSIVO,     G_PESTE },                // Veneno
+    { G_MURALHA_DE_PEDRA, G_TERREMOTO,           G_AVALANCHE },            // Pedra
+    { G_ARMADURA_DE_GELO, G_NEVASCA,             G_ZERO_ABSOLUTO },        // Gelo
+    { G_PASSO_DO_RAIO,    G_TROVAO,              G_TEMPESTADE },           // Raio
+    { G_PAVOR,            G_PULSO_DAS_TREVAS,    G_ECLIPSE },              // Trevas
+    { G_CURA_DE_LUZ,      G_CLARAO,              G_JULGAMENTO },           // Luz
+};
+
+std::string resumoDoElemento(Elemento e, bool curto) {
+    auto lista = [&](bool atacando, int valor) {
+        std::string s;
+        for (int o = 0; o < NUM_ELEMENTOS; o++) {
+            int v = atacando ? eficacia(e, (Elemento)o) : eficacia((Elemento)o, e);
+            if (v != valor) continue;
+            if (!s.empty()) s += ", ";
+            s += NOMES_DOS_ELEMENTOS[o];
+        }
+        return s.empty() ? std::string("nenhum") : s;
+    };
+    if (curto) return "Golpes de " + std::string(NOMES_DOS_ELEMENTOS[e]) + " causam +" +
+                      std::to_string(BONUS_DO_PROPRIO_ELEMENTO) + "% de dano. Forte contra: " + lista(true, 4) + ".";
+    return "Golpe inicial: " + std::string(GOLPES[golpeInicialDoElemento(e)].nome) + ". Golpes de " +
+           NOMES_DOS_ELEMENTOS[e] + " causam +" + std::to_string(BONUS_DO_PROPRIO_ELEMENTO) + "% de dano. " +
+           "Forte contra: " + lista(true, 4) + ". Leva o dobro de: " + lista(false, 4) +
+           ". Resiste a: " + lista(false, 1) + ".";
+}
+
+int golpesDoNivel(Elemento e, int nivel, int golpes[2]) {
+    int n = 0;
+    for (int i = 0; i < NUM_APRENDIZADOS; i++) if (APRENDIZADO[i].nivel == nivel) golpes[n++] = APRENDIZADO[i].golpe;
+    for (int k = 0; k < 3 && n < 2; k++) if (NIVEIS_DA_LINHA[k] == nivel) golpes[n++] = LINHA_DO_ELEMENTO[e][k];
+    return n;
+}
 
 // =============================================================================
 // FÓRMULAS
@@ -149,7 +234,9 @@ static int calcularDano(Jogo& jogo, const Lutador& atacante, const Lutador& alvo
     if (defesa < 1) defesa = 1;
 
     int dano = ((2 * atacante.nivel / 5 + 2) * golpe.poder * ataque / defesa) / 50 + 2;
-    if (golpe.elemento == atacante.elemento) dano = dano * 3 / 2;
+    if (golpe.elemento == atacante.elemento) dano = dano * (100 + BONUS_DO_PROPRIO_ELEMENTO) / 100;
+    // Queimado: o ataque cai para 3/4.
+    if (atacante.status == QUEIMADO) dano = dano * 3 / 4;
 
     efic = eficacia(golpe.elemento, alvo.elemento);
     dano = dano * efic / 2;
@@ -158,7 +245,7 @@ static int calcularDano(Jogo& jogo, const Lutador& atacante, const Lutador& alvo
     if (golpe.elemento == atacante.elementoDaArma) dano = dano * 5 / 4;
 
     // Crítico: 6% de base (como o 1/16 dos Pokémon) + o bônus da Destreza.
-    critico = sortear(jogo.sorte, 1, 100) <= 6 + atacante.criticoExtra;
+    critico = sortear(jogo.sorte, 1, 100) <= 6 + atacante.criticoExtra || atacante.focado;
     if (critico) dano = dano * 3 / 2;
 
     dano = dano * sortear(jogo.sorte, 85, 100) / 100;
@@ -278,28 +365,74 @@ static void dicaNaBatalha(Jogo& jogo, Batalha& b, Dica dica) {
     narrar(jogo, b, std::string("DICA - ") + tituloDaDica(dica) + ": " + textoDaDica(dica), MSG_BOA);
 }
 
+static int ladoDe(const Lutador& l) { return l.indice; }
+
+// Cada elemento é imune ao "seu" estado: Veneno não se envenena, Fogo não
+// queima, Gelo não congela, Raio não paralisa e Luz não fica ofuscada.
+static Status statusDoEfeito(EfeitoGolpe e) {
+    switch (e) {
+        case ENVENENAR: return ENVENENADO; case ADORMECER: return ADORMECIDO; case PARALISAR: return PARALISADO;
+        case QUEIMAR: return QUEIMADO; case CONGELAR: return CONGELADO; case OFUSCAR: return OFUSCADO;
+        case ATORDOAR: return ATORDOADO; case PRENDER: return PRESO; default: return SEM_STATUS;
+    }
+}
+
+static bool imuneAoStatus(const Lutador& alvo, Status status) {
+    return (status == ENVENENADO && alvo.elemento == VENENO) || (status == QUEIMADO && alvo.elemento == FOGO) ||
+           (status == CONGELADO && alvo.elemento == GELO) || (status == PARALISADO && alvo.elemento == RAIO) ||
+           (status == OFUSCADO && alvo.elemento == LUZ);
+}
+
 static void aplicarStatus(Jogo& jogo, Batalha& b, Lutador& alvo, Status status, bool avisarFalha) {
     std::string nome = comMaiuscula(alvo.nome);
-    bool imune = (status == ENVENENADO && alvo.elemento == VENENO);
-    if (alvo.status != SEM_STATUS || imune) {
+    if (alvo.status != SEM_STATUS || imuneAoStatus(alvo, status)) {
         if (avisarFalha) narrar(jogo, b, "Não teve efeito em " + alvo.nome + ".");
         return;
     }
-    if (status == ADORMECIDO && alvo.ehChefe && b.chefeFurioso) {
-        narrar(jogo, b, "A fúria não deixa " + alvo.nome + " dormir!");
+    if ((status == ADORMECIDO || status == CONGELADO) && alvo.ehChefe && b.chefeFurioso) {
+        narrar(jogo, b, "A fúria não deixa " + alvo.nome + (status == ADORMECIDO ? " dormir!" : " congelar!"));
         return;
     }
     alvo.status = status;
-    tocarSom(status == ENVENENADO ? SOM_VENENO : status == ADORMECIDO ? SOM_SONO : SOM_PARALISIA);
+    Som som = SOM_PARALISIA;
+    if (status == ENVENENADO) som = SOM_VENENO;
+    if (status == ADORMECIDO) som = SOM_SONO;
+    if (status == QUEIMADO) som = SOM_QUEIMADO;
+    if (status == CONGELADO) som = SOM_CONGELADO;
+    if (status == OFUSCADO) som = SOM_OFUSCADO;
+    if (status == ATORDOADO || status == PRESO) som = SOM_ATORDOADO;
+    tocarSom(som);
     // Status no jogador é perigo; no inimigo, é uma boa notícia.
     TipoMensagem tipo = alvo.ehJogador ? MSG_PERIGO : MSG_BOA;
-    if (status == ENVENENADO) narrar(jogo, b, nome + " foi envenenado!", tipo);
-    if (status == PARALISADO) narrar(jogo, b, nome + " ficou paralisado!", tipo);
+    bool fem = !alvo.ehJogador && alvo.nome.compare(0, 2, "a ") == 0;   // "a aranha" / "o goblin"
+    std::string o = fem ? "a" : "o";
+    if (status == ENVENENADO) narrar(jogo, b, nome + " foi envenenad" + o + "!", tipo);
+    if (status == PARALISADO) narrar(jogo, b, nome + " ficou paralisad" + o + "!", tipo);
+    if (status == QUEIMADO)   narrar(jogo, b, nome + " pegou fogo! Está queimad" + o + ".", tipo);
+    if (status == OFUSCADO)   narrar(jogo, b, nome + " ficou ofuscad" + o + "! Vai errar mais.", tipo);
+    if (status == ATORDOADO)  narrar(jogo, b, nome + " ficou atordoad" + o + "!", tipo);
+    if (status == PRESO)      narrar(jogo, b, nome + " ficou pres" + o + "!", tipo);
     if (status == ADORMECIDO) {
         alvo.rodadasDormindo = sortear(jogo.sorte, 1, 3);
         narrar(jogo, b, nome + " caiu no sono!", tipo);
     }
+    if (status == CONGELADO) {
+        alvo.rodadasDormindo = sortear(jogo.sorte, 1, 2);
+        narrar(jogo, b, nome + " congelou!", tipo);
+    }
     if (alvo.ehJogador) dicaNaBatalha(jogo, b, DICA_STATUS);
+}
+
+static void curar(Jogo& jogo, Batalha& b, Lutador& quem, int porcento) {
+    std::string nome = comMaiuscula(quem.nome);
+    if (*quem.vida >= quem.vidaMaxima) { narrar(jogo, b, nome + " já está com a vida cheia."); return; }
+    int antes = *quem.vida;
+    *quem.vida += quem.vidaMaxima * porcento / 100;
+    if (*quem.vida > quem.vidaMaxima) *quem.vida = quem.vidaMaxima;
+    tocarSom(SOM_CURA);
+    animarBatalha(jogo, b, ANIM_CURA, ladoDe(quem), ladoDe(quem), 0, *quem.vida - antes, false);
+    animarVida(jogo, b, ladoDe(quem));
+    narrar(jogo, b, nome + " recuperou " + std::to_string(*quem.vida - antes) + " de vida!", quem.ehJogador ? MSG_BOA : MSG_NORMAL);
 }
 
 static void aplicarEfeito(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo,
@@ -308,10 +441,67 @@ static void aplicarEfeito(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& al
         case ENVENENAR:    aplicarStatus(jogo, b, alvo, ENVENENADO, golpeDeStatus); break;
         case ADORMECER:    aplicarStatus(jogo, b, alvo, ADORMECIDO, golpeDeStatus); break;
         case PARALISAR:    aplicarStatus(jogo, b, alvo, PARALISADO, golpeDeStatus); break;
+        case QUEIMAR:      aplicarStatus(jogo, b, alvo, QUEIMADO, golpeDeStatus); break;
+        case CONGELAR:     aplicarStatus(jogo, b, alvo, CONGELADO, golpeDeStatus); break;
+        case OFUSCAR:      aplicarStatus(jogo, b, alvo, OFUSCADO, golpeDeStatus); break;
+        case ATORDOAR:     aplicarStatus(jogo, b, alvo, ATORDOADO, golpeDeStatus); break;
+        case PRENDER:      aplicarStatus(jogo, b, alvo, PRESO, golpeDeStatus); break;
         case SOBE_ATAQUE:  mudarEstagio(jogo, b, atacante, atacante.estagioAtaque, +1, "ataque"); break;
         case SOBE_DEFESA:  mudarEstagio(jogo, b, atacante, atacante.estagioDefesa, +1, "defesa"); break;
         case BAIXA_ATAQUE: mudarEstagio(jogo, b, alvo, alvo.estagioAtaque, -1, "ataque"); break;
         case BAIXA_DEFESA: mudarEstagio(jogo, b, alvo, alvo.estagioDefesa, -1, "defesa"); break;
+        case CURAR:        curar(jogo, b, atacante, golpe.chanceDoEfeito); break;
+        case FOCO:
+            atacante.focado = true;
+            narrar(jogo, b, comMaiuscula(atacante.nome) + " se concentra: o próximo golpe vai ser crítico!", MSG_BOA);
+            break;
+        case SANGUESSUGA:
+            if (alvo.semente || alvo.elemento == PLANTA) { narrar(jogo, b, "Não teve efeito em " + alvo.nome + "."); break; }
+            alvo.semente = true;
+            tocarSom(SOM_FOLHAS);
+            narrar(jogo, b, "Uma semente brota em " + alvo.nome + "! Ela vai sugar a vida a cada rodada.",
+                   atacante.ehJogador ? MSG_BOA : MSG_PERIGO);
+            break;
+        default: break;
+    }
+}
+
+// Golpes que só mexem em quem usa (Escudo, Grito de Guerra, curas, Foco).
+static bool golpeEmSiMesmo(const Golpe& g) {
+    return g.poder == 0 && (g.efeito == SOBE_ATAQUE || g.efeito == SOBE_DEFESA || g.efeito == CURAR || g.efeito == FOCO);
+}
+
+// Efeito extra da arma elemental do jogador (v1.23): depois de um golpe com dano.
+static void efeitoDaArma(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo, const Golpe& golpe, int dano) {
+    if (!atacante.ehJogador || atacante.elementoDaArma < 0 || dano <= 0) return;
+    int e = atacante.elementoDaArma;
+    if (e == PLANTA) {   // golpes de Planta recuperam 5% da vida
+        if (golpe.elemento == PLANTA && *atacante.vida < atacante.vidaMaxima) {
+            int cura = atacante.vidaMaxima / 20; if (cura < 1) cura = 1;
+            *atacante.vida = std::min(atacante.vidaMaxima, *atacante.vida + cura);
+            animarVida(jogo, b, ladoDe(atacante));
+            narrar(jogo, b, "O Chicote de Espinhos devolve um pouco da sua vida.", MSG_BOA);
+        }
+        return;
+    }
+    if (e == TREVAS) {   // drena 10% do dano
+        int cura = dano / 10; if (cura < 1) cura = 1;
+        if (*atacante.vida < atacante.vidaMaxima) {
+            *atacante.vida = std::min(atacante.vidaMaxima, *atacante.vida + cura);
+            animarVida(jogo, b, ladoDe(atacante));
+            narrar(jogo, b, "A Foice das Trevas suga um pouco de vida para você.", MSG_BOA);
+        }
+        return;
+    }
+    if (*alvo.vida <= 0 || sortear(jogo.sorte, 1, 100) > 10) return;
+    switch (e) {
+        case FOGO:   aplicarStatus(jogo, b, alvo, QUEIMADO, false); break;
+        case VENENO: aplicarStatus(jogo, b, alvo, ENVENENADO, false); break;
+        case PEDRA:  aplicarStatus(jogo, b, alvo, ATORDOADO, false); break;
+        case GELO:   aplicarStatus(jogo, b, alvo, CONGELADO, false); break;
+        case RAIO:   aplicarStatus(jogo, b, alvo, PARALISADO, false); break;
+        case LUZ:    aplicarStatus(jogo, b, alvo, OFUSCADO, false); break;
+        case AGUA:   mudarEstagio(jogo, b, alvo, alvo.estagioDefesa, -1, "defesa"); break;
         default: break;
     }
 }
@@ -319,36 +509,149 @@ static void aplicarEfeito(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& al
 // =============================================================================
 // UMA AÇÃO DE GOLPE
 // =============================================================================
-static int ladoDe(const Lutador& l) { return l.indice; }
-
-static void usarGolpe(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo, int slot) {
+// Estados que impedem de agir. Devolve false se o lutador perde a vez.
+static bool consegueAgir(Jogo& jogo, Batalha& b, Lutador& atacante) {
     std::string nome = comMaiuscula(atacante.nome);
-
-    // Status que impedem de agir.
     if (atacante.status == ADORMECIDO) {
         atacante.rodadasDormindo--;
         if (atacante.rodadasDormindo > 0) {
             narrar(jogo, b, nome + " está dormindo...");
-            return;
+            return false;
         }
         atacante.status = SEM_STATUS;
         narrar(jogo, b, nome + " acordou!");
     }
+    if (atacante.status == CONGELADO) {
+        atacante.rodadasDormindo--;
+        if (atacante.rodadasDormindo > 0) {
+            narrar(jogo, b, nome + " está congelado e não consegue se mexer!");
+            return false;
+        }
+        atacante.status = SEM_STATUS;
+        tocarSom(SOM_DEGELO);
+        narrar(jogo, b, "O gelo derreteu! " + nome + " pode lutar de novo.");
+    }
+    if (atacante.status == ATORDOADO || atacante.status == PRESO) {
+        bool preso = atacante.status == PRESO;
+        atacante.status = SEM_STATUS;
+        narrar(jogo, b, nome + (preso ? " está preso e perde a vez!" : " está atordoado e perde a vez!"));
+        return false;
+    }
     if (atacante.status == PARALISADO && sortear(jogo.sorte, 1, 4) == 1) {
         narrar(jogo, b, nome + " está paralisado e não consegue se mexer!");
+        return false;
+    }
+    return true;
+}
+
+// O golpe em UM alvo: acerto, bloqueio, dano e efeitos.
+static void acertarAlvo(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo, int idGolpe) {
+    const Golpe& golpe = GOLPES[idGolpe];
+    std::string nome = comMaiuscula(atacante.nome);
+    // Chance de acertar = precisão do golpe + Destreza de quem ataca - esquiva
+    // (Agilidade) de quem defende. Golpes que só mexem em quem usa não erram.
+    int chanceDeAcertar = golpe.precisao;
+    bool contraOAlvo = !golpeEmSiMesmo(golpe);
+    if (contraOAlvo) chanceDeAcertar += atacante.precisaoExtra - alvo.esquiva;
+    if (contraOAlvo && atacante.status == OFUSCADO) chanceDeAcertar -= 15;
+    if (chanceDeAcertar > 100) chanceDeAcertar = 100;
+    if (chanceDeAcertar < 10) chanceDeAcertar = 10;
+    if (sortear(jogo.sorte, 1, 100) > chanceDeAcertar) {
+        tocarSom(SOM_ERROU);
+        animarBatalha(jogo, b, ANIM_ERRO, ladoDe(atacante), ladoDe(alvo), golpe.elemento, 0, false, idGolpe);
+        if (golpe.precisao >= 100 && contraOAlvo && atacante.status != OFUSCADO) narrar(jogo, b, comMaiuscula(alvo.nome) + " se esquivou!");
+        else narrar(jogo, b, "Mas errou!");
         return;
     }
 
-    const Golpe& golpe = GOLPES[atacante.golpes[slot]];
+    // Bloqueio: um ataque com dano contra o jogador pode parar no escudo
+    // (erguido com o golpe Escudo, ou só o escudo equipado, com chance menor).
+    if (alvo.ehJogador && golpe.poder > 0) {
+        int chanceBloquear = b.escudoErguido ? b.chanceDoBloqueio : chanceDeBloqueio(jogo.jogador.escudo, false);
+        if (chanceBloquear > 0 && sortear(jogo.sorte, 1, 100) <= chanceBloquear) {
+            tocarSom(SOM_BLOQUEIO);
+            animarBatalha(jogo, b, ANIM_BLOQUEIO, ladoDe(atacante), ladoDe(alvo), golpe.elemento, 0, false, idGolpe);
+            narrar(jogo, b, b.escudoErguido ? "Você bloqueou o ataque com o escudo!"
+                                            : "Seu escudo aparou o golpe sozinho!", MSG_BOA);
+            return;
+        }
+    }
+
+    // Golpes de status: só o efeito.
+    if (golpe.poder == 0) {
+        if (contraOAlvo) animarBatalha(jogo, b, ANIM_GOLPE, ladoDe(atacante), ladoDe(alvo), golpe.elemento, 0, false, idGolpe);
+        else animarBatalha(jogo, b, ANIM_EFEITO_PROPRIO, ladoDe(atacante), ladoDe(atacante), golpe.elemento, 0, false, idGolpe);
+        aplicarEfeito(jogo, b, atacante, alvo, golpe, true);
+        return;
+    }
+
+    int vezes = (golpe.efeito == DOIS_GOLPES) ? 2 : (golpe.efeito == TRES_GOLPES) ? 3 : 1;
+    int danoTotal = 0, efic = 2, acertos = 0;
+    for (int v = 0; v < vezes && *alvo.vida > 0; v++) {
+        bool critico;
+        int dano = calcularDano(jogo, atacante, alvo, golpe, critico, efic);
+        atacante.focado = false;
+        if (!alvo.ehJogador && alvo.indice >= 1) b.ultimoElemento[alvo.indice - 1] = golpe.elemento;
+        *alvo.vida -= dano;
+        if (*alvo.vida < 0) *alvo.vida = 0;
+        danoTotal += dano;
+        acertos++;
+        tocarSom(critico ? SOM_CRITICO : (alvo.ehJogador ? SOM_DANO : SOM_GOLPE));
+        animarBatalha(jogo, b, ANIM_GOLPE, ladoDe(atacante), ladoDe(alvo), golpe.elemento, dano, critico, idGolpe);
+        animarVida(jogo, b, ladoDe(alvo));
+        if (critico) narrar(jogo, b, "Um golpe crítico!", atacante.ehJogador ? MSG_BOA : MSG_PERIGO);
+    }
+    if (efic > 2) {
+        tocarSom(SOM_SUPER_EFICAZ);
+        narrar(jogo, b, "É super eficaz!", atacante.ehJogador ? MSG_BOA : MSG_PERIGO);
+    }
+    if (efic < 2) narrar(jogo, b, "Não é muito eficaz...");
+    if (vezes > 1) narrar(jogo, b, "Acertou " + std::to_string(acertos) + " vezes!");
+    // Fogo derrete o gelo na hora.
+    if (golpe.elemento == FOGO && alvo.status == CONGELADO && *alvo.vida > 0) {
+        alvo.status = SEM_STATUS;
+        tocarSom(SOM_DEGELO);
+        narrar(jogo, b, "O fogo derreteu o gelo de " + alvo.nome + "!");
+    }
+    // Vida do jogador abaixo de 25%: aviso (uma vez por batalha).
+    if (alvo.ehJogador && !b.avisouVidaBaixa && *alvo.vida > 0 && *alvo.vida * 4 <= alvo.vidaMaxima) {
+        b.avisouVidaBaixa = true;
+        narrar(jogo, b, "Cuidado: sua vida está baixa! Use uma poção ou fuja.", MSG_PERIGO);
+    }
+
+    if (golpe.efeito == DRENAR && *atacante.vida > 0 && *atacante.vida < atacante.vidaMaxima) {
+        int antes = *atacante.vida;
+        *atacante.vida += danoTotal / 2;
+        if (*atacante.vida > atacante.vidaMaxima) *atacante.vida = atacante.vidaMaxima;
+        animarBatalha(jogo, b, ANIM_CURA, ladoDe(atacante), ladoDe(atacante), 0, *atacante.vida - antes, false);
+        animarVida(jogo, b, ladoDe(atacante));
+        narrar(jogo, b, nome + " sugou a vida de " + alvo.nome + "!");
+    }
+
+    // Efeito extra (ex.: 30% de chance de envenenar), se o alvo ainda está de pé.
+    if (*alvo.vida > 0 && golpe.efeito != SEM_EFEITO && golpe.efeito != DRENAR &&
+        golpe.efeito != DOIS_GOLPES && golpe.efeito != TRES_GOLPES && sortear(jogo.sorte, 1, 100) <= golpe.chanceDoEfeito) {
+        aplicarEfeito(jogo, b, atacante, alvo, golpe, false);
+    }
+    efeitoDaArma(jogo, b, atacante, alvo, golpe, danoTotal);
+}
+
+// Uma ação: o golpe do "slot" em "alvo" (ou em todos os inimigos, se for em área).
+static void usarGolpe(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo, int slot) {
+    std::string nome = comMaiuscula(atacante.nome);
+    if (!consegueAgir(jogo, b, atacante)) return;
+
+    int idGolpe = atacante.golpes[slot];
+    const Golpe& golpe = GOLPES[idGolpe];
     // O golpe que o monstro usou passa a aparecer no bestiário.
-    if (!atacante.ehJogador && atacante.indice >= 1) registrarGolpe(b.monstros[atacante.indice - 1]->tipo, atacante.golpes[slot]);
+    if (!atacante.ehJogador && atacante.indice >= 1) registrarGolpe(b.monstros[atacante.indice - 1]->tipo, idGolpe);
     if (atacante.pp != nullptr && golpe.ppMaximo > 0) atacante.pp[slot]--;
     narrar(jogo, b, nome + " usa " + golpe.nome + "!");
 
     // Escudo: age antes de todos (prioridade 2) e fica erguido até o fim da
     // rodada. A chance depende do escudo equipado e cai pela metade se ele
     // já estava erguido na rodada anterior (senão dava para bloquear sempre).
-    if (atacante.ehJogador && atacante.golpes[slot] == G_ESCUDO) {
+    if (atacante.ehJogador && idGolpe == G_ESCUDO) {
         b.escudoErguido = true;
         b.chanceDoBloqueio = chanceDeBloqueio(jogo.jogador.escudo, true);
         if (b.escudoNaRodadaAnterior) {
@@ -361,82 +664,14 @@ static void usarGolpe(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo, 
         }
     }
 
-    // Chance de acertar = precisão do golpe + Destreza de quem ataca - esquiva
-    // (Agilidade) de quem defende. Golpes que só mexem em quem usa não erram.
-    int chanceDeAcertar = golpe.precisao;
-    bool contraOAlvo = !(golpe.poder == 0 && (golpe.efeito == SOBE_ATAQUE || golpe.efeito == SOBE_DEFESA));
-    if (contraOAlvo) chanceDeAcertar += atacante.precisaoExtra - alvo.esquiva;
-    if (chanceDeAcertar > 100) chanceDeAcertar = 100;
-    if (chanceDeAcertar < 10) chanceDeAcertar = 10;
-    if (sortear(jogo.sorte, 1, 100) > chanceDeAcertar) {
-        tocarSom(SOM_ERROU);
-        animarBatalha(jogo, b, ANIM_ERRO, ladoDe(atacante), ladoDe(alvo), golpe.elemento, 0, false);
-        if (golpe.precisao >= 100 && contraOAlvo) narrar(jogo, b, comMaiuscula(alvo.nome) + " se esquivou!");
-        else narrar(jogo, b, "Mas errou!");
-        return;
-    }
-
-    // Bloqueio: um ataque com dano contra o jogador pode parar no escudo
-    // (erguido com o golpe Escudo, ou só o escudo equipado, com chance menor).
-    if (alvo.ehJogador && golpe.poder > 0) {
-        int chanceBloquear = b.escudoErguido ? b.chanceDoBloqueio : chanceDeBloqueio(jogo.jogador.escudo, false);
-        if (chanceBloquear > 0 && sortear(jogo.sorte, 1, 100) <= chanceBloquear) {
-            tocarSom(SOM_BLOQUEIO);
-            animarBatalha(jogo, b, ANIM_BLOQUEIO, ladoDe(atacante), ladoDe(alvo), golpe.elemento, 0, false);
-            narrar(jogo, b, b.escudoErguido ? "Você bloqueou o ataque com o escudo!"
-                                            : "Seu escudo aparou o golpe sozinho!", MSG_BOA);
-            return;
+    // Golpe em área do jogador: acerta cada inimigo que ainda está na luta.
+    if (golpe.area && atacante.ehJogador) {
+        for (int i = 0; i < b.numInimigos; i++) {
+            if (b.naLuta[i] && *b.inimigos[i].vida > 0) acertarAlvo(jogo, b, atacante, b.inimigos[i], idGolpe);
         }
-    }
-
-    // Golpes de status: só o efeito.
-    if (golpe.poder == 0) {
-        if (contraOAlvo) animarBatalha(jogo, b, ANIM_GOLPE, ladoDe(atacante), ladoDe(alvo), golpe.elemento, 0, false);
-        else animarBatalha(jogo, b, ANIM_EFEITO_PROPRIO, ladoDe(atacante), ladoDe(atacante), golpe.elemento, 0, false);
-        aplicarEfeito(jogo, b, atacante, alvo, golpe, true);
         return;
     }
-
-    int vezes = (golpe.efeito == DOIS_GOLPES) ? 2 : 1;
-    int danoTotal = 0, efic = 2, acertos = 0;
-    for (int v = 0; v < vezes && *alvo.vida > 0; v++) {
-        bool critico;
-        int dano = calcularDano(jogo, atacante, alvo, golpe, critico, efic);
-        *alvo.vida -= dano;
-        if (*alvo.vida < 0) *alvo.vida = 0;
-        danoTotal += dano;
-        acertos++;
-        tocarSom(critico ? SOM_CRITICO : (alvo.ehJogador ? SOM_DANO : SOM_GOLPE));
-        animarBatalha(jogo, b, ANIM_GOLPE, ladoDe(atacante), ladoDe(alvo), golpe.elemento, dano, critico);
-        animarVida(jogo, b, ladoDe(alvo));
-        if (critico) narrar(jogo, b, "Um golpe crítico!", atacante.ehJogador ? MSG_BOA : MSG_PERIGO);
-    }
-    if (efic > 2) {
-        tocarSom(SOM_SUPER_EFICAZ);
-        narrar(jogo, b, "É super eficaz!", atacante.ehJogador ? MSG_BOA : MSG_PERIGO);
-    }
-    if (efic < 2) narrar(jogo, b, "Não é muito eficaz...");
-    if (vezes > 1) narrar(jogo, b, "Acertou " + std::to_string(acertos) + " vezes!");
-    // Vida do jogador abaixo de 25%: aviso (uma vez por batalha).
-    if (alvo.ehJogador && !b.avisouVidaBaixa && *alvo.vida > 0 && *alvo.vida * 4 <= alvo.vidaMaxima) {
-        b.avisouVidaBaixa = true;
-        narrar(jogo, b, "Cuidado: sua vida está baixa! Use uma poção ou fuja.", MSG_PERIGO);
-    }
-
-    if (golpe.efeito == DRENAR && *atacante.vida > 0) {
-        int antes = *atacante.vida;
-        *atacante.vida += danoTotal / 2;
-        if (*atacante.vida > atacante.vidaMaxima) *atacante.vida = atacante.vidaMaxima;
-        animarBatalha(jogo, b, ANIM_CURA, ladoDe(atacante), ladoDe(atacante), 0, *atacante.vida - antes, false);
-        animarVida(jogo, b, ladoDe(atacante));
-        narrar(jogo, b, nome + " sugou a vida de " + alvo.nome + "!");
-    }
-
-    // Efeito extra (ex.: 30% de chance de envenenar), se o alvo ainda está de pé.
-    if (*alvo.vida > 0 && golpe.efeito != SEM_EFEITO && golpe.efeito != DRENAR &&
-        golpe.efeito != DOIS_GOLPES && sortear(jogo.sorte, 1, 100) <= golpe.chanceDoEfeito) {
-        aplicarEfeito(jogo, b, atacante, alvo, golpe, false);
-    }
+    acertarAlvo(jogo, b, atacante, alvo, idGolpe);
 }
 
 // =============================================================================
@@ -465,9 +700,10 @@ static int inimigosNaLuta(const Batalha& b) {
     return n;
 }
 
-// Golpes que só mexem em quem usa (ex.: Escudo) não precisam de alvo.
+// Golpes que só mexem em quem usa (ex.: Escudo) e os golpes em área não
+// precisam de alvo.
 static bool precisaDeAlvo(const Golpe& g) {
-    return !(g.poder == 0 && (g.efeito == SOBE_ATAQUE || g.efeito == SOBE_DEFESA));
+    return !golpeEmSiMesmo(g) && !g.area;
 }
 
 // Monta a lista das poções (e da bomba de fumaça) que o jogador tem na mochila.
@@ -509,14 +745,36 @@ static std::string motivoParaNaoUsar(const Jogador& j, const Batalha& b, int tip
 }
 
 // Valor de um golpe para o "piloto automático" dos testes.
-static int valorDoGolpe(const Lutador& atacante, const Lutador& alvo, int slot) {
+static int valorDoGolpe(const Batalha& b, const Lutador& atacante, const Lutador& alvo, int slot) {
     const Golpe& g = GOLPES[atacante.golpes[slot]];
     if (atacante.pp != nullptr && g.ppMaximo > 0 && atacante.pp[slot] <= 0) return -1;
-    if (g.poder == 0) return 0;
+    // Curas: só com pouca vida (e aí valem mais que qualquer golpe).
+    if (g.efeito == CURAR) return (*atacante.vida * 100 < atacante.vidaMaxima * 40) ? 100000000 : -1;
+    if (g.poder == 0) {
+        // Status no alvo: vale como um golpe de poder 70 enquanto o alvo está
+        // sem status e com mais da metade da vida. Subir atributo: no começo.
+        bool alvoInteiro = *alvo.vida * 2 > alvo.vidaMaxima;
+        switch (g.efeito) {
+            case ADORMECER: case PARALISAR: case CONGELAR: case OFUSCAR: case ATORDOAR: case PRENDER: case ENVENENAR: case QUEIMAR:
+                return (alvo.status == SEM_STATUS && alvoInteiro && !imuneAoStatus(alvo, statusDoEfeito(g.efeito))) ? 70 * g.precisao * 2 : 0;
+            case SANGUESSUGA: return (!alvo.semente && alvoInteiro && alvo.elemento != PLANTA) ? 75 * g.precisao * 2 : 0;
+            case SOBE_DEFESA: return (atacante.estagioDefesa < 1 && alvoInteiro) ? 35 * 100 * 2 : 0;
+            case SOBE_ATAQUE: return (atacante.estagioAtaque < 1 && alvoInteiro) ? 35 * 100 * 2 : 0;
+            case BAIXA_ATAQUE: return (alvo.estagioAtaque > -1 && alvoInteiro) ? 50 * g.precisao * 2 : 0;
+            case FOCO: return (!atacante.focado && alvoInteiro) ? 60 * 100 * 2 : 0;
+            default: return 0;
+        }
+    }
     int v = g.poder * g.precisao * eficacia(g.elemento, alvo.elemento);
-    if (g.elemento == atacante.elemento) v = v * 3 / 2;
+    if (g.elemento == atacante.elemento) v = v * (100 + BONUS_DO_PROPRIO_ELEMENTO) / 100;
     if (g.efeito == DOIS_GOLPES) v *= 2;
+    if (g.efeito == TRES_GOLPES) v *= 3;
     if (g.elemento == atacante.elementoDaArma) v = v * 5 / 4;
+    if (g.area) {   // em área: soma um pouco por inimigo a mais
+        int n = 0;
+        for (int i = 0; i < b.numInimigos; i++) if (b.naLuta[i]) n++;
+        v = v * (2 + n - 1) / 2;
+    }
     return v;
 }
 
@@ -541,7 +799,7 @@ static Acao escolherAcaoAutomatica(Jogo& jogo, Batalha& b) {
     for (int i = 0; i < b.numInimigos; i++) {
         if (!b.naLuta[i]) continue;
         for (int s = 0; s < b.jogador.numGolpes; s++) {
-            int v = valorDoGolpe(b.jogador, b.inimigos[i], s);
+            int v = valorDoGolpe(b, b.jogador, b.inimigos[i], s);
             bool melhor = v > melhorValor ||
                           (v == melhorValor && *b.inimigos[i].vida < *b.inimigos[melhorAlvo].vida);
             if (melhor) { melhorValor = v; melhorSlot = s; melhorAlvo = i; }
@@ -623,7 +881,9 @@ static int escolherGolpeDoInimigo(Jogo& jogo, const Batalha& b, int qual) {
         int peso = 3;                                         // golpes de dano
         if (g.poder == 0) {
             peso = 1;
-            bool causaStatus = (g.efeito == ENVENENAR || g.efeito == ADORMECER || g.efeito == PARALISAR);
+            bool causaStatus = (g.efeito == ENVENENAR || g.efeito == ADORMECER || g.efeito == PARALISAR ||
+                                g.efeito == QUEIMAR || g.efeito == CONGELAR || g.efeito == OFUSCAR ||
+                                g.efeito == ATORDOAR || g.efeito == PRENDER);
             if (causaStatus && alvo.status != SEM_STATUS) peso = 0;
             if (g.efeito == SOBE_ATAQUE && eu.estagioAtaque >= 2) peso = 0;
             if (g.efeito == BAIXA_ATAQUE && alvo.estagioAtaque <= -2) peso = 0;
@@ -735,9 +995,9 @@ static void ganharExperiencia(Jogo& jogo, Batalha& b, int pontos, int moedas) {
         b.jogador.esquiva = j.esquiva;
         b.jogador.criticoExtra = j.criticoExtra;
 
-        for (int i = 0; i < NUM_APRENDIZADOS; i++) {
-            if (APRENDIZADO[i].nivel == j.nivel) aprenderGolpe(jogo, b, APRENDIZADO[i].golpe);
-        }
+        int novos[2];
+        int n = golpesDoNivel(j.elemento, j.nivel, novos);
+        for (int i = 0; i < n; i++) aprenderGolpe(jogo, b, novos[i]);
     }
 }
 
@@ -758,6 +1018,8 @@ static Lutador montarLutadorDoJogador(Jogador& j) {
     l.estagioDefesa = 0;
     l.status = SEM_STATUS;
     l.rodadasDormindo = 0;
+    l.semente = false;
+    l.focado = false;
     l.numGolpes = j.numGolpes;
     for (int s = 0; s < j.numGolpes; s++) l.golpes[s] = j.golpes[s];
     l.pp = j.pp;                 // ponteiro para o vetor de PP do jogador
@@ -788,6 +1050,8 @@ static Lutador montarLutadorDoMonstro(Monstro& m) {
     l.estagioDefesa = 0;
     l.status = SEM_STATUS;
     l.rodadasDormindo = 0;
+    l.semente = false;
+    l.focado = false;
     golpesDoMonstro(m, l.golpes, l.numGolpes);
     l.pp = nullptr;              // monstros não gastam PP
     l.elementoDaArma = -1;
@@ -801,16 +1065,37 @@ static Lutador montarLutadorDoMonstro(Monstro& m) {
     return l;
 }
 
-// No fim de cada rodada, quem está envenenado perde 1/8 da vida máxima.
+// No fim de cada rodada: quem está envenenado perde 1/8 da vida máxima, quem
+// está queimado perde 1/16, e a Semente Sanguessuga tira 1/8 e cura o jogador.
 static void danoDoVeneno(Jogo& jogo, Batalha& b, Lutador& l) {
-    if (l.status != ENVENENADO || *l.vida <= 0) return;
-    int dano = l.vidaMaxima / 8;
-    if (dano < 1) dano = 1;
-    *l.vida -= dano;
-    if (*l.vida < 0) *l.vida = 0;
-    tocarSom(SOM_VENENO);
-    animarVida(jogo, b, ladoDe(l));
-    narrar(jogo, b, comMaiuscula(l.nome) + " sofre com o veneno!", l.ehJogador ? MSG_PERIGO : MSG_NORMAL);
+    if (*l.vida <= 0) return;
+    if (l.status == ENVENENADO || l.status == QUEIMADO) {
+        bool veneno = l.status == ENVENENADO;
+        int dano = l.vidaMaxima / (veneno ? 8 : 16);
+        if (!l.ehJogador && l.indice >= 1) b.ultimoElemento[l.indice - 1] = veneno ? VENENO : FOGO;
+        if (dano < 1) dano = 1;
+        *l.vida -= dano;
+        if (*l.vida < 0) *l.vida = 0;
+        tocarSom(veneno ? SOM_VENENO : SOM_QUEIMADO);
+        animarVida(jogo, b, ladoDe(l));
+        narrar(jogo, b, comMaiuscula(l.nome) + (veneno ? " sofre com o veneno!" : " sofre com a queimadura!"),
+               l.ehJogador ? MSG_PERIGO : MSG_NORMAL);
+    }
+    if (l.semente && *l.vida > 0 && !l.ehJogador) {
+        int dano = l.vidaMaxima / 8;
+        if (dano < 1) dano = 1;
+        if (dano > *l.vida) dano = *l.vida;
+        if (l.indice >= 1) b.ultimoElemento[l.indice - 1] = PLANTA;
+        *l.vida -= dano;
+        animarVida(jogo, b, ladoDe(l));
+        Lutador& j = b.jogador;
+        if (*j.vida > 0 && *j.vida < j.vidaMaxima) {
+            *j.vida = std::min(j.vidaMaxima, *j.vida + dano);
+            animarVida(jogo, b, 0);
+        }
+        tocarSom(SOM_FOLHAS);
+        narrar(jogo, b, "A semente suga a vida de " + l.nome + "!");
+    }
 }
 
 // Um inimigo desmaiou? Tira da luta e dá a experiência. Devolve true se
@@ -839,6 +1124,21 @@ static void conferirFuriaDoChefe(Jogo& jogo, Batalha& b) {
 static bool conferirDesmaios(Jogo& jogo, Batalha& b) {
     for (int i = 0; i < b.numInimigos; i++) {
         if (!b.naLuta[i] || *b.inimigos[i].vida > 0) continue;
+        // v1.23: o esqueleto se monta de novo uma vez, com 1/3 da vida, a
+        // não ser que o golpe final seja de Fogo, Pedra ou Luz.
+        Monstro& osso = *b.monstros[i];
+        int ultimo = b.ultimoElemento[i];
+        if ((tipoDe(osso).especial & REMONTA) && osso.cornetas == 0 && ultimo != FOGO && ultimo != PEDRA && ultimo != LUZ) {
+            osso.cornetas = 1;
+            *b.inimigos[i].vida = std::max(1, b.inimigos[i].vidaMaxima / 3);
+            b.inimigos[i].status = SEM_STATUS;
+            tocarSom(SOM_REMONTA);
+            narrar(jogo, b, comMaiuscula(b.inimigos[i].nome) + " desmonta... e os ossos se juntam de novo!", MSG_PERIGO);
+            animarBatalha(jogo, b, ANIM_CURA, i + 1, i + 1, 0, *b.inimigos[i].vida, false);
+            animarVida(jogo, b, i + 1);
+            dicaNaBatalha(jogo, b, DICA_ESQUELETO);
+            continue;
+        }
         if (b.inimigos[i].ehChefe && !jogo.modoAutomatico)
             falaDoChefeNaBatalha(jogo, b, i, "Impossível... a luz... de novo...");
         animarBatalha(jogo, b, ANIM_DESMAIO, i + 1, i + 1, 0, 0, false);
@@ -899,7 +1199,8 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
         b.inimigos[i].ataque = b.inimigos[i].ataque * bonusDoAmbiente(jogo.andar, b.inimigos[i].elemento) / 100;
         b.inimigos[i].indice = i + 1;
         b.naLuta[i] = true;
-        registrarAvistado(jogo, *participantes[i]);
+        b.ultimoElemento[i] = -1;
+        registrarAvistado(jogo, *participantes[i], true);
         b.vidaMostrada[i + 1] = *b.inimigos[i].vida;
     }
     // Dois monstros da mesma espécie ganham uma letra: "o chacal A", "o chacal B".
@@ -999,7 +1300,8 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
     // Aviso do ambiente: algum inimigo está mais forte por causa do tema do andar?
     for (int i = 0; i < quantos; i++) {
         if (bonusDoAmbiente(jogo.andar, b.inimigos[i].elemento) > 100) {
-            const char* onde = (b.inimigos[i].elemento == AGUA) ? "A água da caverna" : "O calor da lava";
+            Elemento el = b.inimigos[i].elemento;
+            const char* onde = (el == AGUA) ? "A água da caverna" : (el == TREVAS) ? "A escuridão da cripta" : "O calor da lava";
             narrar(jogo, b, std::string(onde) + " fortalece os monstros de " + NOMES_DOS_ELEMENTOS[b.inimigos[i].elemento] +
                             ": eles batem 20% mais forte aqui!", MSG_PERIGO);
             break;
@@ -1074,6 +1376,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
             }
             if (item.curaStatus) {
                 b.jogador.status = SEM_STATUS;
+                b.jogador.semente = false;
                 narrar(jogo, b, "Você se sente bem de novo!");
             }
             if (item.restauraPP) {

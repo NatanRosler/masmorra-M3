@@ -1,5 +1,6 @@
 #pragma once
 #include "sprites.h"
+#include "itens.h"
 // Arte dos itens no chão e dos ícones do painel (16x16, mesma legenda de
 // cores de visual.cpp). Para mudar um desenho, edite as letras abaixo.
 
@@ -764,6 +765,188 @@ inline const Sprite ARTE_ICONE_XP = {{
 }};
 
 // Na mesma ordem do enum IdItem (itens.h).
+
+// ---- v1.23: armas dos elementos novos ----
+// Lança de Gelo
+inline const Sprite ARTE_LANCA_DE_GELO = {{
+    "............KKK.",
+    "...........KWUK.",
+    "..........KWUUK.",
+    ".........KWUUAK.",
+    "........KUUUAK..",
+    ".......KUKAAK...",
+    "......KUKKKK....",
+    ".....KNK........",
+    "....KNK.........",
+    "...KIK..........",
+    "..KIK...........",
+    ".KIK............",
+    "KIK.............",
+    "KK..............",
+    "................",
+    "................"
+}};
+
+// Martelo do Trovão
+inline const Sprite ARTE_MARTELO_DO_TROVAO = {{
+    "........KKKKKK..",
+    ".......KLLLLLLK.",
+    "......KLLLYLLLNK",
+    "......KLLYYLLLNK",
+    "......KLYYYYLLNK",
+    "......KLLLYYLLNK",
+    "......KLLYYLLLNK",
+    ".......KNNNNNNK.",
+    "......KZKKKKKK..",
+    ".....KZK........",
+    "....KMK.........",
+    "...KZK..........",
+    "..KZK...........",
+    ".KZK............",
+    "..K.............",
+    "................"
+}};
+
+// Foice das Trevas
+inline const Sprite ARTE_FOICE_DAS_TREVAS = {{
+    "...KKKKKK.......",
+    ".KKVVVVPPKK.....",
+    "KVVPPPPPPPPKK...",
+    "KPPKKKKKKPPZK...",
+    ".KK......KKZK...",
+    "...........KZK..",
+    "...........KZK..",
+    "..........KZK...",
+    "..........KZK...",
+    ".........KZK....",
+    ".........KZK....",
+    "........KZK.....",
+    "........KZK.....",
+    ".......KMK......",
+    ".......KZK......",
+    "........K......."
+}};
+
+// Cetro de Luz
+inline const Sprite ARTE_CETRO_DE_LUZ = {{
+    "..........KKKK..",
+    ".........KYWWYK.",
+    "........KYWWWWYK",
+    "........KYWWWWYK",
+    ".........KYWWYK.",
+    "........KMKKKK..",
+    ".......KMMK.....",
+    "......KMMK......",
+    ".....KIIK.......",
+    "....KIIK........",
+    "...KMMK.........",
+    "..KIIK..........",
+    ".KIIK...........",
+    ".KKK............",
+    "................",
+    "................"
+}};
+
+// Pergaminho de Normal
+inline const Sprite ARTE_PERGAMINHO_DE_NORMAL = {{
+    "................",
+    "................",
+    "................",
+    "..K..........K..",
+    ".KCKKKKKKKKKKCK.",
+    ".KCFFFFFFFFFFCK.",
+    ".KCFFFFFFFFFFCK.",
+    ".KCFHFHFHFHFFCK.",
+    ".KCFFFFFFFFFFCK.",
+    ".KCFFHFFWFFHFCK.",
+    ".KCFFFFWWWFFFCK.",
+    ".KCKKKKWWWKKKCK.",
+    "..K....KWK...K..",
+    "........K.......",
+    "................",
+    "................"
+}};
+
+// Pergaminho de Gelo
+inline const Sprite ARTE_PERGAMINHO_DE_GELO = {{
+    "................",
+    "................",
+    "................",
+    "..K..........K..",
+    ".KCKKKKKKKKKKCK.",
+    ".KCFFFFFFFFFFCK.",
+    ".KCFFFFFFFFFFCK.",
+    ".KCFHFHFHFHFFCK.",
+    ".KCFFFFFFFFFFCK.",
+    ".KCFFHFFUFFHFCK.",
+    ".KCFFFFUUUFFFCK.",
+    ".KCKKKKUUUKKKCK.",
+    "..K....KUK...K..",
+    "........K.......",
+    "................",
+    "................"
+}};
+
+// Pergaminho de Raio
+inline const Sprite ARTE_PERGAMINHO_DE_RAIO = {{
+    "................",
+    "................",
+    "................",
+    "..K..........K..",
+    ".KCKKKKKKKKKKCK.",
+    ".KCFFFFFFFFFFCK.",
+    ".KCFFFFFFFFFFCK.",
+    ".KCFHFHFHFHFFCK.",
+    ".KCFFFFFFFFFFCK.",
+    ".KCFFHFFYFFHFCK.",
+    ".KCFFFFYYYFFFCK.",
+    ".KCKKKKYYYKKKCK.",
+    "..K....KYK...K..",
+    "........K.......",
+    "................",
+    "................"
+}};
+
+// Pergaminho de Trevas
+inline const Sprite ARTE_PERGAMINHO_DE_TREVAS = {{
+    "................",
+    "................",
+    "................",
+    "..K..........K..",
+    ".KCKKKKKKKKKKCK.",
+    ".KCFFFFFFFFFFCK.",
+    ".KCFFFFFFFFFFCK.",
+    ".KCFHFHFHFHFFCK.",
+    ".KCFFFFFFFFFFCK.",
+    ".KCFFHFFPFFHFCK.",
+    ".KCFFFFPPPFFFCK.",
+    ".KCKKKKPPPKKKCK.",
+    "..K....KPK...K..",
+    "........K.......",
+    "................",
+    "................"
+}};
+
+// Pergaminho de Luz
+inline const Sprite ARTE_PERGAMINHO_DE_LUZ = {{
+    "................",
+    "................",
+    "................",
+    "..K..........K..",
+    ".KCKKKKKKKKKKCK.",
+    ".KCFFFFFFFFFFCK.",
+    ".KCFFFFFFFFFFCK.",
+    ".KCFHFHFHFHFFCK.",
+    ".KCFFFFFFFFFFCK.",
+    ".KCFFHFFMFFHFCK.",
+    ".KCFFFFMMMFFFCK.",
+    ".KCKKKKMMMKKKCK.",
+    "..K....KMK...K..",
+    "........K.......",
+    "................",
+    "................"
+}};
+
 inline const Sprite* const ARTE_DOS_ITENS[] = {
     &ARTE_POCAO_DE_VIDA,
     &ARTE_POCAO_GRANDE,
@@ -794,7 +977,17 @@ inline const Sprite* const ARTE_DOS_ITENS[] = {
     &ARTE_MOCHILA_DE_COURO,
     &ARTE_LANTERNA,
     &ARTE_BOMBA_DE_FUMACA,
-    &ARTE_PERGAMINHO_DO_MAPA
+    &ARTE_PERGAMINHO_DO_MAPA,
+    &ARTE_LANCA_DE_GELO,
+    &ARTE_MARTELO_DO_TROVAO,
+    &ARTE_FOICE_DAS_TREVAS,
+    &ARTE_CETRO_DE_LUZ,
+    &ARTE_PERGAMINHO_DE_NORMAL,
+    &ARTE_PERGAMINHO_DE_GELO,
+    &ARTE_PERGAMINHO_DE_RAIO,
+    &ARTE_PERGAMINHO_DE_TREVAS,
+    &ARTE_PERGAMINHO_DE_LUZ
 };
+static_assert(sizeof(ARTE_DOS_ITENS) / sizeof(ARTE_DOS_ITENS[0]) == NUM_TIPOS_DE_ITEM, "um desenho para cada item");
 // Na mesma ordem do enum Atributo (jogo.h).
 inline const Sprite* const ARTE_DOS_ATRIBUTOS[] = { &ARTE_ICONE_FORCA, &ARTE_ICONE_CONSTITUICAO, &ARTE_ICONE_DESTREZA, &ARTE_ICONE_AGILIDADE };

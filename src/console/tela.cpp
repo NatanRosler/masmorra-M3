@@ -65,11 +65,11 @@ static bool chaoDoAmbiente(const Andar& andar, int x, int y, CorRGB& frente, Cor
     return false;
 }
 
-// Cores do chão e da parede de cada tema (minas, caverna, vulcão, trono).
-static const CorRGB PAREDE_FRENTE[NUM_TEMAS] = { { 170, 155, 140 }, { 120, 165, 175 }, { 150, 95, 85 }, { 170, 175, 205 } };
-static const CorRGB PAREDE_FUNDO[NUM_TEMAS]  = { { 105, 95, 85 },   { 50, 80, 95 },    { 70, 35, 35 }, { 75, 80, 110 } };
-static const CorRGB CHAO_FRENTE[NUM_TEMAS]   = { { 185, 175, 160 }, { 150, 190, 195 }, { 190, 150, 130 }, { 190, 195, 215 } };
-static const CorRGB CHAO_FUNDO[NUM_TEMAS]    = { { 62, 56, 50 },    { 36, 56, 62 },    { 56, 36, 34 }, { 50, 54, 72 } };
+// Cores do chão e da parede de cada tema (minas, caverna, cripta, vulcão, trono).
+static const CorRGB PAREDE_FRENTE[NUM_TEMAS] = { { 170, 155, 140 }, { 120, 165, 175 }, { 150, 160, 165 }, { 150, 95, 85 }, { 170, 175, 205 } };
+static const CorRGB PAREDE_FUNDO[NUM_TEMAS]  = { { 105, 95, 85 },   { 50, 80, 95 },    { 55, 60, 66 },    { 70, 35, 35 }, { 75, 80, 110 } };
+static const CorRGB CHAO_FRENTE[NUM_TEMAS]   = { { 185, 175, 160 }, { 150, 190, 195 }, { 175, 185, 180 }, { 190, 150, 130 }, { 190, 195, 215 } };
+static const CorRGB CHAO_FUNDO[NUM_TEMAS]    = { { 62, 56, 50 },    { 36, 56, 62 },    { 40, 44, 46 },    { 56, 36, 34 }, { 50, 54, 72 } };
 
 static Aparencia aparenciaDaCelula(const Mapa& mapa, int x, int y, int tema) {
     switch (mapa.celulas[y][x]) {
@@ -87,6 +87,8 @@ static Aparencia aparenciaDaCelula(const Mapa& mapa, int x, int y, int tema) {
         case TOCHA:        return { '#', { 255, 215, 90 },  { 150, 80, 25 }, true };
         case PORTA_TRANCADA: return { '+', { 255, 215, 0 }, { 120, 30, 30 }, false };
         case CAIXA:        return { '=', { 225, 170, 95 },  { 95, 60, 30 },  false };
+        case TUMULO:       return { '+', { 190, 195, 200 }, CHAO_FUNDO[tema], false };   // lápide (cruz)
+        case TEIA:         return { '%', { 220, 225, 235 }, CHAO_FUNDO[tema], false };
     }
     return { '?', { 255, 0, 0 }, { 0, 0, 0 }, true };
 }
@@ -404,10 +406,12 @@ void desenharJogo(const Jogo& jogo) {
                     } else if (monstroNaCelula[y][x] >= 0) {
                         // Monstro: só aparece se a célula está visível (no
                         // escuro ou fora da visão, ele fica escondido). A cor
-                        // mostra o elemento sorteado.
+                        // é a da espécie (v1.23: o elemento só aparece na batalha).
                         const Monstro& m = andar.monstros[monstroNaCelula[y][x]];
                         a.simbolo = tipoDe(m).simbolo;
-                        frente = CORES_DOS_ELEMENTOS[m.elemento];
+                        frente = tipoDe(m).cor;
+                        // O fungo parado se passa por um cogumelo (v1.23).
+                        if ((tipoDe(m).especial & DISFARCADO) && m.estado == DORMINDO) { a.simbolo = '"'; frente = { 110, 175, 255 }; }
                         // Atordoado: pisca em amarelo.
                         if (m.atordoadoMs > 0 && (relogioMs() / 300) % 2 == 0) frente = { 255, 226, 90 };
                         // Campeão: fundo dourado.
@@ -470,9 +474,8 @@ void desenharJogo(const Jogo& jogo) {
     int sobra = TELA_COLUNAS - 1 - usadas;
     if (perto != nullptr && sobra > 2) {
         const TipoMonstro& t = tipoDe(*perto);
-        p.letra(t.simbolo, { rgbPara256(CORES_DOS_ELEMENTOS[perto->elemento]), FUNDO_PRETO });
-        std::string info = std::string(" ") + nomeDaEspecie(*perto) + " Nv" + std::to_string(perto->nivel)
-                         + " " + NOMES_DOS_ELEMENTOS[perto->elemento];
+        p.letra(t.simbolo, { rgbPara256(t.cor), FUNDO_PRETO });
+        std::string info = std::string(" ") + nomeDaEspecie(*perto) + " Nv" + std::to_string(perto->nivel);
         if (perto->estado == DORMINDO) info += " (dormindo)";
         if (perto->estado == FUGINDO)  info += " (fugindo)";
         p.texto(ajustarLargura(info, sobra - 1), COR_TEXTO);
@@ -612,6 +615,8 @@ void desenharPagina(const std::string& titulo, const std::vector<std::string>& l
     desenharCaixa(todas);
 }
 
+static std::vector<std::string> quebrarTexto(const std::string& texto, int largura);
+
 void desenharCriacao(const Criacao& c) {
     std::vector<std::string> linhas;
     linhas.push_back("CRIE SEU PERSONAGEM");
@@ -642,7 +647,7 @@ void desenharCriacao(const Criacao& c) {
     if (c.linha == LINHA_NOME) dica = "Digite o nome (Backspace apaga).";
     if (c.linha == LINHA_ELEMENTO) {
         Elemento e = (Elemento)c.elemento;
-        dica = "Golpe inicial: " + std::string(GOLPES[golpeInicialDoElemento(e)].nome);
+        dica = resumoDoElemento(e);
     }
     if (c.linha == LINHA_COR) dica = "A cor do seu @ no mapa.";
     if (c.linha == LINHA_DIFICULDADE) dica = dificuldadeLiberada(c.dificuldade) ? DIFICULDADES[c.dificuldade].descricao
@@ -650,7 +655,7 @@ void desenharCriacao(const Criacao& c) {
     if (c.linha >= LINHA_FORCA && c.linha <= LINHA_AGILIDADE) dica = EFEITOS_DOS_ATRIBUTOS[c.linha - LINHA_FORCA];
     if (c.linha == LINHA_ALEATORIO) dica = "Enter sorteia nome, elemento, cor e atributos.";
     if (c.linha == LINHA_COMECAR) dica = "Enter para começar.";
-    linhas.push_back(dica);
+    for (const std::string& l : quebrarTexto(dica, 62)) linhas.push_back(l);   // v1.23: dicas longas em várias linhas
     linhas.push_back("Setas: escolher e mudar   Enter: próximo   Esc: voltar");
     forcarLimpezaDaTela();
     escreverNaTela(ajustarAoTamanhoDaJanela());
@@ -1096,7 +1101,7 @@ void desenharDica(const Jogo& jogo, const std::string& titulo, const std::string
 }
 
 // Animações e efeitos: só existem na versão gráfica.
-void animarBatalha(const Jogo&, const Batalha&, int, int, int, int, int, bool) {}
+void animarBatalha(const Jogo&, const Batalha&, int, int, int, int, int, bool, int) {}
 void efeitoNoMapa(const Jogo&, int, int, int, int) {}
 
 // ---------------------------------------------------------------------------
@@ -1120,12 +1125,12 @@ static std::vector<std::string> linhasDaFicha(const Jogo* jogo, int tipo) {
     linhas.push_back("Aparece: " + andaresDaEspecie(tipo));
     for (const std::string& l : quebrarTexto(descricaoDaEspecie(tipo), 60)) linhas.push_back(l);
     linhas.push_back("");
-    if (jogo && vistaNaPartida(*jogo, tipo)) {
+    if (jogo && enfrentadaNaPartida(*jogo, tipo)) {
         Elemento e = jogo->elementoDaEspecie[tipo];
         linhas.push_back(std::string("Nesta partida: ") + NOMES_DOS_ELEMENTOS[e] + "  (fraco contra: " +
                          listaDeElementos(e, 4) + ")");
     } else if (jogo) {
-        linhas.push_back("Nesta partida: ainda não apareceu (o elemento é sorteado).");
+        linhas.push_back("Nesta partida: lute com ele para descobrir o elemento.");
     } else {
         linhas.push_back("O elemento é sorteado a cada partida.");
     }
@@ -1145,7 +1150,7 @@ static std::vector<std::string> linhasDaFicha(const Jogo* jogo, int tipo) {
     std::string golpes;
     int vistos = 0;
     for (int g = 0; g < NUM_GOLPES; g++) {
-        if (!(f.golpesVistos & (1ULL << g))) continue;
+        if (!f.golpesVistos.test(g)) continue;
         golpes += (golpes.empty() ? "" : ", ") + std::string(GOLPES[g].nome);
         vistos++;
     }

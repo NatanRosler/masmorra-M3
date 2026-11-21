@@ -25,6 +25,11 @@ const int QUEBRA_CAIXAS = 16; // despedaça as caixas que encontra no caminho
 const int CHEFE    = 32; // o chefe final: só aparece no último andar
 const int VIGIA    = 64; // gnomo vigia: ao ver o jogador, sopra a corneta (chama as salas vizinhas)
 const int SOMBRIO  = 128; // sombra: invisível de longe (só aparece a 2 casas ou perto de uma tocha)
+// v1.23
+const int TECE_TEIA    = 256;  // aranha: deixa teias por onde passa (quem pisa fica preso)
+const int DISFARCADO   = 512;  // fungo: parado entre os cogumelos, só acorda a 2 casas
+const int REMONTA      = 1024; // esqueleto: derrotado, se monta de novo uma vez (menos com Fogo, Pedra ou Luz)
+const int ANDA_NA_LAVA = 2048; // salamandra: a lava não a queima
 
 const int LINHAS_DA_ARTE = 7;
 
@@ -75,11 +80,12 @@ struct Monstro {
     int tempoAcumulado;        // milissegundos desde a última ação (tempo real)
     // v1.17 (no fim da struct: o save antigo lê só a parte de cima, ver salvar.cpp)
     bool campeao;              // monstro elite: mais forte, aura dourada, mais prêmios
-    int cornetas;              // gnomo vigia: quantas vezes já soprou a corneta (0, 1 ou 2)
+    int cornetas;              // gnomo vigia: quantas vezes já soprou a corneta (0, 1 ou 2);
+                               // esqueleto (v1.23): 1 = já se montou de novo
 };
 
 const int MAX_MONSTROS = 40;
-const int MAX_ESPECIES = 16;   // espaço reservado para a tabela de elementos sorteados
+const int MAX_ESPECIES = 24;   // espaço reservado para a tabela de elementos sorteados (era 16 até a v1.22)
 
 // Cor de cada elemento (usada para pintar os monstros e os textos).
 extern const CorRGB CORES_DOS_ELEMENTOS[NUM_ELEMENTOS];
@@ -100,13 +106,16 @@ int sortearTipoDoAndar(GeradorAleatorio& g, int numeroDoAndar);
 // espécies que aparecem juntas nos mesmos andares ficam com elementos diferentes.
 void sortearElementosDasEspecies(Jogo& jogo, uint32_t semente);
 
+// A aranha tece uma teia em (x, y), se der (v1.23).
+void tecerTeia(Andar& andar, int x, int y);
+
 // Coloca o chefe final no ponto do andar mais longe da chegada do jogador.
 void colocarChefe(Andar& andar, int chegadaX, int chegadaY, Elemento elemento);
 
 // O chefe acompanha o jogador: no começo de cada batalha ele fica com o nível
 // do jogador + 1 (nunca abaixo de NIVEL_MINIMO_DO_CHEFE). A vida que ele já
 // perdeu continua perdida (a fração da vida é mantida).
-const int NIVEL_MINIMO_DO_CHEFE = 22;
+const int NIVEL_MINIMO_DO_CHEFE = 28;   // v1.23: 13 andares (era 22 com 10)
 void ajustarNivelDoChefe(Monstro& chefe, int nivelDoJogador);
 
 // Golpes que o monstro usa na batalha: os da espécie, com um deles trocado

@@ -9,6 +9,8 @@ const FichaDoTema FICHAS_DOS_TEMAS[NUM_TEMAS] = {
       -1,   { 1.00f, 0.68f, 0.38f } },
     { "CAVERNA ALAGADA",        "A água pinga do teto. Nas poças, cada passo é lento.",
       AGUA, { 0.62f, 0.86f, 1.00f } },
+    { "A CRIPTA ESQUECIDA",     "Os mortos de Valdoria não descansam. Ande com cuidado.",
+      -1,   { 0.62f, 1.00f, 0.80f } },
     { "PROFUNDEZAS VULCÂNICAS", "O chão racha e a lava brilha. Não pise nela!",
       FOGO, { 1.00f, 0.50f, 0.25f } },
     { "SALA DO TRONO",          "O Senhor das Profundezas espera no fim do salão.",
@@ -17,7 +19,8 @@ const FichaDoTema FICHAS_DOS_TEMAS[NUM_TEMAS] = {
 
 int temaDoAndar(int numeroDoAndar) {
     if (numeroDoAndar >= NUM_ANDARES) return TEMA_TRONO;
-    if (numeroDoAndar >= 7) return TEMA_VULCAO;
+    if (numeroDoAndar >= 10) return TEMA_VULCAO;
+    if (numeroDoAndar >= 7) return TEMA_CRIPTA;
     if (numeroDoAndar >= 4) return TEMA_CAVERNA;
     return TEMA_MINAS;
 }
@@ -53,7 +56,8 @@ static bool podeDecorar(const Andar& a, int x, int y) {
     return true;
 }
 
-// Quantas células dá para alcançar a partir da chegada SEM pisar na lava.
+// Quantas células dá para alcançar a partir da chegada SEM pisar na lava
+// (as lápides da cripta também contam como parede).
 static int alcancaveisSemLava(Mapa& mapa, const Escadas& e) {
     static int distancia[MAPA_ALTURA][MAPA_LARGURA];
     static TipoCelula guardadas[MAPA_ALTURA][MAPA_LARGURA];
@@ -61,7 +65,7 @@ static int alcancaveisSemLava(Mapa& mapa, const Escadas& e) {
     for (int y = 0; y < MAPA_ALTURA; y++)
         for (int x = 0; x < MAPA_LARGURA; x++) {
             guardadas[y][x] = mapa.celulas[y][x];
-            if (mapa.celulas[y][x] == LAVA) mapa.celulas[y][x] = PAREDE;
+            if (mapa.celulas[y][x] == LAVA || mapa.celulas[y][x] == TUMULO) mapa.celulas[y][x] = PAREDE;
         }
     calcularDistancias(mapa, e.chegadaSobeX, e.chegadaSobeY, distancia);
     int total = 0;
@@ -124,6 +128,45 @@ void decorarAndar(Andar& andar, int numeroDoAndar, uint32_t semente) {
         // Várias poças pequenas (e não um rio): de 1 a 6 casas cada.
         int pocas = 11 + sortear(g, 0, 4);
         for (int i = 0; i < pocas; i++) criarPoca(andar, g, sortear(g, 1, 6), POCA, nullptr);
+    } else if (tema == TEMA_CRIPTA) {
+        // Lápides soltas pelas salas (de preferência encostadas na parede),
+        // em grupinhos de 1 a 3, sem nunca fechar um caminho.
+        int alcancaveis = alcancaveisSemLava(andar.mapa, andar.escadas);
+        int grupos = 10 + sortear(g, 0, 4);
+        for (int i = 0; i < grupos; i++) {
+            int x = 0, y = 0; bool achou = false;
+            for (int t = 0; t < 300 && !achou; t++) {
+                x = sortear(g, 1, MAPA_LARGURA - 2); y = sortear(g, 1, MAPA_ALTURA - 2);
+                if (!podeDecorar(andar, x, y)) continue;
+                int paredes = 0;
+                for (int v = 0; v < 4; v++) paredes += andar.mapa.celulas[y + DIRECOES_DY[v]][x + DIRECOES_DX[v]] == PAREDE;
+                achou = paredes == 1 || (paredes == 0 && t > 200);
+            }
+            if (!achou) continue;
+            int n = sortear(g, 1, 3), dx = sortear(g, 0, 1);
+            for (int k = 0; k < n; k++) {
+                int cx = x + (dx ? 2 * k : 0), cy = y + (dx ? 0 : 2 * k);
+                if (!podeDecorar(andar, cx, cy)) break;
+                andar.mapa.celulas[cy][cx] = TUMULO;
+                int agora = alcancaveisSemLava(andar.mapa, andar.escadas);
+                if (agora < alcancaveis - 1) { andar.mapa.celulas[cy][cx] = CHAO; break; }
+                alcancaveis = agora;
+            }
+        }
+        // Velas: mais pontos de luz (fracos e esverdeados) nas paredes retas.
+        int vx[16], vy[16], velas = 0;
+        for (int t = 0; t < 4000 && velas < 9; t++) {
+            int x = sortear(g, 1, MAPA_LARGURA - 2), y = sortear(g, 1, MAPA_ALTURA - 3);
+            if (andar.mapa.celulas[y][x] != PAREDE || andar.mapa.celulas[y + 1][x] != CHAO) continue;
+            if (andar.mapa.celulas[y][x - 1] != PAREDE || andar.mapa.celulas[y][x + 1] != PAREDE) continue;
+            if (andar.zonaSegura[y + 1][x]) continue;
+            bool longe = true;
+            for (int k = 0; k < velas; k++) if ((vx[k]-x)*(vx[k]-x) + (vy[k]-y)*(vy[k]-y) < 64) longe = false;
+            for (int dy = -6; dy <= 6 && longe; dy++) for (int dx = -6; dx <= 6; dx++)
+                if (x+dx > 0 && y+dy > 0 && x+dx < MAPA_LARGURA && y+dy < MAPA_ALTURA && andar.mapa.celulas[y+dy][x+dx] == TOCHA) longe = false;
+            if (!longe) continue;
+            andar.mapa.celulas[y][x] = TOCHA; vx[velas] = x; vy[velas] = y; velas++;
+        }
     } else if (tema == TEMA_VULCAO) {
         // Poças de lava: menores, e nunca fecham um caminho.
         int alcancaveis = alcancaveisSemLava(andar.mapa, andar.escadas);
