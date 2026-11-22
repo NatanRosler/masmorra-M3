@@ -24,7 +24,9 @@ enum TipoCelula {
     LAVA,          // profundezas vulcânicas: dá para passar, mas queima
     // v1.23
     TUMULO,        // lápide da cripta: não dá para passar, mas não tapa a visão
-    TEIA           // teia de aranha: dá para passar, mas quem pisa fica preso um instante
+    TEIA,          // teia de aranha: dá para passar, mas quem pisa fica preso um instante
+    // v1.24
+    PORTAO         // portão da sala do chefe: deixa passar (fecha só durante a cena e a luta)
 };
 
 struct Mapa {

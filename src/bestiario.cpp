@@ -169,8 +169,15 @@ std::string descricaoDaEspecie(int tipo) {
         case 'e': return "Anda em dupla. Derrotado, se monta de novo uma vez (com 1/3 da vida), a não ser que o golpe final seja de Fogo, Pedra ou Luz.";
         case 's': return "Rápida, e a lava não a queima: corta caminho por cima das poças. Os golpes de fogo queimam.";
         case 'M': return "Parece um baú dourado... até você tentar abrir.";
-        case 'S': return "Espera no fim do andar 13. Fica mais forte junto com você e, com "
-                         "metade da vida, fica furioso.";
+        case 'S': return "Espera no salão do trono, no andar 13, com 2 ogros guarda-costas. Fica mais forte "
+                         "junto com você e, com metade da vida, fica furioso (e o teto começa a cair).";
+        // v1.24: os mini-chefes
+        case 'R': return "Guarda a escada do andar 3 com 2 goblins. Com metade da vida, sopra o apito e chama mais um guarda.";
+        case 'A': return "Guarda a escada do andar 6 no ninho dela. A cada 3 rodadas desce um filhote pela teia (até 3).";
+        case 'n': return "Guarda a escada do andar 9. Enquanto ele estiver de pé, os esqueletos que caem se levantam "
+                         "de novo 2 rodadas depois (até 3 vezes). Derrube-o primeiro!";
+        case 'L': return "Guarda a escada do andar 12 com 2 salamandras. Com metade da vida, a casca de pedra quebra: "
+                         "vira de Fogo, fica mais rápido e mais forte, mas mais fácil de ferir.";
     }
     return "";
 }
@@ -179,6 +186,7 @@ std::string andaresDaEspecie(int tipo) {
     if (tipo < 0 || tipo >= NUM_TIPOS_DE_MONSTRO) return "";
     const TipoMonstro& t = TIPOS_DE_MONSTRO[tipo];
     if (t.especial & CHEFE) return "andar 13 (chefe final)";
+    if (t.especial & MINI_CHEFE) return "andar " + std::to_string(t.andarMinimo) + " (mini-chefe)";
     if (t.frequencia == 0) return "dentro de baús, em qualquer andar";
     return "andares " + std::to_string(t.andarMinimo) + " a " + std::to_string(t.andarMaximo);
 }

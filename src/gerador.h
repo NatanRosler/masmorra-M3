@@ -37,6 +37,18 @@ struct SalaDoTesouro {
     int dentroX, dentroY;    // uma célula de chão do lado de dentro
 };
 
+// v1.24: sala feita à mão do chefe do andar (andares 3, 6, 9, 12 e 13).
+// O retângulo inclui as paredes; a única entrada é o portão (embaixo, ou em
+// cima quando a sala está de cabeça para baixo).
+struct SalaDoChefe {
+    bool existe;
+    int tipo;                // TipoDeSala (sala_do_chefe.h)
+    int x, y;                // canto de cima à esquerda
+    int largura, altura;
+    int portaoX, portaoY;
+    bool invertida;          // de cabeça para baixo: o portão em cima e a escada embaixo
+};
+
 // Gera um andar completo. Devolve quantas salas foram criadas.
 // Se "tesouro" não for nullptr, também escolhe e tranca a sala do tesouro.
 int gerarAndar(Mapa& mapa, Escadas& escadas, uint32_t semente, bool ultimoAndar,

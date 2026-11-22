@@ -249,8 +249,9 @@ dano simples de cada espécie vira o golpe daquele elemento (`golpesDoMonstro`).
 A história aparece depois da criação (`textoDaHistoria`). Três NPCs: Eldra
 (andar 1, dá uma poção e dicas), Borin (andar 4, abre a sala do tesouro) e o
 espírito guardião Aldric (andar 7, cura vida e PP). O **Senhor das Profundezas**
-fica no ponto mais distante da entrada do último andar (13 desde a v1.23), com
-2 ogros guarda-costas (v1.23.1); não dá para fugir dele. Derrotá-lo vence o jogo.
+espera no último andar (13 desde a v1.23), no salão do trono feito à mão (v1.24;
+antes ficava no ponto mais distante da entrada), com 2 ogros guarda-costas
+(v1.23.1); não dá para fugir dele. Derrotá-lo vence o jogo.
 
 ## Pontuação e ranking (Etapa 9)
 
@@ -1068,3 +1069,96 @@ Mudanças pedidas depois de um amigo jogar a v1.23.
   esse espaço pode ter lixo: é zerado ao carregar, e se o andar 13 já existia,
   os guarda-costas aparecem ao lado do chefe e ele passa para a vida fixa com
   a mesma proporção que tinha (cheio continua cheio).
+
+## Mini-chefes e salas feitas à mão (v1.24)
+
+**Quatro mini-chefes obrigatórios**, um por tema, cada um com 2 ajudantes. A
+escada de descer do andar fica dentro da sala deles, atrás deles:
+
+| Andar | Mini-chefe | Elemento | Ajudantes | O que faz na luta |
+|---|---|---|---|---|
+| 3 | Rei Goblin | Pedra | 2 goblins | Com metade da vida, sopra o apito e chama mais um guarda |
+| 6 | Rainha Aranha | Veneno | 2 aranhas | A cada 3 rodadas, desce um filhote pela teia (até 3) |
+| 9 | Necromante | Trevas | 2 esqueletos | Enquanto ele está de pé, o esqueleto que cai se levanta inteiro 2 rodadas depois (até 3 vezes) |
+| 12 | Golem de Magma | Pedra, depois Fogo | 2 salamandras | Com metade da vida, a casca de pedra quebra: vira de Fogo, dobra a velocidade, ganha ataque e perde 30% da defesa |
+
+- As espécies novas ficam **no fim da tabela de monstros** (os números das
+  antigas e os saves não mudam), com a marca `MINI_CHEFE`. Nunca aparecem por
+  sorteio, o elemento é sempre o "de fábrica" e o desenho está em
+  `grafico/chefes_sprites.h`. No bestiário, os chefes ganharam uma aba própria
+  (MONSTROS, CHEFES e PERSONAGENS).
+- **As salas** (`sala_do_chefe.cpp`) são desenhadas em texto, uma linha por
+  linha do mapa (legenda no começo do arquivo): o salão do Rei (ouro roubado,
+  trono e tochas), o ninho da Rainha (teias, casulos, ovos e poças), o altar
+  do Necromante (lápides, colunas, velas e o círculo do ritual), a forja do
+  Golem (lava em volta, forja, bigorna e uma ponte só) e o **salão do trono**
+  do chefe final (colunas, braseiros, tapete até o trono e os 2 ogros). Os
+  enfeites ficam em `Andar::enfeites`; os que ninguém atravessa (tronos,
+  colunas, forja...) ficam em cima de uma casa "sólida" (a mesma da lápide).
+- **Onde a sala cabe** (`carimbarSalaDoChefe`, no fim de `prepararAndar`):
+  testa todos os lugares do andar, nas duas posições (portão embaixo ou, de
+  cabeça para baixo, em cima). Um lugar vale se a sala não cobre a chegada, a
+  loja, a sala do tesouro, as salas especiais nem os NPCs, se um corredor
+  liga o portão ao caminho que já existia e se **nenhuma casa que dava para
+  alcançar fica sem caminho**. Entre os que valem, fica o que deixa o portão
+  mais longe da chegada. Se não couber em lugar nenhum, as folgas diminuem
+  (e, por último, só os caminhos até itens, NPCs, salas especiais e o tesouro
+  precisam continuar abertos). Monstros e itens que estavam dentro mudam de
+  lugar (a chave nunca some); a escada antiga vira parede.
+- Testado em 300 partidas (1500 salas): a sala coube em 1498; em 0 casos algo
+  ficou sem caminho. Quando não cabe (raríssimo), o mini-chefe fica parado na
+  frente da escada antiga, com os ajudantes do lado, e continua obrigatório.
+- **Na sala** (`conferirSalaDoChefe` em `jogo.cpp`): ao entrar, o portão desce
+  atrás do jogador (`Jogo::portaoFechado`, não vai no save), a cena mostra o
+  mini-chefe e os ajudantes acordando (os esqueletos saem de dentro da terra),
+  o cartaz com o nome e a fala dele (`cenaDoMiniChefe`; na volta, depois de
+  perder, a cena é curta), e a luta começa com os três. Não dá para fugir nem
+  usar a Bomba de Fumaça. Perdendo, o jogador volta à entrada do andar como
+  sempre. O mini-chefe e os ajudantes não saem da sala, e os outros monstros
+  não entram nela.
+- **Na luta**: o chefe fica no meio e maior, os ajudantes dos lados (vale
+  também para o chefe final com os ogros); cada sala tem o seu fundo
+  (`grafico/fundos_batalha.h`) e a música é a dos mini-chefes. No salão do
+  trono, quando o chefe fica furioso, pedras começam a cair do teto. Quem entra
+  no meio da luta (reforço ou esqueleto que levantou) desce do alto
+  (`ANIM_CHEGADA`) e ocupa a vaga de quem já caiu.
+- **Prêmio**: moedas (150, 200, 250 e 300) e itens (Cristal de Força; Cristal
+  de Vida e 2 Antídotos; Cristal de Ferro e Éter; Cristal de Força, Cristal de
+  Vida e Poção Grande).
+
+**Os números** (`NUMEROS` em `sala_do_chefe.cpp`). Como o chefe final, a vida
+é fixa; o nível acompanha o do jogador e o ataque é uma porcentagem do normal,
+porque no começo do jogo o jogador tem pouca vida (com o nível e o ataque
+cheios e os mesmos 110 de vida, o jogador vencia só 23% das lutas contra o Rei
+Goblin no andar 3):
+
+| | Vida (Fácil / Médio / Difícil / Impossível) | Nível (no Médio) | Ataque |
+|---|---|---|---|
+| Rei Goblin | 60 / 110 / 110 / 110 | o seu − 2 | 80% |
+| Rainha Aranha | 140 / 250 / 250 / 250 | o seu − 2 | 80% |
+| Necromante | 200 / 360 / 360 / 360 | o seu | 100% (os golpes dele drenam, e ele tem Eclipse) |
+| Golem de Magma | 205 / 370 / 370 / 370 | o seu − 2 | 80% |
+
+Chance de vencer em lutas simuladas, na sala de verdade, com as mecânicas
+(100 por elemento no Médio, 60 nas outras): jogador com o nível de quem chega
+ao andar (9, 18, 27 e 37), metade dos pontos em Força, a arma do elemento (se
+já aparece naquele andar), alguns cristais e as poções do caminho. Os robôs
+só escolhem o golpe de maior dano; um jogador de verdade vai melhor.
+
+| | Fácil | Médio | Difícil | Impossível |
+|---|---|---|---|---|
+| Rei Goblin (andar 3) | 96% | 66% | 55% | 11% |
+| Rainha Aranha (andar 6) | 89% | 60% | 35% | 4% |
+| Necromante (andar 9) | 89% | 58% | 45% | 7% |
+| Golem de Magma (andar 12) | 92% | 50% | 42% | 15% |
+
+Como no chefe final, os elementos pesam muito: no Médio, contra a Rainha
+(Veneno), Luz quase nunca vence; contra o Necromante (Trevas), Normal também
+não; contra o Rei e o Golem (Pedra), Água e Planta vencem quase sempre.
+
+- **Save versão 8**: cada andar guarda `salaDoChefe` e `enfeites`. Nos saves
+  antigos, os andares já criados ficam como eram (sem sala); os que ainda não
+  existiam nascem com ela.
+- **Console**: o portão é `|` (fechado, `#`), os enfeites viram letras
+  coloridas (`$` ouro, `W` trono, `0` casulo, `I` coluna...) e a cena é uma
+  página de texto.

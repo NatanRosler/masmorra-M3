@@ -123,6 +123,11 @@ struct Andar {
     Npc npcs[MAX_NPCS];                     // Etapa 8
     int numNpcs;
 
+    // v1.24: a sala feita à mão do chefe do andar e os enfeites dela
+    // (ouro, trono, casulos, velas, colunas...; 0 = nada). Ver sala_do_chefe.h.
+    SalaDoChefe salaDoChefe;
+    char enfeites[MAPA_ALTURA][MAPA_LARGURA];
+
     // Rastro de cheiro que o jogador deixa por onde passa. Quanto maior o
     // número, mais recente o cheiro. Monstros que perderam o jogador de
     // vista seguem o cheiro mais forte.
@@ -164,6 +169,7 @@ struct Jogo {
     int especiesEnfrentadasNaPartida; // bit t = já lutou contra a espécie t (v1.23: o elemento aparece no bestiário)
     int encontrosComOChefe;         // quantas vezes o chefe já apareceu na sua frente (cena longa na 1a)
     bool chefeAVista;               // o chefe estava à vista no último passo (não vai no save)
+    bool portaoFechado;             // v1.24: o portão da sala do chefe está fechado (cena e luta; não vai no save)
 
     int passos;                     // quantos passos o jogador já deu
     int monstrosMortos;

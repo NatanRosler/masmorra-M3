@@ -1,6 +1,7 @@
 // monstros.cpp
 #include "monstros.h"
 #include "tema.h"
+#include "sala_do_chefe.h"
 #include "jogo.h"
 #include "aleatorio.h"
 #include "cenario.h"
@@ -232,6 +233,56 @@ const TipoMonstro TIPOS_DE_MONSTRO[] = {
         "  /  /\\  \\____/  /\\  \\",
         "    /  \\        /  \\" },
       13, 13, 0, CHEFE | QUEBRA_CAIXAS },
+
+    // ---- v1.24: os mini-chefes (no fim da tabela: os números das espécies
+    // antigas não mudam). Nunca aparecem por sorteio: cada um espera na sala
+    // feita à mão do seu andar (sala_do_chefe.cpp), com a escada atrás dele.
+    // O elemento é sempre o "de fábrica" (não é sorteado) e a vida é fixa
+    // (vidaDoMiniChefe).
+    { "Rei Goblin", "o", 'R', { 120, 220, 90 }, PEDRA,
+      100, 80, 70, 60,  250,
+      { G_PEDRADA, G_GOLPE_DUPLO, G_GRITO_DE_GUERRA, G_ESMAGAR }, 4,
+      { "       _ ^ _ ^ _",
+        "      | V V V V |",
+        "    /\\(  o   o )/\\",
+        "      (  \\WWW/  )",
+        "    __/|  $$$  |\\__",
+        "      / |_____| \\",
+        "        _|   |_" },
+      3, 3, 0, MINI_CHEFE },
+    { "Rainha Aranha", "a", 'A', { 160, 110, 210 }, VENENO,
+      100, 80, 65, 80,  300,
+      { G_FERRAO_VENENOSO, G_TEIA, G_ACIDO_CORROSIVO, G_MORDIDA }, 4,
+      { "        _^^^_",
+        "   \\\\  (o o o)  //",
+        "    \\\\( v   v )//",
+        "   --(  /---\\  )--",
+        "   //(   >-<   )\\\\",
+        "  // (___/ \\___) \\\\",
+        "         V V" },
+      6, 6, 0, MINI_CHEFE },
+    { "Necromante", "o", 'n', { 170, 120, 220 }, TREVAS,
+      100, 85, 65, 70,  350,
+      { G_PULSO_DAS_TREVAS, G_ECLIPSE, G_HIPNOSE, G_TOQUE_SOMBRIO }, 4,
+      { "  *       ___",
+        "  |      /   \\",
+        "  |     | x x |",
+        "  |      \\_^_/",
+        "  |-o   /|   |\\",
+        "  |    / |   | \\",
+        "  |   /__|___|__\\" },
+      9, 9, 0, MINI_CHEFE },
+    { "Golem de Magma", "o", 'L', { 255, 130, 50 }, PEDRA,
+      100, 85, 90, 40,  400,
+      { G_ESMAGAR, G_PEDRADA, G_MURALHA_DE_PEDRA, G_RUGIDO }, 4,
+      { "       ______",
+        "      [ *  * ]",
+        "   ___[______]___",
+        "  [   ] [::] [   ]",
+        "  [___] [::] [___]",
+        "       [_][_]",
+        "      [__][__]" },
+      12, 12, 0, MINI_CHEFE },
 };
 const int NUM_TIPOS_DE_MONSTRO = sizeof(TIPOS_DE_MONSTRO) / sizeof(TIPOS_DE_MONSTRO[0]);
 
@@ -249,6 +300,7 @@ const CorRGB CORES_DOS_ELEMENTOS[NUM_ELEMENTOS] = {
 };
 
 int tipoDoChefe() {
+    for (int i = 0; i < NUM_TIPOS_DE_MONSTRO; i++) if (TIPOS_DE_MONSTRO[i].especial & CHEFE) return i;
     return NUM_TIPOS_DE_MONSTRO - 1;
 }
 
@@ -286,6 +338,9 @@ void sortearElementosDasEspecies(Jogo& jogo, uint32_t semente) {
         jogo.elementoDaEspecie[tipo] = e;
     }
     jogo.elementoDaEspecie[tipoDoChefe()] = TREVAS;
+    // v1.24: os mini-chefes têm sempre o elemento "de fábrica".
+    for (int tipo = 0; tipo < NUM_TIPOS_DE_MONSTRO; tipo++)
+        if (TIPOS_DE_MONSTRO[tipo].especial & MINI_CHEFE) jogo.elementoDaEspecie[tipo] = TIPOS_DE_MONSTRO[tipo].elemento;
 }
 
 void golpesDoMonstro(const Monstro& m, int golpes[MAX_GOLPES], int& numGolpes) {
@@ -336,7 +391,7 @@ void acompanharJogador(Jogo& jogo) {
     Andar& andar = andarAtual(jogo);
     for (int i = 0; i < andar.numMonstros; i++) {
         Monstro& m = andar.monstros[i];
-        if (!m.vivo || (tipoDe(m).especial & CHEFE)) continue;   // o chefe tem a regra dele
+        if (!m.vivo || (tipoDe(m).especial & (CHEFE | MINI_CHEFE))) continue;   // os chefes têm a regra deles
         int minimo = jogo.jogador.nivel - folga + (m.campeao ? 2 : 0) - (m.guarda ? FOLGA_DOS_GUARDAS : 0);
         if (minimo > NIVEL_MAXIMO) minimo = NIVEL_MAXIMO;
         if (m.nivel >= minimo) continue;
@@ -348,6 +403,8 @@ void acompanharJogador(Jogo& jogo) {
 }
 
 int vidaMaximaDoMonstro(const Monstro& m) {
+    // v1.24: os mini-chefes também têm vida fixa (sala_do_chefe.cpp).
+    if (tipoDe(m).especial & MINI_CHEFE) return vidaDoMiniChefe(salaDoMiniChefe(m.tipo));
     // v1.23.1: o chefe tem vida fixa (uma por dificuldade). Pela fórmula ele
     // tinha só ~140 no nível 40, e um golpe forte acabava com a luta final.
     if (tipoDe(m).especial & CHEFE) return dificuldadeAtual().vidaDoChefe;
@@ -559,7 +616,8 @@ void colocarGuardasDoChefe(Andar& andar, Elemento elementoDoOgro) {
 
 void ajustarNivelDoChefe(Monstro& chefe, int nivelDoJogador) {
     int novo = nivelDoJogador + dificuldadeAtual().nivelExtraDoChefe;   // +1 (+3 no Impossível)
-    if (novo < NIVEL_MINIMO_DO_CHEFE) novo = NIVEL_MINIMO_DO_CHEFE;
+    if (tipoDe(chefe).especial & MINI_CHEFE) novo += ajusteDeNivelDoMiniChefe(salaDoMiniChefe(chefe.tipo));   // v1.24
+    if ((tipoDe(chefe).especial & CHEFE) && novo < NIVEL_MINIMO_DO_CHEFE) novo = NIVEL_MINIMO_DO_CHEFE;
     if (novo <= chefe.nivel) return;   // só sobe
     int maximaAntes = vidaMaximaDoMonstro(chefe);
     chefe.nivel = novo;
@@ -578,6 +636,8 @@ static bool celulaLivre(const Jogo& jogo, const Monstro& m, int x, int y) {
     if (x == jogo.jogador.x && y == jogo.jogador.y) return false;
     if (npcEm(andar, x, y) >= 0) return false;
     if (andar.zonaSegura[y][x]) return false;   // a lojinha do comerciante
+    // v1.24: na sala do chefe só ficam o chefe e os ajudantes dele.
+    if (dentroDaSalaDoChefe(andar, x, y) && !m.guarda && !(tipoDe(m).especial & (CHEFE | MINI_CHEFE))) return false;
     // Monstros não pisam na lava (a salamandra pisa).
     if (andar.mapa.celulas[y][x] == LAVA && !(tipoDe(m).especial & ANDA_NA_LAVA)) return false;
     if (especialEm(andar, x, y) >= 0) return false;       // fonte, altar, baú, gongo
@@ -891,6 +951,9 @@ static bool agirComoGuarda(Jogo& jogo, Monstro& m, int indice, const Monstro& ch
 // Uma ação do monstro. Devolve true se ele alcançou o jogador (começa a batalha).
 static bool agirUmaVez(Jogo& jogo, Monstro& m, int indice) {
     const TipoMonstro& t = tipoDe(m);
+    // v1.24: o mini-chefe não sai do lugar (a luta começa quando o jogador
+    // entra na sala dele; os ajudantes ficam em volta, ver agirComoGuarda).
+    if (t.especial & MINI_CHEFE) return false;
     Andar& andar = andarAtual(jogo);
     int distancia = jogo.distanciaAteJogador[m.y][m.x];
 
@@ -908,7 +971,7 @@ static bool agirUmaVez(Jogo& jogo, Monstro& m, int indice) {
     if (m.guarda) {
         for (int i = 0; i < andar.numMonstros; i++) {
             const Monstro& c = andar.monstros[i];
-            if (c.vivo && (tipoDe(c).especial & CHEFE)) return agirComoGuarda(jogo, m, indice, c);
+            if (c.vivo && (tipoDe(c).especial & (CHEFE | MINI_CHEFE))) return agirComoGuarda(jogo, m, indice, c);
         }
         // (sem chefe vivo, o guarda age como um ogro comum)
     }

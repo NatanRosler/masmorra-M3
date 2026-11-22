@@ -4,6 +4,7 @@
 // -----------------------------------------------------------------------------
 #include "salvar.h"
 #include "jogo.h"
+#include "sala_do_chefe.h"
 #include "dificuldade.h"
 #include "som.h"
 
@@ -31,7 +32,9 @@ static const char* ARQUIVO_TEMPORARIO = "save.tmp";
 // Versão 7 (v1.23.1): o monstro ganhou "guarda" (os ogros do chefe). O campo
 // usa um espaço que já sobrava na struct, então o tamanho é o mesmo; nos saves
 // antigos esse espaço pode ter lixo e é zerado ao carregar.
-static const int VERSAO_DO_SAVE = 7;
+// Versão 8 (v1.24): cada andar guarda a sala do chefe e os enfeites dela.
+// Nos saves antigos, os andares já criados ficam sem sala (como eram).
+static const int VERSAO_DO_SAVE = 8;
 static const char ASSINATURA[8] = { 'M', 'A', 'S', 'M', 'O', 'R', 'R', 'A' };
 
 // =============================================================================
@@ -240,6 +243,8 @@ static void gravarAndar(Gravador& g, const Andar& a) {
     g.bruto(a.cheiro);
     g.bruto(a.numEspeciais);
     for (int i = 0; i < a.numEspeciais; i++) g.bruto(a.especiais[i]);
+    g.bruto(a.salaDoChefe);   // versão 8
+    g.bruto(a.enfeites);
 }
 
 static void lerAndar(Leitor& l, Andar& a, int versao) {
@@ -266,6 +271,17 @@ static void lerAndar(Leitor& l, Andar& a, int versao) {
     if (versao >= 2) {
         a.numEspeciais = l.numero(0, MAX_ESPECIAIS);
         for (int i = 0; i < a.numEspeciais && l.ok; i++) l.bruto(a.especiais[i]);
+    }
+    a.salaDoChefe.existe = false;
+    for (auto& linha : a.enfeites) for (char& e : linha) e = 0;
+    if (versao >= 8) {
+        l.bruto(a.salaDoChefe);
+        l.bruto(a.enfeites);
+        if (a.salaDoChefe.existe) {   // confere o retângulo (arquivo estragado não derruba o jogo)
+            const SalaDoChefe& s = a.salaDoChefe;
+            if (s.tipo < 0 || s.tipo >= NUM_SALAS_DE_CHEFE || s.x < 0 || s.y < 0 || s.largura < 3 || s.altura < 3 ||
+                s.x + s.largura > MAPA_LARGURA || s.y + s.altura > MAPA_ALTURA) l.ok = false;
+        }
     }
 }
 
@@ -399,6 +415,7 @@ bool carregarPartida(Jogo& jogo) {
     if (versao >= 4) l.bruto(jogo.especiesVistasNaPartida);
     jogo.encontrosComOChefe = 0;
     jogo.chefeAVista = false;
+    jogo.portaoFechado = false;
     if (versao >= 5) l.bruto(jogo.encontrosComOChefe);
     jogo.especiesEnfrentadasNaPartida = 0;
     if (versao >= 6) l.bruto(jogo.especiesEnfrentadasNaPartida);

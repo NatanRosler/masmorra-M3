@@ -158,6 +158,8 @@ const int BONUS_DO_PROPRIO_ELEMENTO = 30;
 // Um Lutador é a "ficha de batalha" do jogador ou do monstro. A vida e os PP
 // são PONTEIROS para os valores de verdade (guardados no Jogador ou no
 // Monstro): assim, o que acontece na batalha já fica salvo neles.
+const int MAX_INIMIGOS = 3;
+
 struct Lutador {
     std::string nome;
     int nivel;
@@ -183,12 +185,12 @@ struct Lutador {
     int esquiva;             // Agilidade: - chance de o inimigo acertar
     int criticoExtra;        // Destreza: + chance de golpe crítico
     bool ehChefe;            // o chefe final: não dá para fugir dele
+    bool ehMiniChefe;        // v1.24: mini-chefe (também não dá para fugir: o portão fechou)
     bool ehCampeao;          // monstro elite (aura dourada)
     bool ehJogador;
     int indice;              // 0 = jogador; 1, 2, 3 = inimigos (posição na tela)
 };
 
-const int MAX_INIMIGOS = 3;
 
 enum ResultadoBatalha {
     VITORIA,         // não sobrou inimigo (desmaiaram ou fugiram)
@@ -246,6 +248,14 @@ struct Batalha {
     // Segunda fase do chefe: com metade da vida ele fica furioso.
     bool chefeFurioso;
     bool naArena;                // desafio do gongo: a bomba de fumaça não funciona
+
+    // v1.24: luta na sala de um chefe (fundo da sala; -1 = luta comum) e o
+    // que cada mini-chefe já fez (reforços, esqueletos de pé de novo, fase 2).
+    int salaDaBatalha;
+    int reforcosChamados;
+    int esqueletosLevantados;
+    int levantaEm[MAX_INIMIGOS];  // esqueleto do Necromante: rodadas até levantar (0 = não)
+    bool golemQuebrou;
 
     // Itens que podem ser usados na batalha (lista montada ao abrir ITENS).
     int itensUsaveis[16];

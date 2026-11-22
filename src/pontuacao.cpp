@@ -193,6 +193,8 @@ std::vector<std::string> textoComoJogar() {
         "Gnomo vigia: se te vir, sopra a corneta e chama as salas vizinhas.",
         "Sombra: só aparece de perto ou na luz das tochas.",
         "O Senhor das Profundezas nunca luta sozinho: 2 ogros guarda-costas entram junto.",
+        "Andares 3, 6, 9 e 12: um mini-chefe guarda a escada, na sala dele. O portão fecha",
+        "  quando você entra e não dá para fugir. Vencendo, ganha um prêmio.",
         QUEBRA_DE_PAGINA,
         "ATRIBUTOS (1 ponto a cada nível, tecla C):",
         "Força = dano   Constituição = vida e armadura",

@@ -92,6 +92,7 @@ enum Musica {
     MUSICA_ELDRA, MUSICA_BORIN, MUSICA_ALDRIC, MUSICA_GARRO, MUSICA_TOBIAS,   // conversas (e a loja)
     MUSICA_CHEFE_CENA,   // o coração batendo na cena do chefe
     MUSICA_FINAL,
+    MUSICA_MINI_CHEFE,   // v1.24: a luta contra os mini-chefes
     NUM_MUSICAS
 };
 
@@ -142,6 +143,9 @@ inline Voz vozDoMonstro(char simbolo) {
         case 'S': return VOZ_CHEFE;
         case 'a': return VOZ_ARANHA;  case 'f': return VOZ_FUNGO;   case 'e': return VOZ_ESQUELETO;
         case 's': return VOZ_SALAMANDRA;
+        // v1.24: os mini-chefes usam a voz da "família" deles.
+        case 'R': return VOZ_GOBLIN;  case 'A': return VOZ_ARANHA;  case 'n': return VOZ_ESQUELETO;
+        case 'L': return VOZ_OGRO;
     }
     return VOZ_NARRADOR;
 }

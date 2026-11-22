@@ -1,5 +1,6 @@
 // batalha.cpp
 #include "batalha.h"
+#include "sala_do_chefe.h"
 #include <algorithm>
 #include "jogo.h"
 #include "monstros.h"
@@ -755,11 +756,19 @@ static bool contraOChefe(const Batalha& b) {
     }
     return false;
 }
+// v1.24: contra um mini-chefe o portão está fechado (não dá para fugir).
+static bool contraUmMiniChefe(const Batalha& b) {
+    for (int i = 0; i < b.numInimigos; i++) {
+        if (b.naLuta[i] && b.inimigos[i].ehMiniChefe) return true;
+    }
+    return false;
+}
 
 static std::string motivoParaNaoUsar(const Jogador& j, const Batalha& b, int tipo) {
     const TipoItem& t = TIPOS_DE_ITEM[tipo];
     if (tipo == I_BOMBA_DE_FUMACA) {
         if (contraOChefe(b)) return "A fumaça não engana o Senhor das Profundezas.";
+        if (contraUmMiniChefe(b)) return "O portão está fechado: não há para onde fugir.";
         if (b.naArena) return "Na arena não há para onde fugir: a porta está trancada.";
         return "";
     }
@@ -1071,6 +1080,7 @@ static Lutador montarLutadorDoJogador(Jogador& j) {
     l.esquiva = j.esquiva;
     l.criticoExtra = j.criticoExtra;
     l.ehChefe = false;
+    l.ehMiniChefe = false;
     l.ehCampeao = false;
     l.ehJogador = true;
     l.indice = 0;
@@ -1087,6 +1097,7 @@ static Lutador montarLutadorDoMonstro(Monstro& m) {
     l.vidaMaxima = vidaMaximaDoMonstro(m);
     // A força do ataque dos monstros depende da dificuldade escolhida.
     l.ataque = atributoPeloNivel(t.baseAtaque, m.nivel) * dificuldadeAtual().ataqueDosMonstros / 100;
+    if (t.especial & MINI_CHEFE) l.ataque = l.ataque * ataqueDoMiniChefe(salaDoMiniChefe(m.tipo)) / 100;   // v1.24
     l.defesa = atributoPeloNivel(t.baseDefesa, m.nivel);
     l.velocidade = atributoPeloNivel(t.baseVelocidade, m.nivel);
     l.estagioAtaque = 0;
@@ -1102,6 +1113,7 @@ static Lutador montarLutadorDoMonstro(Monstro& m) {
     l.esquiva = esquivaDoMonstro(m);
     l.criticoExtra = 0;
     l.ehChefe = (t.especial & CHEFE) != 0;
+    l.ehMiniChefe = (t.especial & MINI_CHEFE) != 0;
     l.ehCampeao = m.campeao;
     l.ehJogador = false;
     l.indice = 1;
@@ -1188,6 +1200,11 @@ static bool conferirDesmaios(Jogo& jogo, Batalha& b) {
         b.naLuta[i] = false;
         Monstro& m = *b.monstros[i];
         m.vivo = false;   // derrotado: some do mapa
+        // v1.24: o esqueleto do Necromante levanta de novo daqui a 2 rodadas.
+        if (m.guarda && (tipoDe(m).especial & REMONTA) && b.esqueletosLevantados < 3) {
+            for (int k = 0; k < b.numInimigos; k++)
+                if (b.naLuta[k] && b.inimigos[k].ehMiniChefe && tipoDe(*b.monstros[k]).simbolo == 'n') b.levantaEm[i] = 2;
+        }
         registrarDerrota(m);
         tocarSom(SOM_DESMAIO);
         narrar(jogo, b, comMaiuscula(b.inimigos[i].nome) + " desmaiou!");
@@ -1228,6 +1245,124 @@ static void ordenarAgentes(Agente* agentes, int n) {
     }
 }
 
+// =============================================================================
+// v1.24: O QUE OS MINI-CHEFES FAZEM NA LUTA
+// =============================================================================
+// Rei Goblin: com metade da vida, chama mais um guarda. Rainha Aranha: a cada
+// 3 rodadas desce um filhote (até 3). Necromante: enquanto ele está de pé, o
+// esqueleto que cai se levanta inteiro 2 rodadas depois (até 3 vezes). Golem de
+// Magma: com metade da vida, a casca de pedra quebra (fase 2, de Fogo).
+static int miniChefeNaLuta(const Batalha& b, char simbolo) {
+    for (int i = 0; i < b.numInimigos; i++)
+        if (b.naLuta[i] && b.inimigos[i].ehMiniChefe && tipoDe(*b.monstros[i]).simbolo == simbolo) return i;
+    return -1;
+}
+
+// Uma casa livre dentro da sala do chefe, para quem chega no meio da luta.
+static bool casaLivreNaSala(const Jogo& jogo, int& x, int& y) {
+    const Andar& a = andarAtual(jogo);
+    const SalaDoChefe& s = a.salaDoChefe;
+    if (!s.existe) return false;
+    for (int yy = s.y + 1; yy < s.y + s.altura - 1; yy++) {
+        for (int xx = s.x + 1; xx < s.x + s.largura - 1; xx++) {
+            TipoCelula c = a.mapa.celulas[yy][xx];
+            if (c != CHAO && c != TEIA && c != POCA) continue;
+            if (monstroEm(a, xx, yy) >= 0 || (xx == jogo.jogador.x && yy == jogo.jogador.y)) continue;
+            x = xx; y = yy;
+            return true;
+        }
+    }
+    return false;
+}
+
+// Um monstro novo entra na luta, na vaga de quem já caiu (ou numa vaga vazia).
+static bool chamarReforco(Jogo& jogo, Batalha& b, int tipo, Som som, const std::string& aviso) {
+    int vaga = -1;
+    for (int i = 0; i < b.numInimigos && vaga < 0; i++) if (!b.naLuta[i]) vaga = i;
+    if (vaga < 0 && b.numInimigos < MAX_INIMIGOS) vaga = b.numInimigos;
+    int x, y;
+    if (vaga < 0 || !casaLivreNaSala(jogo, x, y)) return false;
+    Andar& a = andarAtual(jogo);
+    int folga = dificuldadeAtual().folgaDeNivel > 0 ? dificuldadeAtual().folgaDeNivel : 0;
+    int nivel = std::max(1, jogo.jogador.nivel - folga - FOLGA_DOS_GUARDAS);
+    int k = criarMonstroExtra(a, tipo, x, y, nivel, jogo.elementoDaEspecie[tipo]);
+    if (k < 0) return false;
+    Monstro& m = a.monstros[k];
+    m.guarda = true;
+    m.estado = CACANDO;
+    if (vaga == b.numInimigos) b.numInimigos++;
+    b.monstros[vaga] = &m;
+    b.inimigos[vaga] = montarLutadorDoMonstro(m);
+    b.inimigos[vaga].ataque = b.inimigos[vaga].ataque * bonusDoAmbiente(jogo.andar, b.inimigos[vaga].elemento) / 100;
+    b.inimigos[vaga].indice = vaga + 1;
+    b.inimigos[vaga].nome += std::string(" ") + (char)('A' + 2 + b.reforcosChamados);   // "o goblin C"
+    b.naLuta[vaga] = true;
+    b.ultimoElemento[vaga] = -1;
+    b.levantaEm[vaga] = 0;
+    b.vidaMostrada[vaga + 1] = m.vida;
+    registrarAvistado(jogo, m, true);
+    b.reforcosChamados++;
+    tocarSom(som);
+    animarBatalha(jogo, b, ANIM_CHEGADA, vaga + 1, vaga + 1, 0, 0, false);
+    narrar(jogo, b, aviso, MSG_PERIGO);
+    return true;
+}
+
+// O Golem perde a casca: vira Fogo, fica mais rápido e mais forte, mas a
+// defesa cai.
+static void quebrarACascaDoGolem(Jogo& jogo, Batalha& b, int i) {
+    Lutador& l = b.inimigos[i];
+    b.golemQuebrou = true;
+    l.elemento = FOGO;
+    static const int GOLPES_DE_MAGMA[4] = { G_LABAREDA, G_INFERNO, G_ESMAGAR, G_BRASA };
+    l.numGolpes = 4;
+    for (int s = 0; s < 4; s++) l.golpes[s] = GOLPES_DE_MAGMA[s];
+    l.defesa = l.defesa * 7 / 10;
+    l.velocidade = l.velocidade * 2;
+    if (l.estagioAtaque < 0) l.estagioAtaque = 0;
+    if (l.estagioAtaque < 6) l.estagioAtaque++;
+    if (l.status != SEM_STATUS) l.status = SEM_STATUS;
+    tocarSom(SOM_RACHADURA);
+    animarBatalha(jogo, b, ANIM_FURIA, i + 1, i + 1, 0, 0, false);
+    narrar(jogo, b, "A casca de pedra do Golem se parte! Por dentro ele é puro magma: agora é de Fogo, "
+                    "mais rápido e mais forte, mas mais fácil de ferir.", MSG_PERIGO);
+}
+
+// Chamada depois de cada ação (fimDaRodada = false) e no fim de cada rodada.
+static void conferirMiniChefes(Jogo& jogo, Batalha& b, bool fimDaRodada) {
+    int rei = miniChefeNaLuta(b, 'R');
+    if (rei >= 0 && b.reforcosChamados == 0 && *b.inimigos[rei].vida * 2 <= b.inimigos[rei].vidaMaxima) {
+        if (!chamarReforco(jogo, b, tipoDoAjudante(SALA_DO_REI), SOM_CORNETA, "O Rei Goblin sopra o apito: \"Mais guardas! AGORA!\""))
+            b.reforcosChamados = 1;   // não havia vaga: ele não tenta de novo
+    }
+    int golem = miniChefeNaLuta(b, 'L');
+    if (golem >= 0 && !b.golemQuebrou && *b.inimigos[golem].vida * 2 <= b.inimigos[golem].vidaMaxima)
+        quebrarACascaDoGolem(jogo, b, golem);
+    if (!fimDaRodada) return;
+    int rainha = miniChefeNaLuta(b, 'A');
+    if (rainha >= 0 && jogo.rodadasDaUltimaBatalha % 3 == 0 && b.reforcosChamados < 3)
+        chamarReforco(jogo, b, tipoDoAjudante(NINHO_DA_RAINHA), SOM_FOLHAS, "Um filhote desce pelo fio da teia!");
+    int necro = miniChefeNaLuta(b, 'n');
+    for (int i = 0; i < b.numInimigos; i++) {
+        if (b.levantaEm[i] <= 0) continue;
+        if (necro < 0 || b.naLuta[i] || b.esqueletosLevantados >= 3) { b.levantaEm[i] = 0; continue; }
+        if (--b.levantaEm[i] > 0) continue;
+        Monstro& m = *b.monstros[i];
+        m.vivo = true;
+        m.vida = vidaMaximaDoMonstro(m);
+        std::string nome = b.inimigos[i].nome;
+        b.inimigos[i] = montarLutadorDoMonstro(m);
+        b.inimigos[i].nome = nome;
+        b.inimigos[i].indice = i + 1;
+        b.naLuta[i] = true;
+        b.vidaMostrada[i + 1] = m.vida;
+        b.esqueletosLevantados++;
+        tocarSom(SOM_REMONTA);
+        animarBatalha(jogo, b, ANIM_CHEGADA, i + 1, i + 1, 0, 0, false);
+        narrar(jogo, b, "O Necromante ergue o cajado: " + b.inimigos[i].nome + " se levanta de novo!", MSG_PERIGO);
+    }
+}
+
 ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
     if (quantos > MAX_INIMIGOS) quantos = MAX_INIMIGOS;
     Batalha b;
@@ -1236,7 +1371,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
     b.numInimigos = quantos;
     for (int i = 0; i < quantos; i++) {
         b.monstros[i] = participantes[i];
-        if (tipoDe(*participantes[i]).especial & CHEFE) ajustarNivelDoChefe(*participantes[i], jogo.jogador.nivel);
+        if (tipoDe(*participantes[i]).especial & (CHEFE | MINI_CHEFE)) ajustarNivelDoChefe(*participantes[i], jogo.jogador.nivel);
         b.inimigos[i] = montarLutadorDoMonstro(*participantes[i]);
         // O ambiente fortalece um elemento (Água na caverna, Fogo no vulcão).
         b.inimigos[i].ataque = b.inimigos[i].ataque * bonusDoAmbiente(jogo.andar, b.inimigos[i].elemento) / 100;
@@ -1261,7 +1396,18 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
     for (int i = 0; i < quantos; i++) {
         if (tipoDe(*participantes[i]).especial & CHEFE) contraOChefe = true;
     }
-    tocarMusica(contraOChefe ? MUSICA_CHEFE : MUSICA_BATALHA);
+    bool contraMiniChefe = false;
+    for (int i = 0; i < quantos; i++) {
+        if (tipoDe(*participantes[i]).especial & MINI_CHEFE) contraMiniChefe = true;
+    }
+    tocarMusica(contraOChefe ? MUSICA_CHEFE : contraMiniChefe ? MUSICA_MINI_CHEFE : MUSICA_BATALHA);
+    // v1.24: na sala de um chefe, a luta tem o fundo da sala.
+    b.salaDaBatalha = -1;
+    if ((contraOChefe || contraMiniChefe) && andarAtual(jogo).salaDoChefe.existe) b.salaDaBatalha = andarAtual(jogo).salaDoChefe.tipo;
+    b.reforcosChamados = 0;
+    b.esqueletosLevantados = 0;
+    b.golemQuebrou = false;
+    for (int i = 0; i < MAX_INIMIGOS; i++) b.levantaEm[i] = 0;
     b.tentativasDeFuga = 0;
     b.tipoDoTexto = MSG_NORMAL;
     b.textoDesde = 0;
@@ -1353,6 +1499,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
     }
 
     dicaNaBatalha(jogo, b, DICA_BATALHA);
+    if (contraMiniChefe) dicaNaBatalha(jogo, b, DICA_MINI_CHEFE);   // v1.24
 
     jogo.rodadasDaUltimaBatalha = 0;
     while (true) {
@@ -1381,6 +1528,8 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
             }
             if (contraOChefe) {
                 narrar(jogo, b, "Não há como fugir do Senhor das Profundezas!", MSG_PERIGO);
+            } else if (contraUmMiniChefe(b)) {
+                narrar(jogo, b, "O portão está fechado: não há como fugir!", MSG_PERIGO);
             } else if (tentarFugir(jogo, b)) {
                 tocarSom(SOM_FUGA);
                 narrar(jogo, b, "Você fugiu da batalha!");
@@ -1479,6 +1628,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
             }
             if (conferirDesmaios(jogo, b)) return VITORIA;
             conferirFuriaDoChefe(jogo, b);
+            conferirMiniChefes(jogo, b, false);
         }
 
         // ---- 4. Fim da rodada: veneno ---------------------------------------------------
@@ -1493,5 +1643,6 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
         }
         if (conferirDesmaios(jogo, b)) return VITORIA;
         conferirFuriaDoChefe(jogo, b);
+        conferirMiniChefes(jogo, b, true);
     }
 }

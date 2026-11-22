@@ -30,6 +30,7 @@ const int TECE_TEIA    = 256;  // aranha: deixa teias por onde passa (quem pisa 
 const int DISFARCADO   = 512;  // fungo: parado entre os cogumelos, só acorda a 2 casas
 const int REMONTA      = 1024; // esqueleto: derrotado, se monta de novo uma vez (menos com Fogo, Pedra ou Luz)
 const int ANDA_NA_LAVA = 2048; // salamandra: a lava não a queima
+const int MINI_CHEFE   = 4096; // v1.24: guarda a escada dos andares 3, 6, 9 e 12, na sala dele
 
 const int LINHAS_DA_ARTE = 7;
 

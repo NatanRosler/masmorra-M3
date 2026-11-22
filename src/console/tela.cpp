@@ -1,4 +1,5 @@
 // tela.cpp
+#include "sala_do_chefe.h"
 #include "tela.h"
 #include "jogo.h"
 #include "tema.h"
@@ -90,8 +91,27 @@ static Aparencia aparenciaDaCelula(const Mapa& mapa, int x, int y, int tema) {
         case CAIXA:        return { '=', { 225, 170, 95 },  { 95, 60, 30 },  false };
         case TUMULO:       return { '+', { 190, 195, 200 }, CHAO_FUNDO[tema], false };   // lápide (cruz)
         case TEIA:         return { '%', { 220, 225, 235 }, CHAO_FUNDO[tema], false };
+        case PORTAO:       return { '|', { 160, 165, 180 }, { 45, 48, 58 }, false };      // v1.24: grade aberta
     }
     return { '?', { 255, 0, 0 }, { 0, 0, 0 }, true };
+}
+
+// v1.24: cada enfeite das salas dos chefes vira uma letra colorida.
+static void enfeiteNoConsole(char e, Aparencia& a) {
+    switch (e) {
+        case '$': a.simbolo = '$'; a.frente = { 255, 215, 80 }; break;    // ouro
+        case 'R': case 'X': a.simbolo = 'W'; a.frente = { 230, 180, 70 }; a.fundo = { 110, 30, 40 }; break;   // trono
+        case 'C': a.simbolo = '0'; a.frente = { 225, 225, 215 }; break;   // casulo
+        case 'o': a.simbolo = 'o'; a.frente = { 215, 230, 200 }; break;   // ovos
+        case 'O': a.simbolo = '*'; a.frente = { 120, 255, 150 }; break;   // círculo do ritual
+        case 'v': a.simbolo = 'i'; a.frente = { 170, 255, 180 }; break;   // velas
+        case 'c': a.simbolo = 'I'; a.frente = { 200, 205, 210 }; break;   // coluna
+        case 'F': a.simbolo = 'M'; a.frente = { 255, 140, 50 }; break;    // forja
+        case 'B': a.simbolo = 'n'; a.frente = { 160, 160, 170 }; break;   // bigorna
+        case '=': a.simbolo = ':'; a.frente = { 220, 170, 70 }; a.fundo = { 110, 25, 40 }; break;   // tapete
+        case 'b': a.simbolo = 'Y'; a.frente = { 255, 170, 60 }; break;    // braseiro
+        default: break;
+    }
 }
 
 static int limitar(int v, int minimo, int maximo) {
@@ -391,6 +411,9 @@ void desenharJogo(const Jogo& jogo) {
                     a.fundo = { 90, 25, 35 };
                 }
                 chaoDoAmbiente(andar, x, y, a.frente, a.fundo);
+                // v1.24: os enfeites das salas dos chefes e o portão fechado.
+                enfeiteNoConsole(andar.enfeites[y][x], a);
+                if (mapa.celulas[y][x] == PORTAO && jogo.portaoFechado) { a.simbolo = '#'; a.frente = { 200, 205, 215 }; }
                 if (jogo.visivel[y][x]) {
                     // Visível agora: cor do objeto multiplicada pela luz.
                     CorRGB frente = a.frente, fundo = a.fundo;
@@ -1228,6 +1251,16 @@ void cenaDaCorneta(const Jogo&, int, bool) {}
 
 void cenaDoChefe(const Jogo&, int, const std::vector<std::string>& falas, bool) {
     mostrarPagina("O SENHOR DAS PROFUNDEZAS", falas);
+}
+
+// v1.24: no terminal, a entrada na sala do mini-chefe é uma página de texto.
+void cenaDoMiniChefe(const Jogo& jogo, int chefe, bool primeira) {
+    const Monstro& m = andarAtual(jogo).monstros[chefe];
+    int sala = salaDoMiniChefe(m.tipo);
+    std::string nome = TIPOS_DE_MONSTRO[m.tipo].nome;
+    for (char& c : nome) if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+    mostrarPagina(nome, { "O portão desce com um estrondo atrás de você!", "",
+                          std::string(tituloDoMiniChefe(sala)) + ".", "", falaDoMiniChefe(sala, primeira) });
 }
 
 void falaDoChefeNaBatalha(const Jogo& jogo, const Batalha& b, int inimigo, const std::string& fala) {

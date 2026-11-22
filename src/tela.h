@@ -45,6 +45,9 @@ void mostrarHistoria(const Jogo& jogo, const std::vector<std::string>& linhas);
 void cenaDaCorneta(const Jogo& jogo, int gnomo, bool primeira);
 // O Senhor das Profundezas aparece. Depois dela, começa a batalha.
 void cenaDoChefe(const Jogo& jogo, int chefe, const std::vector<std::string>& falas, bool primeira);
+// v1.24: entrou na sala de um mini-chefe: o portão fecha, ele e os ajudantes
+// acordam, aparece o nome dele e a fala (na primeira vez; depois, curta).
+void cenaDoMiniChefe(const Jogo& jogo, int chefe, bool primeira);
 // O chefe fala no meio da batalha (na fúria e ao cair). inimigo: 0 a 2.
 void falaDoChefeNaBatalha(const Jogo& jogo, const Batalha& b, int inimigo, const std::string& fala);
 // O final, depois de vencer o chefe (como a história do começo).
@@ -69,6 +72,7 @@ enum AnimacaoDaBatalha {
     ANIM_BLOQUEIO,        // "quem" ataca e o escudo de "alvo" (o jogador) bloqueia
     ANIM_FURIA,           // o chefe ("quem") entra na segunda fase
     ANIM_FUMACA,          // bomba de fumaça: a tela some numa nuvem cinza
+    ANIM_CHEGADA,         // v1.24: "quem" entra na luta no meio dela (reforço ou esqueleto que levantou)
 };
 // quem/alvo: 0 = jogador, 1 a 3 = inimigos.
 // golpe: índice em GOLPES (v1.23: cada tipo de golpe tem a sua animação; -1 = genérica).

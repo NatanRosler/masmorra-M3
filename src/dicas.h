@@ -22,6 +22,7 @@ enum Dica {
     DICA_FURTIVO, DICA_CAMPEAO, DICA_GNOMO, DICA_SOMBRA,
     // v1.23 (também no fim)
     DICA_TEIA, DICA_CRIPTA, DICA_ESQUELETO,
+    DICA_MINI_CHEFE,   // v1.24
     NUM_DICAS
 };
 

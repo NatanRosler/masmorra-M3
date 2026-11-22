@@ -1,5 +1,6 @@
 // jogo.cpp
 #include "jogo.h"
+#include "sala_do_chefe.h"
 #include "salvar.h"
 #include "tema.h"
 #include "aleatorio.h"
@@ -47,6 +48,8 @@ static Andar& prepararAndar(Jogo& jogo, int numero) {
         a.numArmadilhas = 0;
         a.numNpcs = 0;
         a.chavesGuardadas = 0;
+        a.salaDoChefe.existe = false;
+        for (auto& linha : a.enfeites) for (char& e : linha) e = 0;
         prepararSalaDaLoja(a, numero);   // antes dos monstros: lá dentro ninguém nasce
         // Tema do andar: poças d'água (4-6), lápides (7-9) ou poças de lava (10-12).
         decorarAndar(a, numero, misturar(jogo.semente, (uint32_t)numero + 4000));
@@ -71,6 +74,8 @@ static Andar& prepararAndar(Jogo& jogo, int numero) {
         // Surpresas do andar: fonte, altar, baú dourado, arena, viajante.
         a.numEspeciais = 0;
         if (jogo.comMonstros) colocarSalasEspeciais(a, numero, misturar(jogo.semente, (uint32_t)numero + 5000));
+        // v1.24: a sala feita à mão do chefe do andar (3, 6, 9, 12 e 13), por último.
+        carimbarSalaDoChefe(jogo, a, numero, misturar(jogo.semente, (uint32_t)numero + 6000));
         a.gerado = true;
     }
     return a;
@@ -329,6 +334,7 @@ void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros) {
     jogo.especiesEnfrentadasNaPartida = 0;
     jogo.encontrosComOChefe = 0;
     jogo.chefeAVista = false;
+    jogo.portaoFechado = false;
     jogo.ataqueSurpresa = -1;
     jogo.msDeDescanso = 0;
     jogo.segundosDeDescanso = 0;
@@ -432,8 +438,9 @@ static void perderVida(Jogo& jogo, Monstro* participantes[], int quantos) {
 // acordados, caçando e a no máximo 3 passos do jogador (os mais perto primeiro).
 // v1.23.1: o chefe e os 2 ogros guarda-costas lutam sempre juntos, estejam
 // onde estiverem (acordados ou não): o chefe primeiro, depois os guardas.
+// v1.24: o mesmo vale para os mini-chefes e os 2 ajudantes de cada um.
 static bool doGrupoDoChefe(const Monstro& m) {
-    return m.vivo && (m.guarda || (tipoDe(m).especial & CHEFE));
+    return m.vivo && (m.guarda || (tipoDe(m).especial & (CHEFE | MINI_CHEFE)));
 }
 
 static int juntarParticipantes(Jogo& jogo, int principal, Monstro* participantes[]) {
@@ -441,7 +448,8 @@ static int juntarParticipantes(Jogo& jogo, int principal, Monstro* participantes
     int quantos = 0;
     if (doGrupoDoChefe(andar.monstros[principal])) {
         for (int i = 0; i < andar.numMonstros; i++)
-            if (doGrupoDoChefe(andar.monstros[i]) && (tipoDe(andar.monstros[i]).especial & CHEFE)) participantes[quantos++] = &andar.monstros[i];
+            if (doGrupoDoChefe(andar.monstros[i]) && (tipoDe(andar.monstros[i]).especial & (CHEFE | MINI_CHEFE)))
+                participantes[quantos++] = &andar.monstros[i];
         for (int i = 0; i < andar.numMonstros && quantos < MAX_INIMIGOS; i++)
             if (doGrupoDoChefe(andar.monstros[i]) && andar.monstros[i].guarda) participantes[quantos++] = &andar.monstros[i];
         return quantos;   // guardas dormindo começam a luta dormindo (acordam em 2 ou 3 rodadas)
@@ -485,6 +493,7 @@ static void resolverBatalha(Jogo& jogo) {
 
     int nivelAntes = jogo.jogador.nivel;
     ResultadoBatalha resultado = batalhar(jogo, participantes, quantos);
+    jogo.portaoFechado = false;   // v1.24: acabou a luta, o portão abre
     forcarLimpezaDaTela();
     tocarMusica(MUSICA_MASMORRA);
     if (jogo.jogador.nivel > nivelAntes) acompanharJogador(jogo);   // subiu de nível: os monstros também
@@ -522,6 +531,7 @@ static void resolverBatalha(Jogo& jogo) {
             }
             recompensaDoMimico(jogo, m);
             premioDoCampeao(jogo, m);
+            if (tipoDe(m).especial & MINI_CHEFE) recompensaDoMiniChefe(jogo, m);   // v1.24
         } else if (m.estado == FUGINDO) {
             adicionarMensagem(jogo, comMaiusculaInicial(nome) + " fugiu de você.");
         }
@@ -616,7 +626,31 @@ static void conferirEncontroComOChefe(Jogo& jogo) {
     bool primeira = jogo.encontrosComOChefe == 0;
     jogo.encontrosComOChefe++;
     pararDeDescansar(jogo, "");
+    if (andar.salaDoChefe.existe && dentroDaSalaDoChefe(andar, jogo.jogador.x, jogo.jogador.y)) jogo.portaoFechado = true;
     if (!jogo.modoAutomatico) cenaDoChefe(jogo, chefe, falasDoChefe(jogo, primeira), primeira);
+    jogo.batalhaPendente = chefe;
+}
+
+// v1.24: entrou na sala de um mini-chefe? O portão fecha atrás do jogador, a
+// cena mostra o mini-chefe e os ajudantes acordando, e a luta começa (os três
+// juntos; não dá para fugir). No salão do trono vale o encontro de cima (o
+// chefe aparece na luz).
+static void conferirSalaDoChefe(Jogo& jogo) {
+    Andar& andar = andarAtual(jogo);
+    const SalaDoChefe& s = andar.salaDoChefe;
+    if (!s.existe || s.tipo == SALAO_DO_TRONO || jogo.batalhaPendente >= 0) return;
+    if (!dentroDaSalaDoChefe(andar, jogo.jogador.x, jogo.jogador.y)) return;
+    int chefe = chefeDaSala(andar);
+    if (chefe < 0 || andar.monstros[chefe].turnosSemBatalha > 0) return;
+    Monstro& m = andar.monstros[chefe];
+    bool primeira = !(jogo.especiesEnfrentadasNaPartida & (1 << m.tipo));
+    pararDeDescansar(jogo, "");
+    jogo.portaoFechado = true;
+    for (int i = 0; i < andar.numMonstros; i++) {
+        Monstro& g = andar.monstros[i];
+        if (doGrupoDoChefe(g)) { g.estado = CACANDO; g.turnosSemBatalha = 0; }
+    }
+    if (!jogo.modoAutomatico) cenaDoMiniChefe(jogo, chefe, primeira);
     jogo.batalhaPendente = chefe;
 }
 
@@ -631,6 +665,7 @@ void avancarTempo(Jogo& jogo, int ms) {
     // Monstros (se um alcançar o jogador, a batalha começa).
     if (jogo.comMonstros && jogo.batalhaPendente < 0) agirMonstros(jogo, ms);
     if (jogo.batalhaPendente < 0) conferirEncontroComOChefe(jogo);   // o chefe pode ter entrado na sua visão
+    if (jogo.batalhaPendente < 0) conferirSalaDoChefe(jogo);
     if (jogo.batalhaPendente >= 0) {
         resolverBatalha(jogo);
         return;
@@ -674,6 +709,7 @@ static void depoisDoPasso(Jogo& jogo) {
     atualizarVisao(jogo);
     deixarCheiro(jogo);
     conferirEncontroComOChefe(jogo);
+    conferirSalaDoChefe(jogo);
     // Na água (caverna alagada), cada passo leva o dobro do tempo.
     jogo.esperaDoJogadorMs = intervaloDoJogador(jogo.jogador) *
                              multiplicadorDoPasso(andarAtual(jogo), jogo.jogador.x, jogo.jogador.y);

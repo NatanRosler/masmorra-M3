@@ -15,6 +15,12 @@
 #include "itens_sprites.h"
 #include "salas_sprites.h"
 #include "monstros_sprites.h"
+#include "chefes_sprites.h"
+#include "fundos_batalha.h"
+#include "sala_do_chefe.h"
+// v1.24: quanto o portão da sala do chefe já desceu (a cena anima de 0 a 1;
+// fora dela, fechado é fechado).
+float portaoDescendo = 1.0f;
 #include "tema.h"
 #include "icones_elementos.h"
 #include "golpes_visuais.h"
@@ -32,6 +38,7 @@ namespace {
 // e se os cartões do canto ficam escondidos (durante as falas).
 float cameraX=0, cameraY=0, cameraZoom=1;
 bool esconderCartoes=false;
+bool esqueletosEnterrados=false;   // v1.24: a cena do Necromante ainda não levantou os esqueletos
 // Nas cenas, a câmera não segue o herói: vai para (cenaX, cenaY) com o zoom
 // cenaZoom (em casas; o centro da tela fica nesse ponto).
 bool cameraDaCena=false;
@@ -123,6 +130,10 @@ const Sprite& imagemMonstro(int tipo) {
         case 'f':return FUNGO;
         case 'e':return ESQUELETO;
         case 's':return SALAMANDRA;
+        case 'R':return REI_GOBLIN;     // v1.24: os mini-chefes
+        case 'A':return RAINHA_ARANHA;
+        case 'n':return NECROMANTE;
+        case 'L':return GOLEM_PEDRA;
     }
     return GOBLIN;
 }
@@ -170,7 +181,8 @@ Color iluminarComCor(Color c,Luz l,float claridade) {
 // Tapete da sala do trono: o caminho da chegada até o chefe (calculado uma vez).
 bool tapete[MAPA_ALTURA][MAPA_LARGURA];
 uint32_t tapeteDaSemente=0; bool tapetePronto=false;
-bool noTapete(const Andar& a,int x,int y) { (void)a; return tapetePronto && tapete[y][x]; }
+// (v1.24: no salão do trono feito à mão, o tapete já faz parte da sala.)
+bool noTapete(const Andar& a,int x,int y) { return !a.salaDoChefe.existe && tapetePronto && tapete[y][x]; }
 void prepararTapete(const Jogo& jogo) {
     if(temaDoAndar(jogo.andar)!=TEMA_TRONO) return;
     if(tapetePronto && tapeteDaSemente==jogo.semente) return;
@@ -316,7 +328,7 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
             DrawCircle(px+12,py+12,4,o); DrawRectangle(px+10,py+15,5,2,o);
             DrawRectangle(px+10,py+11,2,2,{25,25,30,255}); DrawRectangle(px+13,py+11,2,2,{25,25,30,255});
         }
-        if(tipo==TUMULO) {
+        if(tipo==TUMULO && !a.enfeites[y][x]) {
             // Lápide: pedra com o topo redondo (ou em cruz), musgo e sombra.
             float f=agora?claridade:0.42f;
             Color pedra=multiplicar({128,134,140,255},f), escura=multiplicar({78,82,90,255},f);
@@ -368,6 +380,18 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
         // Caverna (v1.23): cogumelos de enfeite. O fungo disfarçado é igualzinho.
         if(tema==TEMA_CAVERNA && tipo==CHAO && (x*17+y*31)%19==0)
             desenharSprite(FUNGO_QUIETO,px+2,py+1,1.25f,agora?claridade:0.35f);
+    }
+    if(tipo==PORTAO) {
+        // v1.24: portão de grade. Aberto, só as pontas aparecem lá no alto;
+        // fechado (cena e luta), as barras descem até o chão.
+        float f=agora?1.0f:0.5f;
+        float desce=jogo.portaoFechado?portaoDescendo:0.0f;
+        int alt=(int)(4+20*desce);
+        Color ferro=multiplicar({110,112,124,255},f*std::max(claridade,0.6f)), escuro=multiplicar({40,42,50,255},f);
+        DrawRectangle(px,py,TAM,3,escuro);
+        for(int k=0;k<4;k++) DrawRectangle(px+2+k*6,py,3,alt,ferro);
+        DrawRectangle(px,py+alt/2,TAM,2,ferro);
+        for(int k=0;k<4;k++) DrawTriangle({(float)px+2+k*6,(float)py+alt},{(float)px+3.5f+k*6,(float)py+alt+3},{(float)px+5+k*6,(float)py+alt},ferro);
     }
     if(tipo==TEIA) {
         // Teia de aranha no chão (v1.23): raios e anéis brancos.
@@ -1192,6 +1216,93 @@ static float eixoDaCamera(float jogador,float vista,int tamanho) {
     float centro=jogador+0.5f-vista/2.0f;
     return std::clamp(centro,-vista/2.0f,(float)tamanho-vista/2.0f);
 }
+// v1.24: enfeites das salas dos chefes (Andar::enfeites), por cima do chão:
+// ouro, tronos, casulos, ovos, o círculo do ritual, velas, colunas, forja,
+// bigorna, tapete e braseiros. Só nas casas que aparecem na tela.
+void desenharEnfeites(const Jogo& jogo,const Andar& a,int cx,int cy,int nx,int ny) {
+    float t=(float)GetTime();
+    struct Enfeite { int x, y; char tipo; };
+    for(int iy=-1;iy<=ny+1;iy++) for(int ix=-1;ix<=nx+1;ix++) {
+        Enfeite e={cx+ix,cy+iy,0};
+        if(!dentroDoMapa(e.x,e.y) || !a.enfeites[e.y][e.x] || !a.descoberto[e.y][e.x]) continue;
+        e.tipo=a.enfeites[e.y][e.x];
+        bool agora=jogo.visivel[e.y][e.x];
+        float f=agora?std::clamp(brilho(jogo.luz[e.y][e.x]),0.35f,1.0f):0.35f;
+        float px=(float)e.x*TAM, py=(float)e.y*TAM;
+        auto c=[&](Color k){ return multiplicar(k,f); };
+        switch(e.tipo) {
+        case '$':   // moedas de ouro
+            for(int k=0;k<6;k++) { float cx=px+5+(k%3)*7, cy=py+16-(k/3)*6; DrawCircleV({cx,cy},4,c({226,176,62,255})); DrawCircleLinesV({cx,cy},4,c({150,104,30,255})); }
+            break;
+        case 'R':   // trono de madeira do rei goblin
+            DrawRectangle(px+3,py-6,18,22,c({92,58,32,255}));
+            for(int k=0;k<3;k++) DrawTriangle({px+4+k*6,py-6},{px+10+k*6,py-6},{px+7+k*6,py-12},c({226,176,62,255}));
+            DrawRectangle(px+1,py+12,22,8,c({120,80,44,255}));
+            DrawRectangle(px+6,py+2,12,10,c({150,40,44,255}));
+            break;
+        case 'C': { // casulo
+            float bal=std::sin(t+e.x)*1.2f;
+            DrawLine((int)(px+12),(int)py,(int)(px+12+bal),(int)(py+5),c({210,220,225,255}));
+            DrawEllipse(px+12+bal,py+13,6,9,c({214,216,205,255}));
+            DrawLine((int)(px+7+bal),(int)(py+10),(int)(px+17+bal),(int)(py+12),c({150,150,145,255}));
+            DrawLine((int)(px+7+bal),(int)(py+15),(int)(px+17+bal),(int)(py+17),c({150,150,145,255}));
+            break; }
+        case 'o':   // ovos
+            for(int k=0;k<3;k++) DrawEllipse(px+6+k*6,py+15-(k%2)*4,4,5,c({214,222,200,255}));
+            if(agora) DrawCircleGradient((int)px+12,(int)py+13,14,{170,255,160,(unsigned char)(50+30*std::sin(t*3+e.x))},{170,255,160,0});
+            break;
+        case 'O': { // círculo do ritual (3 casas para cada lado)
+            float p2=0.6f+0.4f*std::sin(t*2);
+            Color v={120,255,150,(unsigned char)(200*p2*(agora?1:0.4f))};
+            DrawEllipseLines((int)px+12,(int)py+12,62,40,v);
+            DrawEllipseLines((int)px+12,(int)py+12,54,34,v);
+            for(int k=0;k<8;k++) { float an=t*0.4f+k*0.785f; DrawRectangle((int)(px+12+std::cos(an)*58)-2,(int)(py+12+std::sin(an)*37)-3,4,6,v); }
+            break; }
+        case 'v':   // velas
+            for(int k=0;k<2;k++) {
+                float vx=px+7+k*10, vy=py+18-k*3;
+                DrawRectangle(vx-2,vy-8,4,8,c({220,214,190,255}));
+                DrawCircleV({vx,vy-10},2.5f+0.6f*std::sin(t*9+k),{170,255,180,(unsigned char)(agora?230:90)});
+            }
+            if(agora) DrawCircleGradient((int)px+12,(int)py+10,26,{150,255,170,40},{150,255,170,0});
+            break;
+        case 'c':   // coluna de pedra
+            DrawRectangle(px+4,py-8,16,30,c({120,124,132,255}));
+            DrawRectangle(px+14,py-8,6,30,c({86,90,98,255}));
+            DrawRectangle(px+2,py-10,20,4,c({140,144,152,255}));
+            DrawRectangle(px+2,py+20,20,4,c({100,104,112,255}));
+            break;
+        case 'F':   // boca da forja
+            DrawRectangle(px+1,py+2,22,20,c({50,36,36,255}));
+            DrawRectangle(px+5,py+8,14,12,{255,(unsigned char)(130+40*std::sin(t*5)),50,(unsigned char)(agora?255:120)});
+            if(agora) DrawCircleGradient((int)px+12,(int)py+14,34,{255,130,50,70},{255,130,50,0});
+            break;
+        case 'B':   // bigorna
+            DrawRectangle(px+3,py+8,16,5,c({70,66,72,255}));
+            DrawTriangle({px+19,py+8},{px+19,py+13},{px+23,py+8},c({70,66,72,255}));
+            DrawRectangle(px+8,py+13,8,7,c({56,52,58,255}));
+            break;
+        case '=':   // tapete vermelho
+            DrawRectangle(px+3,py,18,TAM,c({120,28,40,255}));
+            DrawRectangle(px+3,py,2,TAM,c({220,170,70,255}));
+            DrawRectangle(px+19,py,2,TAM,c({220,170,70,255}));
+            break;
+        case 'b':   // braseiro
+            if(agora) DrawCircleGradient((int)px+12,(int)py+8,40,{255,130,50,60},{255,130,50,0});
+            DrawRectangle(px+5,py+10,14,5,c({80,64,58,255}));
+            DrawRectangle(px+10,py+15,4,8,c({70,56,50,255}));
+            DrawCircleV({px+12,py+7},4.5f+std::sin(t*8+e.x),{255,170,60,(unsigned char)(agora?230:90)});
+            DrawCircleV({px+12,py+8},2.5f,{255,240,170,(unsigned char)(agora?240:90)});
+            break;
+        case 'X':   // o trono do chefe final (passa um pouco da casa)
+            DrawRectangle(px-6,py-14,36,36,c({44,32,44,255}));
+            DrawTriangle({px-6,py-14},{px+12,py-26},{px+30,py-14},c({44,32,44,255}));
+            DrawRectangle(px,py-6,24,22,c({120,26,38,255}));
+            DrawCircleV({px+12,py-16},3,c({220,170,70,255}));
+            break;
+        }
+    }
+}
 void mapa(const Jogo& jogo) {
     atualizarPosicoesSuaves(jogo);
     const Andar& a=andarAtual(jogo);
@@ -1212,6 +1323,7 @@ void mapa(const Jogo& jogo) {
     desenharAmbientes(jogo,a,0,0);
     for(int iy=0;iy<=ny;iy++)for(int ix=0;ix<=nx;ix++)
         tileObjetos(jogo,a,cx+ix,cy+iy,(cx+ix)*TAM,(cy+iy)*TAM);
+    desenharEnfeites(jogo,a,cx,cy,nx,ny);   // v1.24: salas dos chefes
     // Placa "LOJA" em cima da porta da lojinha.
     if(a.loja.existe && a.descoberto[a.loja.portaY][a.loja.portaX]) {
         float px=(float)a.loja.portaX*TAM, py=(float)a.loja.portaY*TAM;
@@ -1232,6 +1344,17 @@ void mapa(const Jogo& jogo) {
             if(m.vivo && jogo.visivel[m.y][m.x] && (tipoDe(m).especial & SOMBRIO) &&
                std::sin((float)GetTime()*2.3f+m.x*1.7f)>0.75f) {
                 DrawCircleGradient((int)px+12,(int)py+12,9,{150,120,210,40},{150,120,210,0});
+            }
+            continue;
+        }
+        // v1.24: os esqueletos do Necromante ficam enterrados (um montinho de
+        // ossos) até ele levantar todos na cena da sala.
+        if(m.guarda && tipoDe(m).simbolo=='e' && (esqueletosEnterrados || m.estado==DORMINDO)) {
+            if(!esqueletosEnterrados) {
+                Color osso={214,206,182,255};
+                DrawEllipse((int)px+12,(int)py+19,9,3,{20,18,16,120});
+                DrawRectangle((int)px+5,(int)py+15,14,3,osso); DrawRectangle((int)px+8,(int)py+12,9,3,osso);
+                DrawCircle((int)px+16,(int)py+11,3.5f,osso);
             }
             continue;
         }
@@ -1339,11 +1462,38 @@ struct AnimacaoDoLutador { float dx, dy, alfa; };
 AnimacaoDoLutador animacao[1+MAX_INIMIGOS] = {{0,0,1},{0,0,1},{0,0,1},{0,0,1}};
 bool desmaiado[1+MAX_INIMIGOS] = {false,false,false,false};
 
+// v1.24: numa luta de chefe (ou mini-chefe) com ajudantes, ele fica no meio
+// e maior; os ajudantes, menores, dos lados.
+int slotDoChefe(const Batalha& b) {
+    if(b.numInimigos<2) return -1;
+    for(int i=0;i<b.numInimigos;i++) if(b.inimigos[i].ehChefe || b.inimigos[i].ehMiniChefe) return i;
+    return -1;
+}
+// Em que lugar da tela (0 = esquerda, 1 = meio, 2 = direita) fica o inimigo i.
+int lugarNaTela(const Batalha& b,int i) {
+    int c=slotDoChefe(b);
+    if(c<0) return i;
+    if(i==c) return 1;
+    int k=0;
+    for(int j=0;j<b.numInimigos;j++) { if(j==c) continue; if(j==i) return k==0?0:2; k++; }
+    return i;
+}
 // Onde o sprite de cada lutador é desenhado (sem a animação).
 void posicaoDoSprite(const Batalha& b,int quem,float& x,float& y,float& pixel) {
     if(quem==0) { x=200; y=267; pixel=12.2f; return; }
     if(b.numInimigos==1) { x=892; y=257; pixel=12.3f; return; }
-    x=735.0f+(quem-1)*211; y=280; pixel=8.5f;
+    int lugar=lugarNaTela(b,quem-1);
+    if(slotDoChefe(b)>=0) {
+        if(lugar==1) { pixel=11.5f; x=1010-8*pixel; y=462-16*pixel; return; }
+        pixel=7.4f; x=(lugar==0?790.0f:1230.0f)-8*pixel; y=470-16*pixel; return;
+    }
+    x=735.0f+lugar*211; y=280; pixel=8.5f;
+}
+// O desenho de cada inimigo na luta (o Golem muda na segunda fase).
+const Sprite& spriteNaBatalha(const Batalha& b,int i) {
+    const Monstro& m=*b.monstros[i];
+    if(tipoDe(m).simbolo=='L' && b.golemQuebrou) return GOLEM_MAGMA;
+    return imagemMonstro(m.tipo);
 }
 Vector2 centroDoSprite(const Batalha& b,int quem) {
     float x,y,p; posicaoDoSprite(b,quem,x,y,p);
@@ -1403,10 +1553,19 @@ void escudoErguidoNaBatalha(const Batalha& b) {
 void telaBatalha(const Jogo& jogo,const Batalha& b) {
     titulo("BATALHA   |   Golpes, elementos e turnos");
     painel({39,121,1362,468});
-    DrawRectangleGradientV(42,125,1356,462,{25,40,60,255},{30,29,45,255});
-    // Arena estilizada, chão ao redor dos personagens.
-    DrawEllipse(350,493,275,50,{44,63,76,255});
-    DrawEllipse(1010,466,280,54,{44,63,76,255});
+    if(b.salaDaBatalha>=0) {
+        // v1.24: a luta na sala do chefe tem o fundo da sala (fundos_batalha.h).
+        recortar({42,125,1356,462});
+        FundosDeBatalha::desenhar(b.salaDaBatalha,(float)GetTime(),b.chefeFurioso);
+        pararDeRecortar();
+        DrawEllipse(350,493,275,50,{0,0,0,70});
+        DrawEllipse(1010,466,300,56,{0,0,0,70});
+    } else {
+        DrawRectangleGradientV(42,125,1356,462,{25,40,60,255},{30,29,45,255});
+        // Arena estilizada, chão ao redor dos personagens.
+        DrawEllipse(350,493,275,50,{44,63,76,255});
+        DrawEllipse(1010,466,280,54,{44,63,76,255});
+    }
     definirCorDoHeroi(paraCor(CORES_DO_JOGADOR[jogo.jogador.cor]));
     spriteDoLutador(b,0,HEROI);
     if(b.escudoErguido) escudoErguidoNaBatalha(b);
@@ -1419,9 +1578,11 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
         auraDeCampeao(cx,cy,110,(float)GetTime());
     }
     // Chefe furioso (segunda fase): aura vermelha pulsando atrás dele.
-    if(b.chefeFurioso) {
+    // v1.24: o Golem sem a casca também (o magma brilhando).
+    if(b.chefeFurioso || b.golemQuebrou) {
         for(int i=0;i<b.numInimigos;i++) {
-            if(!b.naLuta[i] || !b.inimigos[i].ehChefe || desmaiado[i+1]) continue;
+            bool golem=b.golemQuebrou && tipoDe(*b.monstros[i]).simbolo=='L';
+            if(!b.naLuta[i] || !((b.inimigos[i].ehChefe && b.chefeFurioso) || golem) || desmaiado[i+1]) continue;
             Vector2 c=centroDoSprite(b,i+1);
             float t=(float)GetTime();
             Color aura={255,40,40,(unsigned char)(130+50*std::sin(t*5))}; Color fora=aura; fora.a=0;
@@ -1435,13 +1596,14 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
     }
     if(b.numInimigos==1) {
         const Monstro& m=*b.monstros[0];
-        spriteDoLutador(b,1,imagemMonstro(m.tipo));
+        (void)m;
+        spriteDoLutador(b,1,spriteNaBatalha(b,0));
         painelDoLutador(b.inimigos[0],b.vidaMostrada[1],{909,140,474,106},OURO,OURO,false);
     } else {
         for (int i=0;i<b.numInimigos;i++) {
             if(!b.naLuta[i])continue;
-            int px=735+i*211;
-            spriteDoLutador(b,i+1,imagemMonstro(b.monstros[i]->tipo));
+            int px=735+lugarNaTela(b,i)*211;
+            spriteDoLutador(b,i+1,spriteNaBatalha(b,i));
             bool alvo=(b.menu==MENU_ALVO && b.alvos[b.cursor]==i);
             if(alvo) {
                 // Seta pulando sobre o alvo escolhido.
@@ -1651,6 +1813,7 @@ void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,
         case ANIM_FUMACA:  duracao=1.0;  break;
         case ANIM_DESMAIO: duracao=0.6;  break;
         case ANIM_NIVEL:   duracao=0.8;  break;
+        case ANIM_CHEGADA: duracao=0.7;  break;
     }
     if(opcoes().animacaoRapida) duracao*=0.5;   // Opções: animações rápidas
     if(tipo==ANIM_ENTRADA) {
@@ -1742,14 +1905,25 @@ void animarBatalha(const Jogo& jogo,const Batalha& b,int tipo,int quem,int alvo,
             }
             animacao[0].alfa=1.0f-suavizar(std::min(1.0f,t*1.4f));   // o herói some na fumaça
             break;
+        case ANIM_CHEGADA:
+            // v1.24: quem entra no meio da luta desce do alto e aparece aos poucos.
+            if(!disparou) {
+                disparou=true;
+                desmaiado[quem]=false;
+                Efeitos::brilhoSubindo(centroQuem.x,centroQuem.y+30,{220,220,235,255},18,Efeitos::CAMADA_TELA);
+            }
+            animacao[quem].dy=-70*(1-suavizar(t));
+            animacao[quem].alfa=suavizar(std::min(1.0f,t*1.6f));
+            break;
         case ANIM_FURIA:
             // O chefe treme, fica vermelho e solta faíscas; a tela pisca.
             if(!disparou) {
                 disparou=true;
-                Efeitos::piscar({200,20,30,255},0.15);
+                bool golem=b.golemQuebrou && quem>0 && tipoDe(*b.monstros[quem-1]).simbolo=='L';
+                Efeitos::piscar(golem?Color{255,120,30,255}:Color{200,20,30,255},0.15);
                 Efeitos::tremer(12,0.7);
-                Efeitos::brilhoSubindo(centroQuem.x,centroQuem.y,{255,60,50,255},40,Efeitos::CAMADA_TELA);
-                Efeitos::textoFlutuante("FÚRIA!",centroQuem.x,centroQuem.y-110,{255,90,80,255},48,Efeitos::CAMADA_TELA,1.3);
+                Efeitos::brilhoSubindo(centroQuem.x,centroQuem.y,golem?Color{255,140,40,255}:Color{255,60,50,255},40,Efeitos::CAMADA_TELA);
+                Efeitos::textoFlutuante(golem?"MAGMA!":"FÚRIA!",centroQuem.x,centroQuem.y-110,golem?Color{255,160,60,255}:Color{255,90,80,255},48,Efeitos::CAMADA_TELA,1.3);
             }
             animacao[quem].dx=std::sin(t*70)*7*(1-t);
             animacao[quem].dy=-10*std::sin(3.14159f*t);
@@ -1917,6 +2091,7 @@ void desenharAjuda(const Jogo& jogo) {
         "Espinhos vermelhos: armadilha! Empurre uma caixa em cima",
         "Pessoas com '!': ande até elas para conversar",
         "O chefe final espera no "+std::to_string(NUM_ANDARES)+"o andar. Dele não dá para fugir",
+        "Andares 3, 6, 9 e 12: um mini-chefe guarda a escada (dele também não dá para fugir)",
         "O elemento de cada monstro só aparece quando a batalha começa",
         "Semente desta partida: "+std::to_string(jogo.semente)};
     for(size_t i=0;i<linhas.size();i++)texto(linhas[i],263,232+i*37,21,i%2?TEXTO:CIANO);
@@ -2146,13 +2321,33 @@ const Personagem PERSONAGENS[] = {
 };
 const int NUM_PERSONAGENS = (int)(sizeof(PERSONAGENS)/sizeof(PERSONAGENS[0]));
 
-// v1.23: 5 colunas (são 17 espécies).
+// v1.23: 5 colunas (são 16 espécies na aba dos monstros; os chefes, v1.24, têm aba própria).
 const int COLUNAS_DO_BESTIARIO = 5;
 Rectangle cartaDoBestiario(int i) {
     int coluna=i%COLUNAS_DO_BESTIARIO, linha=i/COLUNAS_DO_BESTIARIO;
     return {50.0f+coluna*148,122.0f+linha*168,138,158};
 }
-Rectangle abaDoBestiario(int aba) { return aba==0 ? Rectangle{410,32,260,48} : Rectangle{684,32,240,48}; }
+// v1.24: três abas. Os chefes (o final e os 4 mini-chefes) têm a deles.
+const int ABA_MONSTROS=0, ABA_CHEFES=1, ABA_PERSONAGENS=2, NUM_ABAS_DO_BESTIARIO=3;
+Rectangle abaDoBestiario(int aba) {
+    static const Rectangle ABAS[NUM_ABAS_DO_BESTIARIO]={{380,32,250,48},{642,32,200,48},{854,32,230,48}};
+    return ABAS[aba];
+}
+bool especieDeChefe(int tipo) { return (TIPOS_DE_MONSTRO[tipo].especial & (CHEFE|MINI_CHEFE))!=0; }
+// A espécie que vai na carta i da aba (na ordem da tabela de monstros).
+int especieDaCarta(int aba,int i) {
+    for(int t=0;t<NUM_TIPOS_DE_MONSTRO;t++) {
+        if(especieDeChefe(t)!=(aba==ABA_CHEFES)) continue;
+        if(i--==0) return t;
+    }
+    return 0;
+}
+int cartasDaAba(int aba) {
+    if(aba==ABA_PERSONAGENS) return NUM_PERSONAGENS;
+    int n=0;
+    for(int t=0;t<NUM_TIPOS_DE_MONSTRO;t++) if(especieDeChefe(t)==(aba==ABA_CHEFES)) n++;
+    return n;
+}
 const Rectangle VOLTAR_DO_BESTIARIO={1150,828,240,50};
 
 void cartaoDoBestiario(Rectangle r,bool escolhido) {
@@ -2277,20 +2472,25 @@ void fichaDoPersonagem(int i) {
 void desenharBestiario(const Jogo* jogo,int aba,int escolhido) {
     fundoEstrelado();
     texto("BESTIÁRIO",54,34,40,OURO);
-    for(int a=0;a<2;a++) {
+    for(int a=0;a<NUM_ABAS_DO_BESTIARIO;a++) {
         Rectangle r=abaDoBestiario(a);
         bool ativa=(a==aba), sobre=mouseSobre(r);
         DrawRectangleRounded(r,0.25f,8,ativa?Color{52,66,96,255}:sobre?Color{31,42,65,255}:PAINEL);
         DrawRectangleRoundedLinesEx(r,0.25f,8,ativa?2.5f:1.5f,ativa?OURO:sobre?CIANO:Color{65,88,113,255});
-        std::string nome = a==0 ? "MONSTROS  "+std::to_string(especiesVistas())+"/"+std::to_string(especiesDoBestiario())
-                                : "PERSONAGENS";
+        std::string nome="PERSONAGENS";
+        if(a!=ABA_PERSONAGENS) {
+            int vistas=0;
+            for(int k=0;k<cartasDaAba(a);k++) if(fichaDoBestiario(especieDaCarta(a,k)).visto) vistas++;
+            nome=std::string(a==ABA_MONSTROS?"MONSTROS  ":"CHEFES  ")+std::to_string(vistas)+"/"+std::to_string(cartasDaAba(a));
+        }
         textoCentro(nome,r.x+r.width/2,r.y+12,22,ativa?OURO:TEXTO);
     }
-    int total = aba==0 ? NUM_TIPOS_DE_MONSTRO : NUM_PERSONAGENS;
-    for(int i=0;i<total;i++) {
-        Rectangle r=cartaDoBestiario(i);
-        cartaoDoBestiario(r,i==escolhido);
-        if(aba==0) {
+    int total = cartasDaAba(aba);
+    for(int carta=0;carta<total;carta++) {
+        Rectangle r=cartaDoBestiario(carta);
+        cartaoDoBestiario(r,carta==escolhido);
+        int i = aba==ABA_PERSONAGENS ? carta : especieDaCarta(aba,carta);
+        if(aba!=ABA_PERSONAGENS) {
             const FichaDoBestiario& f=fichaDoBestiario(i);
             if(f.visto) {
                 sprite(imagemMonstro(i).data(),r.x+(r.width-88)/2,r.y+12,5.5f);
@@ -2309,7 +2509,7 @@ void desenharBestiario(const Jogo* jogo,int aba,int escolhido) {
             textoCentro(PERSONAGENS[i].onde,r.x+r.width/2,r.y+134,13,APAGADO);
         }
     }
-    if(aba==0) fichaDoMonstro(jogo,escolhido); else fichaDoPersonagem(escolhido);
+    if(aba!=ABA_PERSONAGENS) fichaDoMonstro(jogo,especieDaCarta(aba,escolhido)); else fichaDoPersonagem(escolhido);
     texto("Setas / mouse: escolher    Tab: trocar de aba    Esc ou E: voltar",54,842,18,APAGADO);
     bool sobre=mouseSobre(VOLTAR_DO_BESTIARIO);
     DrawRectangleRounded(VOLTAR_DO_BESTIARIO,0.25f,8,sobre?Color{43,58,88,255}:PAINEL2);
@@ -2327,11 +2527,11 @@ void mostrarBestiario(const Jogo* jogo) {
         Efeitos::trocarDeTela(55);
         Ui::iniciarQuadro(); desenharBestiario(jogo,aba,escolhido); Ui::terminarQuadro();
         while(GetCharPressed()!=0) {}   // as letras não sobram para o jogo depois
-        int total = aba==0 ? NUM_TIPOS_DE_MONSTRO : NUM_PERSONAGENS;
+        int total = cartasDaAba(aba);
         int antes=escolhido, abaAntes=aba;
         if(IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_E) || IsKeyPressed(KEY_BACKSPACE) || clicou(VOLTAR_DO_BESTIARIO)) break;
-        if(IsKeyPressed(KEY_TAB)) aba=1-aba;
-        for(int a=0;a<2;a++) if(clicou(abaDoBestiario(a))) aba=a;
+        if(IsKeyPressed(KEY_TAB)) aba=(aba+1)%NUM_ABAS_DO_BESTIARIO;
+        for(int a=0;a<NUM_ABAS_DO_BESTIARIO;a++) if(clicou(abaDoBestiario(a))) aba=a;
         if(IsKeyPressed(KEY_RIGHT)||IsKeyPressedRepeat(KEY_RIGHT)||IsKeyPressed(KEY_D)) escolhido=std::min(total-1,escolhido+1);
         if(IsKeyPressed(KEY_LEFT)||IsKeyPressedRepeat(KEY_LEFT)||IsKeyPressed(KEY_A)) escolhido=std::max(0,escolhido-1);
         if(IsKeyPressed(KEY_DOWN)||IsKeyPressedRepeat(KEY_DOWN)||IsKeyPressed(KEY_S))
@@ -2778,6 +2978,131 @@ void cenaDoChefe(const Jogo& jogo,int indice,const std::vector<std::string>& fal
         Ui::terminarQuadro();
         while(GetCharPressed()!=0) {}
     }
+    cameraDaCena=false;
+    engolirTeclas(jogo);
+    esconderCartoes=false;
+}
+
+// v1.24: entrou na sala de um mini-chefe. O portão desce atrás do herói, a
+// câmera vai até o mini-chefe, ele acorda (maior, com um brilho), os 2
+// ajudantes acordam com um "!" (os esqueletos saem da terra), aparece o nome
+// dele num cartaz e ele fala. Na volta (depois de perder), a cena é curta.
+void cenaDoMiniChefe(const Jogo& jogo,int indice,bool primeira) {
+    const Andar& a=andarAtual(jogo);
+    if(indice<0 || indice>=a.numMonstros) return;
+    const Monstro& m=a.monstros[indice];
+    int sala=salaDoMiniChefe(m.tipo);
+    if(sala<0) return;
+    static const Color CORES[4]={{250,200,90,255},{190,120,240,255},{120,255,150,255},{255,130,50,255}};
+    static const Voz VOZES[4]={VOZ_GOBLIN,VOZ_ARANHA,VOZ_ESQUELETO,VOZ_OGRO};
+    static const Som SONS[4]={SOM_CORNETA,SOM_FOLHAS,SOM_REMONTA,SOM_RUGIDO};
+    Color cor=CORES[sala];
+    std::string nome=TIPOS_DE_MONSTRO[m.tipo].nome, nomeGrande=nome;
+    for(char& c:nomeGrande) if(c>='a' && c<='z') c=(char)(c-'a'+'A');
+    const SalaDoChefe& s=a.salaDoChefe;
+    float bx=(float)m.x, by=(float)m.y;
+    float zoomNoChefe=std::min(2.6f,zoomEscolhido()*1.3f);
+    // Linha do tempo (segundos). Na volta, tudo mais rápido e sem o cartaz.
+    const double CAI=0.15, BATE=0.43, CAMERA=primeira?1.0:0.5, CHEGA=primeira?1.3:0.6;
+    const double ACORDA=primeira?2.2:1.1, AJUDANTES=primeira?2.9:1.2, CARTAZ=primeira?2.6:99, FALA=primeira?4.4:1.6;
+    bool bateu=false, rugiu=false, levantou=false;
+    esconderCartoes=true;
+    tocarMusica(MUSICA_CHEFE_CENA);
+    double inicio=GetTime();
+    auto desenharCena=[&](double t){
+        portaoDescendo=suave((float)((t-CAI)/0.28));
+        if(t>CAMERA) camera(bx,by,zoomNoChefe,(float)((t-CAMERA)/CHEGA)); else cameraDaCena=false;
+        bool levantando = sala==ALTAR_DO_NECROMANTE && t<AJUDANTES+0.5;
+        esqueletosEnterrados=levantando;
+        mapa(jogo);
+        // Poeira do portão batendo no chão.
+        if(t>BATE && t<BATE+0.9 && s.existe) {
+            float f=(float)((t-BATE)/0.9);
+            Vector2 g=casaNaTela(s.portaoX+0.5f,s.portaoY+(s.invertida?0.1f:0.9f));
+            for(int k=0;k<10;k++) {
+                float ang=3.14159f*(k/9.0f), d=(20+40*f)*cameraZoom/1.5f;
+                DrawCircleV({g.x+std::cos(ang)*d*1.4f,g.y-std::sin(ang)*d*0.5f},(6+6*f)*cameraZoom/1.5f,{170,160,150,(unsigned char)(150*(1-f))});
+            }
+        }
+        DrawRectangle(-200,-200,Ui::LARGURA+400,Ui::ALTURA+400,{0,0,0,(unsigned char)(std::clamp((t-CAMERA)/1.0,0.0,1.0)*70)});
+        // O mini-chefe acorda: maior e com um brilho na cor dele.
+        if(t>ACORDA) {
+            Vector2 centro=casaNaTela(bx+0.5f,by+0.5f);
+            float cresce=1.0f+0.6f*suave((float)((t-ACORDA)/0.4));
+            float pulso=0.5f+0.5f*std::sin((float)GetTime()*4);
+            DrawCircleGradient((int)centro.x,(int)centro.y,(int)(95*cameraZoom*cresce/1.5f),{cor.r,cor.g,cor.b,(unsigned char)(70+40*pulso)},{0,0,0,0});
+            float p=1.25f*cameraZoom*cresce;
+            sprite(imagemMonstro(m.tipo).data(),centro.x-8*p,centro.y-8*p-2*cameraZoom,p);
+        }
+        // Os ajudantes acordam com um "!" (os esqueletos saem de dentro da terra).
+        if(t>AJUDANTES) {
+            for(int i=0;i<a.numMonstros;i++) {
+                const Monstro& h=a.monstros[i];
+                if(i==indice || !h.vivo || !h.guarda || !dentroDaSalaDoChefe(a,h.x,h.y)) continue;
+                Vector2 c=casaNaTela(h.x+0.5f,h.y+0.5f);
+                float f=suave((float)((t-AJUDANTES)/0.5));
+                float p=1.25f*cameraZoom*(1.0f+0.35f*f);
+                bool esqueleto=tipoDe(h).simbolo=='e';
+                DrawCircleGradient((int)c.x,(int)c.y,(int)(70*cameraZoom/1.5f),{cor.r,cor.g,cor.b,(unsigned char)(110*f)},{0,0,0,0});
+                if(esqueleto) {
+                    float sobe=(1-f)*16*p;
+                    Ui::recortar({0,0,(float)Ui::LARGURA,c.y+8*p});
+                    sprite(imagemMonstro(h.tipo).data(),c.x-8*p,c.y-8*p-2*cameraZoom+sobe,p);
+                    Ui::pararDeRecortar();
+                    for(int k=0;k<6;k++) {
+                        float ang=3.14159f*(k/5.0f);
+                        DrawCircleV({c.x+std::cos(ang)*p*7*f,c.y+6*p-std::sin(ang)*p*4*f},p*0.9f*(1-f),{150,140,120,(unsigned char)(200*(1-f))});
+                    }
+                } else {
+                    sprite(imagemMonstro(h.tipo).data(),c.x-8*p,c.y-8*p-2*cameraZoom,p);
+                }
+                if(t>AJUDANTES+0.4) exclamacao(c.x,c.y-8*p+10,(float)(t-AJUDANTES-0.4),{255,236,140,255});
+            }
+        }
+        faixasDeCinema((float)((t-CAMERA+0.1)/0.5));
+        // O nome dele, como num cartaz.
+        if(t>CARTAZ && t<FALA) {
+            float ap=(float)std::clamp(std::min((t-CARTAZ)/0.4,(FALA-t)/0.3),0.0,1.0);
+            unsigned char A=(unsigned char)(255*ap);
+            float y=Ui::ALTURA-230.0f;
+            DrawRectangleGradientH(220,(int)y-14,500,118,{0,0,0,0},{0,0,0,(unsigned char)(170*ap)});
+            DrawRectangleGradientH(720,(int)y-14,500,118,{0,0,0,(unsigned char)(170*ap)},{0,0,0,0});
+            DrawLineEx({420,y-8},{1020,y-8},2,{cor.r,cor.g,cor.b,A});
+            textoCentro(nomeGrande,720,y,64,{250,236,200,A});
+            textoCentro(tituloDoMiniChefe(sala),720,y+70,26,{cor.r,cor.g,cor.b,A});
+            DrawLineEx({420,y+106},{1020,y+106},2,{cor.r,cor.g,cor.b,A});
+        }
+    };
+    // 1) O portão, a câmera, o despertar e o cartaz.
+    while(!WindowShouldClose()) {
+        double t=GetTime()-inicio;
+        if(t>=BATE && !bateu) { bateu=true; tocarSom(SOM_PORTA_FECHANDO); Efeitos::tremer(10.0f,0.5); }
+        if(t>=ACORDA && !rugiu) { rugiu=true; tocarSom(SONS[sala]); if(sala==FORJA_DO_GOLEM) Efeitos::tremer(8.0f,0.8); }
+        if(t>=AJUDANTES && !levantou) { levantou=true; if(sala==ALTAR_DO_NECROMANTE) tocarSom(SOM_REMONTA); }
+        if(t>=FALA || (t>0.6 && pulouACena())) break;
+        Ui::iniciarQuadro();
+        desenharCena(t);
+        if(t>0.3) texto("Enter: pular",Ui::LARGURA-150.0f,Ui::ALTURA-34.0f,15,{150,150,160,220});
+        Ui::terminarQuadro();
+        while(GetCharPressed()!=0) {}
+    }
+    // 2) A fala, com a voz dele (o Golem só ruge: vira narração).
+    double tFixo=std::max(GetTime()-inicio,FALA+0.7);
+    std::vector<Falante> falantes={{bx,by,&imagemMonstro(m.tipo),nome,cor,VOZES[sala],BALAO_CHEFE}};
+    conversar(falantes,emTrechos({falaDoMiniChefe(sala,primeira)}),[&](double){ desenharCena(tFixo); });
+    // 3) Um clarão e a luta começa.
+    tocarSom(SOM_RACHADURA);
+    double flash=GetTime();
+    while(!WindowShouldClose() && GetTime()-flash<0.35) {
+        float f=(float)((GetTime()-flash)/0.35);
+        Ui::iniciarQuadro();
+        desenharCena(tFixo);
+        DrawRectangle(-200,-200,Ui::LARGURA+400,Ui::ALTURA+400,{cor.r,cor.g,cor.b,(unsigned char)(180*f)});
+        Ui::terminarQuadro();
+        while(GetCharPressed()!=0) {}
+    }
+    esqueletosEnterrados=false;
+    portaoDescendo=1.0f;
     cameraDaCena=false;
     engolirTeclas(jogo);
     esconderCartoes=false;

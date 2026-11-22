@@ -102,6 +102,10 @@ static const TextoDaDica DICAS[NUM_DICAS] = {
     { "Esqueleto",
       "Derrotado, o esqueleto se monta de novo uma vez, com 1/3 da vida. Se o golpe final "
       "for de Fogo, Pedra ou Luz, ele cai de vez na primeira." },
+    { "Mini-chefe",
+      "O portão fechou: contra um mini-chefe não dá para fugir (nem com a Bomba de Fumaça). Se perder, "
+      "você volta para a entrada do andar e pode tentar de novo. Vencendo, ganha um prêmio e a escada "
+      "atrás dele fica livre." },
 };
 
 const char* tituloDaDica(Dica dica) { return DICAS[dica].titulo; }
