@@ -430,14 +430,28 @@ static void perderVida(Jogo& jogo, Monstro* participantes[], int quantos) {
 
 // Quem entra na batalha: o monstro que a começou e até mais 2 que estejam
 // acordados, caçando e a no máximo 3 passos do jogador (os mais perto primeiro).
+// v1.23.1: o chefe e os 2 ogros guarda-costas lutam sempre juntos, estejam
+// onde estiverem (acordados ou não): o chefe primeiro, depois os guardas.
+static bool doGrupoDoChefe(const Monstro& m) {
+    return m.vivo && (m.guarda || (tipoDe(m).especial & CHEFE));
+}
+
 static int juntarParticipantes(Jogo& jogo, int principal, Monstro* participantes[]) {
     Andar& andar = andarAtual(jogo);
     int quantos = 0;
+    if (doGrupoDoChefe(andar.monstros[principal])) {
+        for (int i = 0; i < andar.numMonstros; i++)
+            if (doGrupoDoChefe(andar.monstros[i]) && (tipoDe(andar.monstros[i]).especial & CHEFE)) participantes[quantos++] = &andar.monstros[i];
+        for (int i = 0; i < andar.numMonstros && quantos < MAX_INIMIGOS; i++)
+            if (doGrupoDoChefe(andar.monstros[i]) && andar.monstros[i].guarda) participantes[quantos++] = &andar.monstros[i];
+        return quantos;   // guardas dormindo começam a luta dormindo (acordam em 2 ou 3 rodadas)
+    }
     participantes[quantos++] = &andar.monstros[principal];
     for (int passos = 1; passos <= 3; passos++) {
         for (int i = 0; i < andar.numMonstros && quantos < MAX_INIMIGOS; i++) {
             Monstro& m = andar.monstros[i];
             if (i == principal || !m.vivo || m.estado != CACANDO || m.turnosSemBatalha > 0) continue;
+            if (doGrupoDoChefe(m)) continue;   // esses só lutam juntos (acima)
             if (jogo.distanciaAteJogador[m.y][m.x] == passos) participantes[quantos++] = &m;
         }
     }

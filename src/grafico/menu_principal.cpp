@@ -93,10 +93,10 @@ void inicio(int cursor) {
 
 // ---- OPÇÕES (menu principal e pausa) -------------------------------------------
 namespace {
-enum LinhaDasOpcoes { OP_MUSICA, OP_EFEITOS, OP_AMBIENTE, OP_TELA, OP_ZOOM, OP_ANIMACAO, OP_TEXTO, OP_DICAS, OP_REVER, OP_ZERAR,
-                      OP_VOLTAR, NUM_LINHAS };
+enum LinhaDasOpcoes { OP_MUSICA, OP_EFEITOS, OP_AMBIENTE, OP_TELA, OP_ZOOM, OP_ANIMACAO, OP_TEXTO, OP_BATALHA, OP_DICAS,
+                      OP_REVER, OP_ZERAR, OP_VOLTAR, NUM_LINHAS };
 const char* NOMES_DAS_LINHAS[NUM_LINHAS] = {"Música","Efeitos sonoros","Ambiente","Tela cheia","Zoom do mapa","Animações",
-                                           "Velocidade do texto","Dicas","Rever as dicas","Zerar bestiário","VOLTAR"};
+                                           "Velocidade do texto","Batalha","Dicas","Rever as dicas","Zerar bestiário","VOLTAR"};
 const char* EXPLICACOES[NUM_LINHAS] = {
     "Volume da música. Setas para os lados ajustam (de 10 em 10%).",
     "Volume dos golpes, itens e menus. A tecla O liga e desliga todo o som.",
@@ -105,6 +105,7 @@ const char* EXPLICACOES[NUM_LINHAS] = {
     "Tamanho do mapa na tela. No jogo, a roda do mouse e as teclas + e - também mudam.",
     "Rápidas: as animações da batalha levam metade do tempo.",
     "Falas e história: a velocidade com que as letras aparecem (Enter mostra tudo).",
+    "Automática: as frases da luta passam sozinhas (Enter adianta). Manual: esperam o Enter.",
     "Uma caixa explicando cada novidade, na primeira vez que ela aparece.",
     "Todas as dicas voltam a aparecer (cada uma na próxima vez que a situação acontecer).",
     "Apaga os monstros já encontrados: o bestiário volta a ficar cheio de \"???\".",
@@ -114,7 +115,7 @@ const char* NOMES_DO_ZOOM[3] = {"LONGE","MÉDIO","PERTO"};
 const char* NOMES_DA_VELOCIDADE[4] = {"LENTA","NORMAL","RÁPIDA","NA HORA"};
 std::string avisoDasOpcoes;      // "Pronto! ..." depois de rever as dicas
 bool confirmandoZerar = false;   // o primeiro Enter em "Zerar bestiário" só pergunta
-Rectangle linhaDasOpcoes(int i) { return {300,312.0f+i*43,840,37}; }
+Rectangle linhaDasOpcoes(int i) { return {300,310.0f+i*40,840,36}; }
 Rectangle setaEsquerda(int i) { Rectangle r=linhaDasOpcoes(i); return {r.x+470,r.y,50,r.height}; }
 Rectangle setaDireita(int i)  { Rectangle r=linhaDasOpcoes(i); return {r.x+r.width-60,r.y,50,r.height}; }
 
@@ -155,6 +156,7 @@ void desenharOpcoes(int cursor) {
                               : i==OP_ZOOM ? NOMES_DO_ZOOM[o.zoomDoMapa]
                               : i==OP_TEXTO ? NOMES_DA_VELOCIDADE[o.velocidadeDoTexto]
                               : i==OP_ANIMACAO ? (o.animacaoRapida?"RÁPIDAS":"NORMAIS")
+                              : i==OP_BATALHA ? (o.batalhaAutomatica?"AUTOMÁTICA":"MANUAL")
                               : (o.mostrarDicas?"LIGADAS":"DESLIGADAS");
             desenharSeta(setaEsquerda(i),false,cor);
             desenharSeta(setaDireita(i),true,cor);
@@ -206,6 +208,7 @@ void mudarOpcao(int linha,int passo,bool daVolta) {
         return;
     }
     if(linha==OP_ANIMACAO) o.animacaoRapida=!o.animacaoRapida;
+    if(linha==OP_BATALHA) o.batalhaAutomatica=!o.batalhaAutomatica;
     if(linha==OP_DICAS) o.mostrarDicas=!o.mostrarDicas;
     if(linha==OP_REVER) {
         if(passo<0) return;

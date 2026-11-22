@@ -82,8 +82,9 @@ static Aparencia aparenciaDaCelula(const Mapa& mapa, int x, int y, int tema) {
         case POCA:         return { '~', { 120, 190, 255 }, { 25, 70, 120 }, false };
         case LAVA:         return { '~', { 255, 200, 80 },  { 190, 50, 20 }, true };   // brilha sozinha
         case PORTA:        return { '+', { 235, 185, 95 },  { 115, 72, 30 }, false };
-        case ESCADA_DESCE: return { '>', { 255, 255, 255 }, { 110, 110, 120 }, false };
-        case ESCADA_SOBE:  return { '<', { 255, 255, 255 }, { 110, 110, 120 }, false };
+        // v1.23.1: a de descer (o caminho) é dourada; a de subir, cinza-azulada.
+        case ESCADA_DESCE: return { '>', { 255, 215, 90 }, { 90, 60, 20 }, false };
+        case ESCADA_SOBE:  return { '<', { 200, 215, 235 }, { 60, 66, 80 }, false };
         case TOCHA:        return { '#', { 255, 215, 90 },  { 150, 80, 25 }, true };
         case PORTA_TRANCADA: return { '+', { 255, 215, 0 }, { 120, 30, 30 }, false };
         case CAIXA:        return { '=', { 225, 170, 95 },  { 95, 60, 30 },  false };
@@ -536,7 +537,7 @@ void desenharAjuda(const Jogo& jogo) {
         "",
         "Na batalha: setas escolhem, Enter confirma, Esc volta.",
         "Pegue monstros dormindo: eles começam a luta dormindo.",
-        "Escadas: ande para dentro de  >  (desce)  ou  <  (sobe)",
+        "Escadas: ande para dentro de  >  (desce, dourada)  ou  <  (sobe, cinza)",
         "Itens: ! poção ) arma ] escudo * cristal ? pergaminho - chave ( suporte",
         "Mapa:   = caixa (empurre num monstro: atordoa; pode ter item)",
         "        ^ armadilha   & pessoa (converse)",
@@ -901,8 +902,10 @@ void desenharBatalha(const Jogo& jogo, const Batalha& b) {
             p.texto(linhas[i], corDoTexto);
         }
         p.irPara(22, 72);
-        p.texto(b.travado ? "    " : "[ok]", APAGADO);
-        dica = b.travado ? " Leia com atenção..." : " Aperte qualquer tecla para continuar";
+        p.texto(b.passaSozinhoEm < 0 && !b.travado ? "[ok]" : "    ", APAGADO);
+        dica = b.travado ? " Leia com atenção..."
+             : b.passaSozinhoEm > 0 ? " (passa sozinho; qualquer tecla adianta)"
+             : b.passaSozinhoEm < 0 ? " Aperte qualquer tecla para continuar" : "";
     }
     else if (b.menu == MENU_PRINCIPAL) {
         std::vector<std::string> linhas = quebrarTexto(b.texto, 34);

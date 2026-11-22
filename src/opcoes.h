@@ -18,6 +18,7 @@ struct Opcoes {
     int velocidadeDoTexto;
     bool impossivelLiberado; // venceu o Difícil: o modo Impossível pode ser escolhido   // falas e história: 0 = lenta, 1 = normal, 2 = rápida, 3 = na hora
     bool mostrarDicas;
+    bool batalhaAutomatica;  // v1.23.1: as frases comuns da batalha passam sozinhas (Enter adianta)
     bool dicaVista[NUM_DICAS];
 };
 

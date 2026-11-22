@@ -261,12 +261,31 @@ static std::string comMaiuscula(std::string texto) {
     return texto;
 }
 
-// Mostra um texto na caixa e espera o jogador apertar uma tecla.
-static void narrar(Jogo& jogo, Batalha& b, const std::string& texto, TipoMensagem tipo = MSG_NORMAL) {
+// Batalha automática (Opções): quanto tempo a frase fica na tela antes de
+// passar sozinha. Depende do tamanho dela e da velocidade do texto.
+static int tempoDaFrase(const std::string& texto, TipoMensagem tipo) {
+    static const int BASE[4] = { 900, 650, 450, 300 };      // lenta, normal, rápida, na hora
+    static const int POR_LETRA[4] = { 30, 22, 14, 9 };
+    int v = opcoes().velocidadeDoTexto;
+    if (v < 0) v = 0;
+    if (v > 3) v = 3;
+    int ms = BASE[v] + POR_LETRA[v] * (int)texto.size();
+    if (tipo != MSG_NORMAL) ms += 400;                       // crítico, super eficaz...
+    if (opcoes().animacaoRapida) ms = ms * 3 / 4;
+    return ms;
+}
+
+// Mostra um texto na caixa e espera o jogador apertar uma tecla. Na batalha
+// automática (o padrão), a frase passa sozinha, a não ser que "esperaEnter"
+// seja true: subir de nível, golpe novo, dicas, vida baixa, desmaio e o fim
+// da luta sempre esperam o Enter, para ninguém perder o que aconteceu.
+static void narrar(Jogo& jogo, Batalha& b, const std::string& texto, TipoMensagem tipo = MSG_NORMAL,
+                   bool esperaEnter = false) {
     b.texto = texto;
     b.tipoDoTexto = tipo;
     b.textoDesde = relogioMs();
     b.menu = MENU_NENHUM;
+    b.passaSozinhoEm = 0;
     if (jogo.modoAutomatico) return;
     // Mensagem importante: durante tempoDeLeituraMs() as teclas são lidas e
     // jogadas fora. Quem aperta Enter sem parar não pula o aviso sem ver.
@@ -278,11 +297,23 @@ static void narrar(Jogo& jogo, Batalha& b, const std::string& texto, TipoMensage
         }
         b.travado = false;
     }
+    if (opcoes().batalhaAutomatica && !esperaEnter) {
+        b.passaSozinhoEm = b.textoDesde + tempoDaFrase(texto, tipo);
+        while (relogioMs() < b.passaSozinhoEm) {
+            desenharBatalha(jogo, b);
+            int tecla = lerTeclaComEspera(30);
+            if (tecla != TECLA_NENHUMA && tecla != TECLA_REDIMENSIONOU) break;   // Enter adianta
+        }
+        b.passaSozinhoEm = 0;
+        return;
+    }
+    b.passaSozinhoEm = -1;   // agora sim: esperando o Enter
     int tecla;
     do {
         desenharBatalha(jogo, b);
         tecla = lerTecla();
     } while (tecla == TECLA_REDIMENSIONOU);
+    b.passaSozinhoEm = 0;
 }
 
 // Ponteiro para a vida de quem está na posição "quem" (0 = jogador, 1..3 = inimigos).
@@ -362,7 +393,7 @@ static void mudarEstagio(Jogo& jogo, Batalha& b, Lutador& quem, int& estagio, in
 static void dicaNaBatalha(Jogo& jogo, Batalha& b, Dica dica) {
     if (jogo.modoAutomatico || !dicaPendente(dica)) return;
     marcarDicaVista(dica);
-    narrar(jogo, b, std::string("DICA - ") + tituloDaDica(dica) + ": " + textoDaDica(dica), MSG_BOA);
+    narrar(jogo, b, std::string("DICA - ") + tituloDaDica(dica) + ": " + textoDaDica(dica), MSG_BOA, true);
 }
 
 static int ladoDe(const Lutador& l) { return l.indice; }
@@ -616,7 +647,7 @@ static void acertarAlvo(Jogo& jogo, Batalha& b, Lutador& atacante, Lutador& alvo
     // Vida do jogador abaixo de 25%: aviso (uma vez por batalha).
     if (alvo.ehJogador && !b.avisouVidaBaixa && *alvo.vida > 0 && *alvo.vida * 4 <= alvo.vidaMaxima) {
         b.avisouVidaBaixa = true;
-        narrar(jogo, b, "Cuidado: sua vida está baixa! Use uma poção ou fuja.", MSG_PERIGO);
+        narrar(jogo, b, "Cuidado: sua vida está baixa! Use uma poção ou fuja.", MSG_PERIGO, true);
     }
 
     if (golpe.efeito == DRENAR && *atacante.vida > 0 && *atacante.vida < atacante.vidaMaxima) {
@@ -918,6 +949,13 @@ static bool tentarFugir(Jogo& jogo, Batalha& b) {
 // =============================================================================
 // EXPERIÊNCIA E NÍVEIS
 // =============================================================================
+// A luta usa uma cópia dos golpes do jogador (b.jogador). Ao aprender ou
+// trocar um golpe no meio dela, a cópia precisa mudar junto.
+static void copiarGolpesParaALuta(const Jogador& j, Batalha& b) {
+    b.jogador.numGolpes = j.numGolpes;
+    for (int s = 0; s < j.numGolpes; s++) b.jogador.golpes[s] = j.golpes[s];
+}
+
 static void aprenderGolpe(Jogo& jogo, Batalha& b, int golpe) {
     Jogador& j = jogo.jogador;
     std::string nomeGolpe = GOLPES[golpe].nome;
@@ -929,7 +967,10 @@ static void aprenderGolpe(Jogo& jogo, Batalha& b, int golpe) {
         j.golpes[j.numGolpes] = golpe;
         j.pp[j.numGolpes] = GOLPES[golpe].ppMaximo;
         j.numGolpes++;
-        narrar(jogo, b, "Você aprendeu " + nomeGolpe + "!", MSG_BOA);
+        // A luta usa uma cópia dos golpes (b.jogador): ela também recebe o novo,
+        // senão o menu mostra o golpe novo e sai o antigo (v1.23.1).
+        copiarGolpesParaALuta(j, b);
+        narrar(jogo, b, "Você aprendeu " + nomeGolpe + "!", MSG_BOA, true);
         return;
     }
 
@@ -952,13 +993,14 @@ static void aprenderGolpe(Jogo& jogo, Batalha& b, int golpe) {
         if (esquecer == MAX_GOLPES) esquecer = -1; // "Não aprender"
     }
     if (esquecer < 0) {
-        narrar(jogo, b, "Você não aprendeu " + nomeGolpe + ".");
+        narrar(jogo, b, "Você não aprendeu " + nomeGolpe + ".", MSG_NORMAL, true);
         return;
     }
     std::string antigo = GOLPES[j.golpes[esquecer]].nome;
     j.golpes[esquecer] = golpe;
     j.pp[esquecer] = GOLPES[golpe].ppMaximo;
-    narrar(jogo, b, "1, 2 e... pronto! Você esqueceu " + antigo + " e aprendeu " + nomeGolpe + "!", MSG_BOA);
+    copiarGolpesParaALuta(j, b);   // a cópia da luta também (v1.23.1)
+    narrar(jogo, b, "1, 2 e... pronto! Você esqueceu " + antigo + " e aprendeu " + nomeGolpe + "!", MSG_BOA, true);
 }
 
 static void ganharExperiencia(Jogo& jogo, Batalha& b, int pontos, int moedas) {
@@ -967,7 +1009,8 @@ static void ganharExperiencia(Jogo& jogo, Batalha& b, int pontos, int moedas) {
     j.moedas += moedas;
     if (moedas > 0) tocarSom(SOM_MOEDAS);
     narrar(jogo, b, "Você ganhou " + std::to_string(pontos) + " pontos de experiência e " +
-                    std::to_string(moedas) + (moedas == 1 ? " moeda!" : " moedas!"));
+                    std::to_string(moedas) + (moedas == 1 ? " moeda!" : " moedas!"), MSG_NORMAL,
+           inimigosNaLuta(b) == 0);   // automática: só a última espera o Enter (fim da luta)
 
     while (j.nivel < NIVEL_MAXIMO && j.experiencia >= experienciaParaNivel(j.nivel + 1)) {
         int vidaMaximaAntes = j.vidaMaxima;
@@ -984,12 +1027,12 @@ static void ganharExperiencia(Jogo& jogo, Batalha& b, int pontos, int moedas) {
         animarBatalha(jogo, b, ANIM_NIVEL, 0, 0, 0, j.nivel, false);
         j.moedas += MOEDAS_POR_NIVEL;
         narrar(jogo, b, "Você subiu para o nível " + std::to_string(j.nivel) + "! (+" +
-                        std::to_string(MOEDAS_POR_NIVEL) + " moedas)", MSG_BOA);
+                        std::to_string(MOEDAS_POR_NIVEL) + " moedas)", MSG_BOA, true);
         ganharPontosDeAtributo(jogo, PONTOS_POR_NIVEL);
         if (!jogo.modoAutomatico) {
             tocarSom(SOM_PONTO_GANHO);
             narrar(jogo, b, "Você ganhou " + std::to_string(PONTOS_POR_NIVEL) +
-                            " ponto de atributo! Aperte C no mapa para distribuir.", MSG_BOA);
+                            " ponto de atributo! Aperte C no mapa para distribuir.", MSG_BOA, true);
         }
         b.jogador.precisaoExtra = j.precisaoExtra;
         b.jogador.esquiva = j.esquiva;
@@ -1222,6 +1265,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
     b.tentativasDeFuga = 0;
     b.tipoDoTexto = MSG_NORMAL;
     b.textoDesde = 0;
+    b.passaSozinhoEm = 0;
     b.travado = false;
     b.avisouVidaBaixa = false;
     b.menu = MENU_NENHUM;
@@ -1430,7 +1474,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
             }
             if (*b.jogador.vida <= 0) {
                 animarBatalha(jogo, b, ANIM_DESMAIO, 0, 0, 0, 0, false);
-                narrar(jogo, b, "Você desmaiou...", MSG_PERIGO);
+                narrar(jogo, b, "Você desmaiou...", MSG_PERIGO, true);
                 return DERROTA;
             }
             if (conferirDesmaios(jogo, b)) return VITORIA;
@@ -1444,7 +1488,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
         }
         if (*b.jogador.vida <= 0) {
             animarBatalha(jogo, b, ANIM_DESMAIO, 0, 0, 0, 0, false);
-                narrar(jogo, b, "Você desmaiou...", MSG_PERIGO);
+                narrar(jogo, b, "Você desmaiou...", MSG_PERIGO, true);
             return DERROTA;
         }
         if (conferirDesmaios(jogo, b)) return VITORIA;

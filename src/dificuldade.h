@@ -25,6 +25,8 @@ struct Dificuldade {
     // v1.22:
     int folgaDeNivel;           // os monstros nunca ficam mais que isto abaixo do seu nível (-1 = sem regra)
     int nivelExtraDoChefe;      // o chefe fica no seu nível + isto
+    // v1.23.1:
+    int vidaDoChefe;            // vida fixa do chefe (não depende do nível; o ataque depende)
 };
 
 extern const Dificuldade DIFICULDADES[NUM_DIFICULDADES];

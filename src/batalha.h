@@ -231,6 +231,8 @@ struct Batalha {
     int tipoDoTexto;             // TipoMensagem: normal, boa ou perigo
     long long textoDesde;        // quando o texto apareceu (para piscar a borda)
     bool travado;                // mensagem importante: as teclas ainda não valem
+    long long passaSozinhoEm;    // > 0: a frase passa sozinha nessa hora (batalha automática);
+                                 // -1: esperando o Enter; 0: animação (nada a apertar)
     bool avisouVidaBaixa;        // o aviso de vida baixa só aparece uma vez
     int menu;                    // qual menu está aberto (MenuBatalha)
     int cursor;                  // opção selecionada

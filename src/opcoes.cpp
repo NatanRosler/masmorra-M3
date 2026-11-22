@@ -34,6 +34,7 @@ static Opcoes padrao() {
     o.velocidadeDoTexto = 1;
     o.impossivelLiberado = false;
     o.mostrarDicas = true;
+    o.batalhaAutomatica = true;
     for (int i = 0; i < NUM_DICAS; i++) o.dicaVista[i] = false;
     return o;
 }
@@ -80,6 +81,7 @@ void carregarOpcoes() {
         if (chave == "texto")           o.velocidadeDoTexto = limitar(numero(valor, 1), 0, 3);
         if (chave == "impossivel")      o.impossivelLiberado = (valor == "1");
         if (chave == "dicas")           o.mostrarDicas = (valor != "0");
+        if (chave == "batalha_auto")    o.batalhaAutomatica = (valor != "0");
         if (chave == "dicas_vistas") {
             for (int i = 0; i < NUM_DICAS && i < (int)valor.size(); i++) o.dicaVista[i] = (valor[i] == '1');
         }
@@ -101,6 +103,7 @@ void salvarOpcoes() {
     arquivo << "texto=" << o.velocidadeDoTexto << "\n";
     arquivo << "impossivel=" << (o.impossivelLiberado ? 1 : 0) << "\n";
     arquivo << "dicas=" << (o.mostrarDicas ? 1 : 0) << "\n";
+    arquivo << "batalha_auto=" << (o.batalhaAutomatica ? 1 : 0) << "\n";
     arquivo << "dicas_vistas=";
     for (int i = 0; i < NUM_DICAS; i++) arquivo << (o.dicaVista[i] ? '1' : '0');
     arquivo << "\n";

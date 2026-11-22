@@ -80,6 +80,8 @@ struct Monstro {
     int tempoAcumulado;        // milissegundos desde a última ação (tempo real)
     // v1.17 (no fim da struct: o save antigo lê só a parte de cima, ver salvar.cpp)
     bool campeao;              // monstro elite: mais forte, aura dourada, mais prêmios
+    bool guarda;               // v1.23.1: ogro guarda-costas do chefe (cabe no espaço vazio
+                               // depois de "campeao": o tamanho da struct não muda)
     int cornetas;              // gnomo vigia: quantas vezes já soprou a corneta (0, 1 ou 2);
                                // esqueleto (v1.23): 1 = já se montou de novo
 };
@@ -111,6 +113,13 @@ void tecerTeia(Andar& andar, int x, int y);
 
 // Coloca o chefe final no ponto do andar mais longe da chegada do jogador.
 void colocarChefe(Andar& andar, int chegadaX, int chegadaY, Elemento elemento);
+
+// v1.23.1: os 2 ogros guarda-costas, nas casas livres mais perto do chefe.
+// Também usada ao abrir um save antigo com o andar do chefe já criado.
+const int GUARDAS_DO_CHEFE = 2;
+const int FOLGA_DOS_GUARDAS = 4;   // eles ficam 4 níveis abaixo dos outros monstros
+void colocarGuardasDoChefe(Andar& andar, Elemento elementoDoOgro);
+int tipoDoOgro();
 
 // O chefe acompanha o jogador: no começo de cada batalha ele fica com o nível
 // do jogador + 1 (nunca abaixo de NIVEL_MINIMO_DO_CHEFE). A vida que ele já

@@ -222,7 +222,7 @@ const TipoMonstro TIPOS_DE_MONSTRO[] = {
     // O CHEFE FINAL: nunca aparece por sorteio (frequência 0); é colocado no
     // último andar por colocarChefe().
     { "Senhor das Profundezas", "o", 'S', { 200, 60, 70 }, NORMAL,
-      100, 85, 75, 70,  400,
+      100, 85, 75, 70,  400,       // (a vida do chefe é fixa desde a v1.23.1: Dificuldade::vidaDoChefe)
       { G_ESMAGAR, G_GOLPE_SOMBRIO, G_RUGIDO, G_HIPNOSE }, 4,
       { "     /\\_/\\____/\\_/\\",
         "    (  @        @  )",
@@ -250,6 +250,11 @@ const CorRGB CORES_DOS_ELEMENTOS[NUM_ELEMENTOS] = {
 
 int tipoDoChefe() {
     return NUM_TIPOS_DE_MONSTRO - 1;
+}
+
+int tipoDoOgro() {
+    for (int i = 0; i < NUM_TIPOS_DE_MONSTRO; i++) if (TIPOS_DE_MONSTRO[i].simbolo == 'O') return i;
+    return 0;
 }
 
 int tipoDoMimico() {
@@ -332,7 +337,7 @@ void acompanharJogador(Jogo& jogo) {
     for (int i = 0; i < andar.numMonstros; i++) {
         Monstro& m = andar.monstros[i];
         if (!m.vivo || (tipoDe(m).especial & CHEFE)) continue;   // o chefe tem a regra dele
-        int minimo = jogo.jogador.nivel - folga + (m.campeao ? 2 : 0);
+        int minimo = jogo.jogador.nivel - folga + (m.campeao ? 2 : 0) - (m.guarda ? FOLGA_DOS_GUARDAS : 0);
         if (minimo > NIVEL_MAXIMO) minimo = NIVEL_MAXIMO;
         if (m.nivel >= minimo) continue;
         int maximaAntes = vidaMaximaDoMonstro(m);
@@ -343,6 +348,9 @@ void acompanharJogador(Jogo& jogo) {
 }
 
 int vidaMaximaDoMonstro(const Monstro& m) {
+    // v1.23.1: o chefe tem vida fixa (uma por dificuldade). Pela fórmula ele
+    // tinha só ~140 no nível 40, e um golpe forte acabava com a luta final.
+    if (tipoDe(m).especial & CHEFE) return dificuldadeAtual().vidaDoChefe;
     // A dificuldade aumenta (ou diminui) a vida de todos os monstros.
     int vida = vidaPeloNivel(tipoDe(m).baseVida, m.nivel) * (100 + dificuldadeAtual().vidaDosMonstros) / 100;
     if (m.campeao) vida = vida * 3 / 2;   // campeão: +50% de vida
@@ -415,6 +423,7 @@ static void criarMonstro(Andar& andar, int tipo, int x, int y, int nivel, Estado
     m.y = y;
     m.nivel = nivel;
     m.campeao = false;   // antes da vida: a vida máxima depende disso
+    m.guarda = false;
     m.cornetas = 0;
     m.vida = vidaMaximaDoMonstro(m);
     m.elemento = TIPOS_DE_MONSTRO[tipo].elemento;   // trocado pelo sorteado em jogo.cpp
@@ -516,6 +525,36 @@ void colocarChefe(Andar& andar, int chegadaX, int chegadaY, Elemento elemento) {
     if (melhorX < 0 || andar.numMonstros >= MAX_MONSTROS) return;
     criarMonstro(andar, tipoDoChefe(), melhorX, melhorY, NIVEL_MINIMO_DO_CHEFE, DORMINDO);
     andar.monstros[andar.numMonstros - 1].elemento = elemento;
+    colocarGuardasDoChefe(andar, elemento);   // o elemento certo do ogro vem depois (jogo.cpp)
+}
+
+// Os guarda-costas dormem nas casas livres mais perto do chefe (de chão
+// comum e alcançáveis a partir dele). Nível: FOLGA_DOS_GUARDAS abaixo dos
+// outros monstros (do andar e da regra que acompanha o jogador).
+void colocarGuardasDoChefe(Andar& andar, Elemento elementoDoOgro) {
+    int chefe = -1, guardas = 0;
+    for (int i = 0; i < andar.numMonstros; i++) {
+        if (!andar.monstros[i].vivo) continue;
+        if (tipoDe(andar.monstros[i]).especial & CHEFE) chefe = i;
+        if (andar.monstros[i].guarda) guardas++;
+    }
+    if (chefe < 0) return;
+    static int distancia[MAPA_ALTURA][MAPA_LARGURA];
+    calcularDistancias(andar.mapa, andar.monstros[chefe].x, andar.monstros[chefe].y, distancia);
+    for (int passos = 1; passos <= 6 && guardas < GUARDAS_DO_CHEFE; passos++) {
+        for (int y = 0; y < MAPA_ALTURA && guardas < GUARDAS_DO_CHEFE; y++) {
+            for (int x = 0; x < MAPA_LARGURA && guardas < GUARDAS_DO_CHEFE; x++) {
+                if (distancia[y][x] != passos || andar.mapa.celulas[y][x] != CHAO) continue;
+                if (andar.zonaSegura[y][x] || monstroEm(andar, x, y) >= 0) continue;
+                if (andar.numMonstros >= MAX_MONSTROS) return;
+                criarMonstro(andar, tipoDoOgro(), x, y, 2 * NUM_ANDARES - FOLGA_DOS_GUARDAS, DORMINDO);
+                Monstro& g = andar.monstros[andar.numMonstros - 1];
+                g.guarda = true;
+                g.elemento = elementoDoOgro;
+                guardas++;
+            }
+        }
+    }
 }
 
 void ajustarNivelDoChefe(Monstro& chefe, int nivelDoJogador) {
@@ -829,6 +868,26 @@ static int agirComoVigia(Jogo& jogo, Monstro& m, int indice, bool percebe) {
     return -1;
 }
 
+// v1.23.1: o guarda-costas do chefe dorme e acorda junto com ele e nunca se
+// afasta mais de 2 casas dele (não sai caçando sozinho). Se o jogador encostar,
+// a batalha começa (e o chefe e o outro guarda entram, ver jogo.cpp).
+static bool agirComoGuarda(Jogo& jogo, Monstro& m, int indice, const Monstro& chefe) {
+    m.estado = chefe.estado == DORMINDO ? DORMINDO : chefe.estado == FUGINDO ? CACANDO : chefe.estado;
+    if (m.estado == DORMINDO) return false;
+    int dx = std::abs(m.x - chefe.x), dy = std::abs(m.y - chefe.y);
+    if ((dx > dy ? dx : dy) > 2) {
+        static int pertoDoChefe[MAPA_ALTURA][MAPA_LARGURA];
+        calcularDistancias(mapaAtual(jogo), chefe.x, chefe.y, pertoDoChefe);
+        moverParaMelhorVizinho(jogo, m, pertoDoChefe, true);
+        return false;
+    }
+    if (podeAtacarJogador(jogo, m) && m.turnosSemBatalha == 0) {
+        jogo.batalhaPendente = indice;
+        return true;
+    }
+    return false;
+}
+
 // Uma ação do monstro. Devolve true se ele alcançou o jogador (começa a batalha).
 static bool agirUmaVez(Jogo& jogo, Monstro& m, int indice) {
     const TipoMonstro& t = tipoDe(m);
@@ -845,6 +904,13 @@ static bool agirUmaVez(Jogo& jogo, Monstro& m, int indice) {
     if (t.especial & VIGIA) {
         int r = agirComoVigia(jogo, m, indice, vejoJogador && distancia <= alcance);
         if (r >= 0) return r == 1;
+    }
+    if (m.guarda) {
+        for (int i = 0; i < andar.numMonstros; i++) {
+            const Monstro& c = andar.monstros[i];
+            if (c.vivo && (tipoDe(c).especial & CHEFE)) return agirComoGuarda(jogo, m, indice, c);
+        }
+        // (sem chefe vivo, o guarda age como um ogro comum)
     }
 
     // ---- DORMINDO: pode acordar se o jogador estiver bem perto ----------

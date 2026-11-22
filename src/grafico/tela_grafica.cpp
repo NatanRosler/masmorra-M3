@@ -392,10 +392,45 @@ void tile(const Jogo& jogo,const Andar& a,int x,int y,int px,int py) {
         DrawRectangle(px+5,py+3,14,18,agora ? Color{122,79,39,255}:Color{60,52,49,255});
         DrawRectangleLines(px+5,py+3,14,18,{206,161,87,255});
         DrawCircle(px+16,py+12,2,tipo==PORTA_TRANCADA?OURO:CIANO);
-    } else if(tipo==ESCADA_DESCE || tipo==ESCADA_SOBE) {
-        DrawRectangle(px+3,py+5,18,15,{39,61,73,255});
-        for(int i=0;i<3;i++)DrawRectangle(px+5,py+6+i*4,14,2,CIANO);
-        textoCentro(tipo==ESCADA_DESCE?"v":"^",px+12,py-2,18,OURO);
+    } else if(tipo==ESCADA_DESCE) {
+        // v1.23.1: a escada para DESCER (o caminho) é um buraco escuro no chão,
+        // com degraus sumindo para baixo, borda dourada e uma luz quente que pulsa.
+        float f=agora?1.0f:0.5f, t=(float)GetTime();
+        float pulso=agora?0.65f+0.35f*std::sin(t*3.2f):0.5f;
+        if(agora) DrawCircleGradient(px+12,py+12,17,{255,190,80,(unsigned char)(70*pulso)},{255,190,80,0});
+        DrawRectangle(px+2,py+3,20,19,{10,8,14,255});
+        for(int i=0;i<4;i++) {
+            float fundo=1.0f-i*0.22f;   // quanto mais fundo, mais escuro e mais estreito
+            DrawRectangle(px+3+i*2,py+4+i*4,18-i*4,3,multiplicar({176,140,82,255},f*fundo));
+            DrawRectangle(px+3+i*2,py+7+i*4,18-i*4,1,multiplicar({60,44,28,255},f*fundo));
+        }
+        DrawRectangleLinesEx({(float)px+2,(float)py+3,20,19},1.5f,multiplicar(OURO,f*pulso));
+        // Seta para baixo, dentro do buraco, que "respira" (desce e volta).
+        float b=agora?std::sin(t*3.2f)*1.2f:0;
+        Color seta=multiplicar(OURO,agora?0.8f+0.2f*pulso:0.5f);
+        DrawTriangle({(float)px+8,py+11+b},{(float)px+12,py+17+b},{(float)px+16,py+11+b},seta);
+    } else if(tipo==ESCADA_SOBE) {
+        // A escada para SUBIR (por onde se chegou): degraus de pedra que sobem
+        // para a luz, em tons frios e apagados. No andar 1, grades: está selada.
+        float f=agora?1.0f:0.5f;
+        DrawRectangle(px+2,py+2,20,20,multiplicar({34,40,52,255},f));
+        if(agora) DrawRectangleGradientV(px+3,py+2,18,10,{200,220,255,90},{200,220,255,0});
+        for(int i=0;i<4;i++) {
+            float luz=0.55f+i*0.15f;   // quanto mais alto, mais claro
+            DrawRectangle(px+3,py+18-i*4,18,3,multiplicar({150,162,180,255},f*luz));
+            DrawRectangle(px+3,py+21-i*4,18,1,multiplicar({40,46,58,255},f));
+        }
+        DrawRectangleLinesEx({(float)px+2,(float)py+2,20,20},1.0f,multiplicar({120,135,160,255},f));
+        if(jogo.andar==1) {
+            Color ferro=multiplicar({70,72,80,255},agora?1.0f:0.6f);
+            for(int k=0;k<4;k++) DrawRectangle(px+4+k*5,py+2,2,20,ferro);
+            DrawRectangle(px+2,py+7,20,2,ferro); DrawRectangle(px+2,py+16,20,2,ferro);
+            DrawRectangle(px+10,py+10,5,5,multiplicar({150,130,90,255},f));   // cadeado
+        } else {
+            // Seta para cima, pequena e apagada (não é por ali que se avança).
+            Color seta=multiplicar({70,86,110,255},agora?1.0f:0.6f);
+            DrawTriangle({(float)px+12,py+5.0f},{(float)px+8,py+10.0f},{(float)px+16,py+10.0f},seta);
+        }
     } else if(tipo==TOCHA && agora) {
         // A chama tremula: o tamanho muda com duas ondas de ritmos diferentes.
         float t=(float)GetTime();
@@ -1490,7 +1525,14 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
         }
         texto("Aperte uma tecla para voltar",560,778,18,APAGADO);
     } else if(b.menu==MENU_NENHUM) {
-        if(!b.travado) texto("ENTER para continuar",1070,770,19,CIANO);
+        if(b.passaSozinhoEm>0) {
+            // Batalha automática: a barrinha enche até a frase passar sozinha.
+            float total=(float)(b.passaSozinhoEm-b.textoDesde), foi=(float)(relogioMs()-b.textoDesde);
+            float f=total>0 ? std::clamp(foi/total,0.0f,1.0f) : 1.0f;
+            DrawRectangle(1070,796,240,4,{45,60,85,255});
+            DrawRectangle(1070,796,(int)(240*f),4,CIANO);
+            texto("ENTER adianta",1070,770,19,APAGADO);
+        } else if(b.passaSozinhoEm<0 && !b.travado) texto("ENTER para continuar",1070,770,19,CIANO);
     }
     texto("Setas: escolher     Enter: confirmar     Esc: voltar",62,811,19,APAGADO);
     // Partículas e números da batalha por cima de tudo.

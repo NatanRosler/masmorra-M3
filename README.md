@@ -76,7 +76,7 @@ src/
 | `src/cenario.h/.cpp` | Armadilhas escondidas e caixas que se empurram (mapa que muda) |
 | `src/npcs.h/.cpp` | Personagens que conversam (falas em balões, com o herói respondendo), ajudam e mudam o mapa |
 | `src/dicas.h/.cpp` | Dicas: a caixa que explica cada novidade na primeira vez (e quando cada uma aparece) |
-| `src/opcoes.h/.cpp` | Opções (volumes de música, efeitos e ambiente, tela cheia, zoom, animações, velocidade do texto, dicas) gravadas em `opcoes.txt` |
+| `src/opcoes.h/.cpp` | Opções (volumes de música, efeitos e ambiente, tela cheia, zoom, animações, velocidade do texto, batalha automática, dicas) gravadas em `opcoes.txt` |
 | `src/bestiario.h/.cpp` | Bestiário: monstros já vistos e vencidos, gravado em `bestiario.txt` (v1.18) |
 | `src/salas.h/.cpp` | Salas especiais: fonte, altar de sangue, baú dourado (mímico), arena e o viajante perdido |
 | `src/tema.h/.cpp` | Temas dos andares: minas, caverna alagada (poças), cripta (lápides, v1.23), vulcão (lava) e sala do trono |
@@ -158,7 +158,7 @@ publicar → Run workflow**.
 - [x] **Versão gráfica 2D**: janela com raylib, pixel art, menu principal e pausa
 - [x] **6. Personagem**: criação (nome, elemento, cor, 5 pontos), 1 ponto por nível (Força, Constituição, Destreza, Agilidade) e elementos dos monstros sorteados a cada partida
 - [x] **7. Mapa vivo**: armadilhas que ferem jogador e monstros, caixas que se empurram ou quebram, ogros que despedaçam caixas
-- [x] **8. História**: abertura, 3 NPCs (um deles destranca a sala do tesouro), chefe final no andar 13 e tela de vitória
+- [x] **8. História**: abertura, 3 NPCs (um deles destranca a sala do tesouro), chefe final no andar 13 (com 2 ogros guarda-costas) e tela de vitória
 - [x] **Som (v1.1)**: efeitos e 4 músicas (menu, masmorra, batalha, chefe) gerados no código
 - [x] **Dificuldades (v1.2)**: Fácil, Médio e Difícil, escolhidos na criação do personagem; Impossível (v1.22), liberado ao vencer o Difícil
 - [x] **v1.4**: caixas com itens (poções, armas, cristais) e caixa empurrada contra um monstro o deixa atordoado

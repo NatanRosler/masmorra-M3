@@ -94,6 +94,7 @@ static void menuDeOpcoes() {
         Opcoes& o = opcoes();
         std::vector<std::string> itens = {
             std::string("Dicas: ") + (o.mostrarDicas ? "ligadas" : "desligadas"),
+            std::string("Batalha: ") + (o.batalhaAutomatica ? "automática" : "manual"),
             "Rever as dicas (" + std::to_string(dicasVistas()) + " de " + std::to_string((int)NUM_DICAS) + " já vistas)",
             "Zerar bestiário (" + std::to_string(especiesVistas()) + " de " + std::to_string(especiesDoBestiario()) +
                 " espécies vistas)",
@@ -101,6 +102,7 @@ static void menuDeOpcoes() {
         };
         std::vector<std::string> descricoes = {
             "Uma caixa explicando cada novidade, na primeira vez que ela aparece.",
+            "Automática: as frases da luta passam sozinhas (Enter adianta). Manual: esperam o Enter.",
             "Todas as dicas voltam a aparecer.",
             "Apaga os monstros já encontrados (o bestiário volta a ficar cheio de \"???\").",
             "Volta ao menu principal.",
@@ -110,13 +112,14 @@ static void menuDeOpcoes() {
         int t = lerTecla();
         if (t == TECLA_REDIMENSIONOU) continue;
         aviso.clear();
-        if (t == TECLA_CIMA || t == 'k') { cursor = (cursor + 3) % 4; confirmandoZerar = false; }
-        if (t == TECLA_BAIXO || t == 'j') { cursor = (cursor + 1) % 4; confirmandoZerar = false; }
+        if (t == TECLA_CIMA || t == 'k') { cursor = (cursor + 4) % 5; confirmandoZerar = false; }
+        if (t == TECLA_BAIXO || t == 'j') { cursor = (cursor + 1) % 5; confirmandoZerar = false; }
         if (t == TECLA_ESC || t == 'x') return;
         if (t == TECLA_ENTER || t == ' ') {
             if (cursor == 0) { o.mostrarDicas = !o.mostrarDicas; salvarOpcoes(); }
-            if (cursor == 1) { zerarDicas(); aviso = "Pronto! Todas as dicas vão aparecer de novo."; }
-            if (cursor == 2) {
+            if (cursor == 1) { o.batalhaAutomatica = !o.batalhaAutomatica; salvarOpcoes(); }
+            if (cursor == 2) { zerarDicas(); aviso = "Pronto! Todas as dicas vão aparecer de novo."; }
+            if (cursor == 3) {
                 if (!confirmandoZerar) {
                     confirmandoZerar = true;
                     aviso = "Tem certeza? Aperte Enter de novo para apagar (não dá para desfazer).";
@@ -126,7 +129,7 @@ static void menuDeOpcoes() {
                     aviso = "Pronto! O bestiário foi zerado.";
                 }
             }
-            if (cursor == 3) return;
+            if (cursor == 4) return;
         }
     }
 }

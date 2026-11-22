@@ -156,8 +156,10 @@ std::vector<std::string> falasDoChefe(const Jogo& jogo, bool primeiraVez) {
         "",
         "\"Cem anos eu espero aqui embaixo. Venha, " + jogo.jogador.nome + ". Mostre o que a superfície tem de "
         "melhor.\"",
+        "",
+        "\"Ogros! De pé. Temos visita.\"",
     };
-    return { "\"Voltou? Ótimo. Eu ainda estou com fome.\"" };
+    return { "\"Voltou? Ótimo. Eu ainda estou com fome.\"", "", "\"Ogros, de pé!\"" };
 }
 
 std::vector<std::string> textoComoJogar() {
@@ -190,6 +192,7 @@ std::vector<std::string> textoComoJogar() {
         "experiência, o triplo de moedas e podem soltar um item bom.",
         "Gnomo vigia: se te vir, sopra a corneta e chama as salas vizinhas.",
         "Sombra: só aparece de perto ou na luz das tochas.",
+        "O Senhor das Profundezas nunca luta sozinho: 2 ogros guarda-costas entram junto.",
         QUEBRA_DE_PAGINA,
         "ATRIBUTOS (1 ponto a cada nível, tecla C):",
         "Força = dano   Constituição = vida e armadura",

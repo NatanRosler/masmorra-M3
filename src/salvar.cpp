@@ -28,7 +28,10 @@ static const char* ARQUIVO_TEMPORARIO = "save.tmp";
 // as espécies já enfrentadas na partida. Dos saves antigos, os andares 7 em
 // diante são descartados (lá agora é a cripta): quem estava neles volta para
 // o começo do andar 7.
-static const int VERSAO_DO_SAVE = 6;
+// Versão 7 (v1.23.1): o monstro ganhou "guarda" (os ogros do chefe). O campo
+// usa um espaço que já sobrava na struct, então o tamanho é o mesmo; nos saves
+// antigos esse espaço pode ter lixo e é zerado ao carregar.
+static const int VERSAO_DO_SAVE = 7;
 static const char ASSINATURA[8] = { 'M', 'A', 'S', 'M', 'O', 'R', 'R', 'A' };
 
 // =============================================================================
@@ -120,6 +123,7 @@ static void lerMonstro(Leitor& l, Monstro& m, int versao) {
     static_assert(sizeof(MonstroAntigo) <= sizeof(Monstro), "a struct nova só cresce");
     std::memcpy(&m, &antigo, sizeof(antigo));
     m.campeao = false;
+    m.guarda = false;
     m.cornetas = 0;
 }
 
@@ -463,6 +467,27 @@ bool carregarPartida(Jogo& jogo) {
             jogo.comMonstros = true;   // o andar 7 novo nasce com monstros
             jogo.modoAutomatico = false;
             voltarAoComecoDoAndar(jogo, 7);
+        }
+    }
+    if (versao < 7) {
+        for (int i = 0; i < NUM_ANDARES; i++) {
+            Andar& a = jogo.andares[i];
+            if (!a.gerado) continue;
+            for (int k = 0; k < a.numMonstros; k++) a.monstros[k].guarda = false;
+        }
+        // Quem já chegou ao andar do chefe: os guarda-costas aparecem ao lado dele.
+        Andar& ultimo = jogo.andares[NUM_ANDARES - 1];
+        if (ultimo.gerado) colocarGuardasDoChefe(ultimo, jogo.elementoDaEspecie[tipoDoOgro()]);
+        // A vida do chefe virou fixa: ele fica com a mesma proporção de vida
+        // que tinha pela fórmula antiga (cheio continua cheio).
+        for (int k = 0; ultimo.gerado && k < ultimo.numMonstros; k++) {
+            Monstro& c = ultimo.monstros[k];
+            if (!c.vivo || !(tipoDe(c).especial & CHEFE)) continue;
+            int antiga = vidaPeloNivel(tipoDe(c).baseVida, c.nivel) * (100 + dificuldadeAtual().vidaDosMonstros) / 100;
+            if (antiga < 1) antiga = 1;
+            c.vida = (int)((long long)c.vida * vidaMaximaDoMonstro(c) / antiga);
+            if (c.vida > vidaMaximaDoMonstro(c)) c.vida = vidaMaximaDoMonstro(c);
+            if (c.vida < 1) c.vida = 1;
         }
     }
 

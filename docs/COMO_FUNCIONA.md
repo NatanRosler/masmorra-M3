@@ -249,8 +249,8 @@ dano simples de cada espécie vira o golpe daquele elemento (`golpesDoMonstro`).
 A história aparece depois da criação (`textoDaHistoria`). Três NPCs: Eldra
 (andar 1, dá uma poção e dicas), Borin (andar 4, abre a sala do tesouro) e o
 espírito guardião Aldric (andar 7, cura vida e PP). O **Senhor das Profundezas**
-fica no ponto mais distante da entrada do andar 10; não dá para fugir dele.
-Derrotá-lo vence o jogo.
+fica no ponto mais distante da entrada do último andar (13 desde a v1.23), com
+2 ogros guarda-costas (v1.23.1); não dá para fugir dele. Derrotá-lo vence o jogo.
 
 ## Pontuação e ranking (Etapa 9)
 
@@ -296,6 +296,7 @@ linha de uma tabela; as regras leem `dificuldadeAtual()` em vez de números fixo
 |---|---|---|---|---|
 | Vida dos monstros (v1.23) | −20% (era −15%) | 0% (era +10%) | +5% (era +30%) | +40% |
 | Ataque dos monstros (≈ dano, v1.23) | 60% (era 75%) | 75% (era 115%) | 85% (era 125%) | 135% |
+| Vida do chefe (fixa, v1.23.1) | 250 | 450 | 500 | 500 |
 | Intervalo entre passos dos monstros | 130% (mais lentos) | 110% | 100% | 90% (mais rápidos) |
 | Dano das armadilhas | 6% da vida | 10% | 15% | 20% |
 | Experiência ganha | 150% | 125% | 100% | 100% |
@@ -633,7 +634,7 @@ ficava fácil demais (97% de vitórias no nível 26, 99% no 30).
   importantes cai de 0,9 s para 0,54 s, `tempoDeLeituraMs`), dicas ligadas ou
   desligadas e "Rever as dicas". Na versão gráfica, a tela fica no menu
   principal e na pausa (Esc), com setas para ajustar e mouse. No terminal, só
-  existem as opções das dicas (no menu principal).
+  existem as opções das dicas e da batalha automática (no menu principal).
 - **opcoes.txt**: texto simples, uma opção por linha (`musica=8`), lido no
   começo do `main` (antes de abrir a janela, para ela já abrir em tela cheia).
   Linhas desconhecidas são ignoradas e valores errados voltam ao padrão, então
@@ -1000,3 +1001,70 @@ no Fácil, Médio e Difícil caíram (ver a tabela das dificuldades); a regra do
 "2 níveis abaixo" continua. A tabela de elementos e os temas foram ajustados
 até nenhum elemento ficar mais de ~11 pontos longe da média no Médio (antes
 Veneno chegava ao fim em 49% e Planta em 1%).
+
+## Batalha automática, escadas, golpe novo e o chefe mais difícil (v1.23.1)
+
+Mudanças pedidas depois de um amigo jogar a v1.23.
+
+- **Bug do golpe novo**: a batalha usa uma cópia dos golpes do jogador
+  (`b.jogador`, montada em `montarLutadorDoJogador`). Ao subir de nível no meio
+  da luta, o golpe novo ia só para `jogo.jogador`: o menu (que desenha a lista
+  de verdade) mostrava o golpe novo, mas saía o antigo daquele espaço.
+  `copiarGolpesParaALuta` atualiza a cópia sempre que um golpe é aprendido ou
+  trocado.
+- **Batalha automática** (Opções > Batalha, ligada por padrão; `batalha_auto=`
+  no `opcoes.txt`): as frases comuns passam sozinhas depois de
+  `tempoDaFrase` (650 ms + 22 ms por letra na velocidade normal do texto; mais
+  devagar na lenta, mais rápido na rápida e com as animações rápidas). Qualquer
+  tecla adianta, e uma barrinha mostra quanto falta. Continuam esperando o Enter:
+  os menus, as dicas, a vida baixa, subir de nível, aprender golpe, desmaiar e a
+  última frase da luta (a experiência do último inimigo). `narrar` ganhou o
+  parâmetro `esperaEnter`, e `Batalha::passaSozinhoEm` diz o que a tela mostra
+  (> 0: passa sozinha; −1: "ENTER para continuar"; 0: animação, nada a apertar).
+- **Escadas diferentes**: a de descer (o caminho) é um buraco escuro com
+  degraus que somem para baixo, borda dourada, luz quente pulsando e uma seta
+  para baixo; a de subir tem degraus de pedra cinza que clareiam para cima e
+  uma seta apagada. No andar 1 a de subir aparece com grades e cadeado (está
+  selada). No console, `>` é dourado e `<` é cinza.
+- **O chefe nunca luta sozinho**: `colocarGuardasDoChefe` põe 2 ogros
+  (`Monstro::guarda`) dormindo nas casas livres mais perto dele. Os guardas
+  dormem e acordam junto com o chefe e não se afastam mais de 2 casas dele
+  (`agirComoGuarda`). Em `juntarParticipantes`, se a luta começa com o chefe
+  ou um guarda, entram os três, estejam onde estiverem; guardas dormindo
+  começam a luta dormindo (acordam em 2 ou 3 rodadas). Eles ficam
+  `FOLGA_DOS_GUARDAS` (4) níveis abaixo dos outros monstros.
+- **Vida fixa do chefe** (`Dificuldade::vidaDoChefe`): 250 no Fácil, 450 no
+  Médio, 500 no Difícil e no Impossível. Pela fórmula dos monstros, ele tinha
+  só ~140 de vida no nível 40, e um golpe forte (crítico e super eficaz)
+  acabava com a luta final. O ataque não mudou e continua acompanhando o nível
+  do jogador (`ajustarNivelDoChefe`); a fúria continua na metade da vida.
+  Quantos golpes são precisos (nível 40, metade dos pontos em Força, arma do
+  elemento, contando erros, críticos e os PP que acabam):
+
+| Vida do chefe | Fogo e Luz (o dobro no chefe) | Os outros 7 | Trevas (metade) |
+|---|---|---|---|
+| ~140 (fórmula, até a v1.23) | 2 | 3 a 4 | 6 |
+| 250 (Fácil) | 3 | 6 a 7 | 12 |
+| 450 (Médio) | 5 | 11 a 12 | 23 |
+| 500 (Difícil e Impossível) | 5 a 6 | 12 a 13 | 25 |
+
+- **Equilíbrio**: lutas finais simuladas (300 por elemento): jogador nível 40
+  com a vida cheia, 3 poções de vida, 2 grandes e 1 éter, contra o chefe e os
+  2 ogros dormindo. O robô escolhe o golpe de maior dano, mas não usa Grito de
+  Guerra nem Foco e não derruba os ogros primeiro, então um jogador de verdade
+  vai melhor. Os elementos ficam bem diferentes de propósito (o chefe é de
+  Trevas, que causa o dobro em Normal).
+
+| | Fácil | Médio | Difícil | Impossível |
+|---|---|---|---|---|
+| Vence (até a v1.23: chefe sozinho, vida pela fórmula) | 99% | 95% | 93% | 52% |
+| Rodadas até vencer (v1.23) | 3 | 4 | 4 | 6 |
+| Vence (v1.23.1: com os ogros e vida fixa) | 71% | 37% | 24% | 3% |
+| Rodadas até vencer (v1.23.1) | 10 | 16 | 17 | 10 |
+| Melhor e pior elemento no Médio (v1.23.1) | | Pedra 64%, Normal 0% | | |
+
+- **Save versão 7**: `guarda` ocupa um espaço que já sobrava na struct
+  `Monstro` (depois de `campeao`), então o tamanho não muda. Nos saves antigos
+  esse espaço pode ter lixo: é zerado ao carregar, e se o andar 13 já existia,
+  os guarda-costas aparecem ao lado do chefe e ele passa para a vida fixa com
+  a mesma proporção que tinha (cheio continua cheio).
