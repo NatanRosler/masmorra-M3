@@ -1,5 +1,5 @@
 #pragma once
-// Versão do jogo (v1.25): aparece na tela de início e no título da janela,
+// Versão do jogo (v1.26): aparece na tela de início e no título da janela,
 // para saber qual .exe está aberto. Atualize a cada versão nova (é a mesma
 // que vai no campo "versao" do Actions).
-#define VERSAO_DO_JOGO "1.25"
+#define VERSAO_DO_JOGO "1.26"

@@ -38,6 +38,8 @@ set(FONTES_DA_LOGICA
     src/pontuacao.cpp
     src/dificuldade.cpp
     src/sala_do_chefe.cpp
+    src/diario.cpp
+    src/conquistas.cpp
 )
 
 # Junta tudo que é estático, para o jogo rodar em outro computador sem

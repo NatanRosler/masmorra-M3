@@ -1,5 +1,7 @@
 // tela.cpp
 #include "sala_do_chefe.h"
+#include "diario.h"
+#include "conquistas.h"
 #include "tela.h"
 #include "jogo.h"
 #include "tema.h"
@@ -523,7 +525,7 @@ void desenharJogo(const Jogo& jogo) {
     // Linha 24: lembrete de comandos
     p.irPara(24, 1);
     p.texto(ajustarLargura(mostrarMapaInteiro ? " MAPA INTEIRO (Tab: voltar ao zoom)  i: mochila  C: ficha  ?: ajuda"
-                                              : " mover  i: mochila  C: ficha  E: bestiário  Z: descansar  Tab: mapa  ?: ajuda",
+                                              : " i: mochila  C: ficha  J: diário  E: bestiário  Z: descansar  Tab: mapa  ?: ajuda",
                            TELA_COLUNAS - 1), COR_DICA);
 
     p.saida += ansiResetar();
@@ -562,14 +564,14 @@ void desenharAjuda(const Jogo& jogo) {
     desenharCaixa({
         "COMANDOS",
         "",
-        "Mover          setas  ou  hjkl",
-        "Diagonais      Home PgUp End PgDn  ou  y u b n",
+        "Mover          setas  ou  W A S D",
+        "Diagonais      Home PgUp End PgDn",
         "Teclado num.   7 8 9 / 4 6 / 1 2 3",
         "Batalhar       ande na direção do monstro",
         "Descansar      z  ou  Z   (cura mais a cada 5 níveis)",
         "               qualquer tecla para de descansar",
         "Furtivo        f  (liga/desliga: lento, silencioso, ataque surpresa)",
-        "Mochila        i          Ficha (atributos)   C",
+        "Mochila        i          Ficha (atributos)   C     Diário  J",
         "Mensagens      M          Bestiário  E     Sair  Q",
         "Mapa inteiro   Tab        (de novo: volta ao zoom)",
         "",
@@ -630,6 +632,13 @@ void desenharMorte(const Jogo& jogo) {
     if (jogo.posicaoNoRanking >= 0) {
         linhas.push_back("Você ficou em " + std::to_string(jogo.posicaoNoRanking + 1) + "o lugar no ranking!");
     }
+    // v1.26: as conquistas desta partida.
+    std::string medalhas;
+    for (int id = 0; id < NUM_CONQUISTAS; id++) {
+        if (!ganhouNaPartida(jogo, id)) continue;
+        medalhas += (medalhas.empty() ? "" : ", ") + std::string(CONQUISTAS[id].nome) + (novaNaPartida(jogo, id) ? " (nova!)" : "");
+    }
+    linhas.push_back("Conquistas: " + (medalhas.empty() ? std::string("nenhuma nesta partida") : medalhas));
     linhas.push_back("");
     std::vector<RegistroRanking> ranking = lerRanking();
     for (int i = 0; i < (int)ranking.size() && i < 5; i++) {
@@ -1226,8 +1235,8 @@ void mostrarBestiario(const Jogo* jogo) {
                             " espécies vistas)", opcoes, descricao, cursor);
         int tecla = lerTecla();
         if (tecla == TECLA_REDIMENSIONOU) { forcarLimpezaDaTela(); continue; }
-        if (tecla == TECLA_CIMA || tecla == 'k') cursor = (cursor + total) % (total + 1);
-        if (tecla == TECLA_BAIXO || tecla == 'j') cursor = (cursor + 1) % (total + 1);
+        if (tecla == TECLA_CIMA) cursor = (cursor + total) % (total + 1);
+        if (tecla == TECLA_BAIXO) cursor = (cursor + 1) % (total + 1);
         if (tecla == TECLA_ESC || tecla == 'e' || tecla == 'E' || tecla == 'x') break;
         if (tecla == TECLA_ENTER || tecla == ' ') {
             if (cursor == total) break;
@@ -1336,4 +1345,75 @@ int escolherNaMochila(const Jogo& jogo, const std::vector<int>& tipos, int& curs
     int escolha = escolherEmCaixa(jogo, titulo, opcoes, descricoes, cursor);
     if (escolha >= 0) cursor = escolha;
     return escolha;
+}
+
+// v1.26: o Diário no console: uma página de missões e outra de anotações.
+static void quebrarEmLinhas(const std::string& texto, const std::string& recuo, int largura,
+                            std::vector<std::string>& linhas) {
+    std::string linha = recuo, palavra;
+    auto fechar = [&]() {
+        if (palavra.empty()) return;
+        if (contarLetras(linha) + contarLetras(palavra) + 1 > largura && linha != recuo) { linhas.push_back(linha); linha = recuo; }
+        linha += (linha == recuo ? "" : " ") + palavra;
+        palavra.clear();
+    };
+    for (char ch : texto) { if (ch == ' ') fechar(); else palavra += ch; }
+    fechar();
+    if (linha != recuo) linhas.push_back(linha);
+}
+
+void mostrarDiario(const Jogo& jogo) {
+    // Cada grupo de linhas fica inteiro na mesma página (cabem 18 por página).
+    std::vector<std::vector<std::string>> grupos;
+    std::vector<std::string> g;
+    g.push_back("MISSÃO PRINCIPAL: descer até o andar 13 e vencer o Senhor das Profundezas.");
+    g.push_back("Você está no andar " + std::to_string(jogo.andar) + " de " + std::to_string(NUM_ANDARES) + ".");
+    for (const EtapaPrincipal& e : etapasDaMissaoPrincipal(jogo)) {
+        std::string nome = e.semChefe ? "(andar de uma versão antiga, sem chefe)" : e.nome.empty() ? "???" : e.nome;
+        g.push_back(std::string("  ") + (e.vencido ? "[x] " : "[ ] ") + "Andar " + std::to_string(e.andar) + ": " + nome);
+    }
+    g.push_back("");
+    grupos.push_back(g); g.clear();
+    g.push_back("ESTE ANDAR (" + std::to_string(jogo.andar) + ")");
+    std::vector<Missao> m = missoesDoAndar(jogo);
+    if (m.empty()) g.push_back("  Explore o andar para descobrir o que fazer aqui.");
+    for (const Missao& x : m)
+        quebrarEmLinhas(std::string(x.feita ? "[x] " : "[ ] ") + x.titulo + ": " + x.detalhe +
+                        (x.obrigatoria && !x.feita ? "  (obrigatória)" : ""), "  ", 74, g);
+    grupos.push_back(g); g.clear();
+    grupos.push_back({ QUEBRA_DE_PAGINA, "ANOTAÇÕES", "" });
+    std::vector<Anotacao> notas = anotacoesDoDiario(jogo);
+    if (notas.empty()) grupos.push_back({ "Ainda não há anotações. Converse com as pessoas que encontrar." });
+    for (const Anotacao& a : notas) {
+        g.push_back("Andar " + std::to_string(a.andar) + " - " + a.quem + (a.chefe ? " (vencido)" : ""));
+        for (const std::string& ponto : a.pontos) quebrarEmLinhas("* " + ponto, "  ", 74, g);
+        grupos.push_back(g); g.clear();
+    }
+    std::vector<std::string> l;
+    int naPagina = 0;
+    for (const std::vector<std::string>& grupo : grupos) {
+        if (!grupo.empty() && grupo[0] == QUEBRA_DE_PAGINA) naPagina = -1;   // começa página nova
+        else if (naPagina + (int)grupo.size() > 18) { l.push_back(QUEBRA_DE_PAGINA); naPagina = 0; }
+        for (const std::string& x : grupo) l.push_back(x);
+        naPagina += (int)grupo.size();
+    }
+    mostrarPagina("DIÁRIO", l);
+}
+
+// v1.26: as conquistas no console (uma página por grupo).
+void mostrarConquistas(const Jogo* jogo) {
+    (void)jogo;
+    std::vector<std::string> l;
+    l.push_back("Você tem " + std::to_string(conquistasGanhas()) + " de " + std::to_string((int)NUM_CONQUISTAS) + " conquistas.");
+    for (int g = 0; g < NUM_GRUPOS_DE_CONQUISTA; g++) {
+        if (g > 0) l.push_back(QUEBRA_DE_PAGINA);
+        l.push_back("");
+        l.push_back(NOMES_DOS_GRUPOS[g]);
+        for (int id = 0; id < NUM_CONQUISTAS; id++) {
+            if (CONQUISTAS[id].grupo != g) continue;
+            l.push_back(std::string(conquistaGanha(id) ? "  [*] " : "  [ ] ") + CONQUISTAS[id].nome);
+            l.push_back(std::string("        ") + CONQUISTAS[id].comoGanhar);
+        }
+    }
+    mostrarPagina("CONQUISTAS", l);
 }

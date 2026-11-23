@@ -8,6 +8,7 @@
 //   2. espera uma tecla por no máximo 50 ms
 //   3. executa a ação e faz o tempo do mapa andar (os monstros se mexem)
 // -----------------------------------------------------------------------------
+#include "conquistas.h"
 #include "terminal.h"
 #include "tela.h"
 #include "jogo.h"
@@ -56,6 +57,7 @@ int main(int argc, char* argv[]) {
     irParaAPastaDoPrograma();   // save, opções, ranking e bestiário ficam ao lado do jogo
     carregarOpcoes();   // antes da janela: ela já abre em tela cheia, se for o caso
     carregarBestiario();
+    carregarConquistas();   // v1.26
     iniciarTerminal();
 
     // "static" porque o Jogo é grande (10 andares de 79 x 21 células).

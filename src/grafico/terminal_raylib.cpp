@@ -101,12 +101,12 @@ static int teclaDoFrame() {
         return TECLA_ENTER;
     }
     if (IsKeyPressed(KEY_BACKSPACE)) return 8;
-    // WASD opcional para exploracao. A logica do jogo continua recebendo HJKL.
+    // WASD funciona como as setas (v1.26: também nos menus e na batalha).
     if (!modoTexto) {
-        if (IsKeyPressed(KEY_W) || IsKeyPressedRepeat(KEY_W)) return 'k';
-        if (IsKeyPressed(KEY_A) || IsKeyPressedRepeat(KEY_A)) return 'h';
-        if (IsKeyPressed(KEY_S) || IsKeyPressedRepeat(KEY_S)) return 'j';
-        if (IsKeyPressed(KEY_D) || IsKeyPressedRepeat(KEY_D)) return 'l';
+        if (IsKeyPressed(KEY_W) || IsKeyPressedRepeat(KEY_W)) return TECLA_CIMA;
+        if (IsKeyPressed(KEY_A) || IsKeyPressedRepeat(KEY_A)) return TECLA_ESQUERDA;
+        if (IsKeyPressed(KEY_S) || IsKeyPressedRepeat(KEY_S)) return TECLA_BAIXO;
+        if (IsKeyPressed(KEY_D) || IsKeyPressedRepeat(KEY_D)) return TECLA_DIREITA;
     }
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         Vector2 p=Ui::mouseVirtual();
@@ -121,6 +121,8 @@ static int teclaDoFrame() {
         }
     }
     int ch=GetCharPressed();
+    // A letra do WASD já virou seta acima: não chega de novo como letra.
+    if(!modoTexto && (ch=='w'||ch=='a'||ch=='s'||ch=='d'||ch=='W'||ch=='A'||ch=='S'||ch=='D')) return TECLA_NENHUMA;
     if(ch>=32 && ch<=126) return ch;
     return TECLA_NENHUMA;
 }

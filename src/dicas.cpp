@@ -22,7 +22,7 @@ struct TextoDaDica {
 // Na mesma ordem do enum Dica.
 static const TextoDaDica DICAS[NUM_DICAS] = {
     { "Bem-vindo à masmorra!",
-      "Ande com as setas, WASD ou HJKL. O mapa começa escuro e se revela conforme você explora. "
+      "Ande com as setas ou WASD. O mapa começa escuro e se revela conforme você explora. "
       "Desça pelas escadas até o 13º andar. A tecla ? mostra todos os comandos." },
     { "Vida baixa",
       "Aperte Z para descansar: a vida e os PP voltam aos poucos (mais rápido a cada 5 níveis). "

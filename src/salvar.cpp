@@ -34,7 +34,8 @@ static const char* ARQUIVO_TEMPORARIO = "save.tmp";
 // antigos esse espaço pode ter lixo e é zerado ao carregar.
 // Versão 8 (v1.24): cada andar guarda a sala do chefe e os enfeites dela.
 // Nos saves antigos, os andares já criados ficam sem sala (como eram).
-static const int VERSAO_DO_SAVE = 8;
+// Versão 9 (v1.26): no fim, as conquistas ganhas na partida.
+static const int VERSAO_DO_SAVE = 9;
 static const char ASSINATURA[8] = { 'M', 'A', 'S', 'M', 'O', 'R', 'R', 'A' };
 
 // =============================================================================
@@ -329,6 +330,8 @@ bool salvarPartida(const Jogo& jogo) {
     g.bruto(jogo.especiesVistasNaPartida);             // versão 4 (bestiário)
     g.bruto(jogo.encontrosComOChefe);                  // versão 5 (cena do chefe)
     g.bruto(jogo.especiesEnfrentadasNaPartida);        // versão 6 (elemento no bestiário)
+    g.bruto(jogo.conquistasDaPartida);                 // versão 9 (conquistas)
+    g.bruto(jogo.conquistasNovas);
     g.arquivo.write(ASSINATURA, sizeof(ASSINATURA));   // marca de fim: o arquivo está completo
     g.arquivo.close();
     if (!g.arquivo) return false;
@@ -419,6 +422,10 @@ bool carregarPartida(Jogo& jogo) {
     if (versao >= 5) l.bruto(jogo.encontrosComOChefe);
     jogo.especiesEnfrentadasNaPartida = 0;
     if (versao >= 6) l.bruto(jogo.especiesEnfrentadasNaPartida);
+    jogo.conquistasDaPartida = 0;
+    jogo.algoz = -1;
+    jogo.conquistasNovas = 0;
+    if (versao >= 9) { l.bruto(jogo.conquistasDaPartida); l.bruto(jogo.conquistasNovas); }
     char fim[8];
     if (!l.ok || !l.arquivo.read(fim, sizeof(fim))) return false;
     for (int i = 0; i < 8; i++) if (fim[i] != ASSINATURA[i]) return false;

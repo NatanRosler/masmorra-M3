@@ -1272,3 +1272,69 @@ linha), e quem já o tinha aprendido subindo de nível perdia o pergaminho.
   itens em quadrinhos (desenho, nome, quantos tem) e a descrição do marcado,
   com a ação ("Enter: beber / equipar / ler / usar"). Abre mesmo com a mochila
   vazia (para ver o equipamento e os golpes). No console, continua a lista.
+
+## Diário, teclas, resumo do fim e conquistas (v1.26)
+
+**Teclas**: as letras do Vim (h j k l, y u b n) saíram do jogo. Andar é com as
+setas, W A S D ou o teclado numérico; diagonais com Home, PgUp, End, PgDn (ou
+7 9 1 3). O WASD agora funciona também no console (`teclaParaDirecao`); na
+versão gráfica, `terminal_raylib.cpp` transforma W A S D direto em setas (e a
+letra não chega de novo ao jogo), então elas também navegam nos menus e na
+batalha. Isso liberou o **J** para o diário.
+
+**Diário** (tecla J, `diario.h/.cpp`). Não cria nada novo nem dá prêmio: só
+acompanha o que já existe, a partir do que o save já guarda.
+
+- `etapasDaMissaoPrincipal`: os chefes dos andares 3, 6, 9, 12 e 13 (nome e
+  espécie quando o andar já foi criado; vencido ou não).
+- `missoesDoAndar`: o chefe do andar e a escada (obrigatórias); a sala do
+  tesouro (quando a porta, a chave ou o Borin foram vistos); fonte, altar, baú
+  e arena (depois de descobertos); as pessoas (depois de vistas). Cada missão
+  tem tipo (decide o desenho), título curto, uma ou duas palavras e se está
+  feita.
+- `anotacoesDoDiario`: para cada conversa, 2 ou 3 dicas curtas tiradas das
+  falas (Eldra, Borin, Garro só a primeira vez, Aldric, Tobias) e os chefes
+  vencidos com o título deles.
+- Tela gráfica (`Diario` em `tela_grafica.cpp`): aba MISSÕES com a trilha dos
+  13 andares (`trilhaDosAndares`: o desenho de cada chefe, silhueta preta até
+  ser visto, ✓ quando cai, o herói no andar atual) e um cartão com desenho por
+  missão (selo ✓ ou "!" nas obrigatórias que faltam); aba ANOTAÇÕES com o
+  retrato de cada pessoa ou chefe e as dicas. No console, duas páginas de texto.
+- `telaPorCima`: enquanto o diário, a mochila ou a ficha estão abertos, o Tab
+  não abre o mapa no fundo.
+
+**Resumo do fim** (`desenharResumoDoFim`, no lugar da tela antiga de fim de
+jogo): VITÓRIA (dourado) ou FIM DA JORNADA (vermelho), a frase do que
+aconteceu, o herói e o Senhor das Profundezas vencido ou quem tirou a última
+vida (`Jogo::algoz`, guardado em `perderVida`), a trilha dos andares, 7 números
+com ícone (pontos e posição no ranking, andar, nível, tempo, passos, monstros,
+itens), as conquistas da partida (as novas brilham com "NOVA!"), o top 5 e os
+botões N e Q (também com o mouse).
+
+**Conquistas** (`conquistas.h/.cpp`): 19 medalhas em 3 grupos (Jornada,
+Desafio, Exploração), sem prêmio no jogo, gravadas em `conquistas.txt` (uma
+chave por linha; o arquivo pode ser apagado para zerar).
+
+- As de batalha são dadas em `resolverBatalha`: primeira vitória, mímico, os 4
+  mini-chefes (pela sala), o chefe final (e Coragem no Difícil, Lenda no
+  Impossível, Relâmpago com menos de 45 minutos de tempo de jogo) e "Na
+  surdina" (a luta começa com o monstro dormindo ou de surpresa; chefes e
+  guardas não contam). "Sem tropeços" é dada em `irParaAndar` ao chegar ao 13
+  com todas as vidas.
+- As de estado ficam em `conferirConquistas` (a cada tecla, passo e batalha):
+  500 moedas, golpes de 3 elementos (fora Normal), Tobias ajudado, Eldra +
+  Borin + Aldric, arena vencida, sala do tesouro aberta e vista por dentro,
+  bestiário completo.
+- `ganharConquista` marca a conquista na partida (`Jogo::conquistasDaPartida`)
+  e, se for a primeira vez, grava o arquivo, toca um som, avisa no topo do mapa
+  e marca como nova (`Jogo::conquistasNovas`). Nos testes automáticos não faz
+  nada.
+- Tela de conquistas (botão CONQUISTAS no menu principal; no console, uma
+  página por grupo): todas as medalhas, as que faltam em cinza com a dica de
+  como ganhar. Passando o mouse numa medalha (aqui e no resumo do fim), aparece
+  um balão com o nome, como ganhar e se já foi ganha (`Medalhas::desenharBalao`).
+- **Save versão 9**: no fim, `conquistasDaPartida` e `conquistasNovas`. Os
+  saves antigos abrem com as duas zeradas.
+- O `.gitignore` agora inclui todos os arquivos que o jogo cria ao jogar
+  (`save.dat`, `save.tmp`, `opcoes.txt`, `bestiario.txt`, `conquistas.txt` e
+  `ranking.txt`).

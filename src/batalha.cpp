@@ -401,10 +401,10 @@ static int escolherOpcao(Jogo& jogo, Batalha& b, int menu, int numOpcoes, int co
         if (t >= '1' && t < '1' + numOpcoes) return t - '1';
 
         int linha = b.cursor / colunas, coluna = b.cursor % colunas;
-        if (t == TECLA_CIMA || t == 'k')     linha--;
-        if (t == TECLA_BAIXO || t == 'j')    linha++;
-        if (t == TECLA_ESQUERDA || t == 'h') coluna--;
-        if (t == TECLA_DIREITA || t == 'l')  coluna++;
+        if (t == TECLA_CIMA)     linha--;
+        if (t == TECLA_BAIXO)    linha++;
+        if (t == TECLA_ESQUERDA) coluna--;
+        if (t == TECLA_DIREITA)  coluna++;
         if (coluna < 0) coluna = colunas - 1;
         if (coluna >= colunas) coluna = 0;
         int linhas = (numOpcoes + colunas - 1) / colunas;

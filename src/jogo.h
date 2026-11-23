@@ -187,6 +187,9 @@ struct Jogo {
 
     bool morto;                     // as vidas acabaram: fim de jogo
     std::string causaDaMorte;       // "derrotado por um ogro"
+    int algoz;                      // v1.26: a espécie que tirou a última vida (-1 = nenhuma; não vai no save)
+    unsigned int conquistasDaPartida;  // v1.26: bit i = ganhou a conquista i nesta partida (conquistas.h)
+    unsigned int conquistasNovas;      // v1.26: dessas, as que nunca tinham sido ganhas antes
     bool venceu;                    // derrotou o chefe final
     bool rodando;                   // false = sair do jogo
 

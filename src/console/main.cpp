@@ -8,6 +8,7 @@
 //   2. espera uma tecla por no máximo 50 ms
 //   3. executa a ação e faz o tempo do mapa andar (os monstros se mexem)
 // -----------------------------------------------------------------------------
+#include "conquistas.h"
 #include "versao.h"
 #include "terminal.h"
 #include "tela.h"
@@ -51,16 +52,17 @@ static uint32_t lerSemente(int argc, char* argv[]) {
     return sementeDoRelogio();
 }
 
-enum OpcaoDoMenu { CONTINUAR, JOGAR, COMO_JOGAR, ITENS, PONTUACAO, BESTIARIO, OPCOES, SAIR };
+enum OpcaoDoMenu { CONTINUAR, JOGAR, COMO_JOGAR, ITENS, PONTUACAO, BESTIARIO, CONQUISTAS_OPCAO, OPCOES, SAIR };
 
 static int menuPrincipal() {
-    std::vector<std::string> opcoes = { "Novo jogo", "Como jogar", "Itens", "Pontuação e ranking", "Bestiário", "Opções", "Sair" };
+    std::vector<std::string> opcoes = { "Novo jogo", "Como jogar", "Itens", "Pontuação e ranking", "Bestiário", "Conquistas", "Opções", "Sair" };
     std::vector<std::string> descricoes = {
         "Crie seu personagem e desça a masmorra.",
         "Objetivo, comandos, batalha e atributos.",
         "Poções, armas, escudos, cristais, pergaminhos e chave.",
         "Como os pontos são contados e as melhores partidas.",
         "Os monstros que você já encontrou (em todas as partidas).",
+        "As medalhas que você já ganhou (em todas as partidas).",
         "Dicas e bestiário.",
         "Fechar o jogo.",
     };
@@ -78,8 +80,8 @@ static int menuPrincipal() {
         desenharAviso("  MASMORRA v" VERSAO_DO_JOGO "  -  um roguelike nas profundezas de Valdoria", "");
         desenharMenuEmCaixa("MENU PRINCIPAL", opcoes, descricoes[cursor], cursor);
         int t = lerTecla();
-        if (t == TECLA_CIMA || t == 'k') cursor = (cursor + total - 1) % total;
-        if (t == TECLA_BAIXO || t == 'j') cursor = (cursor + 1) % total;
+        if (t == TECLA_CIMA) cursor = (cursor + total - 1) % total;
+        if (t == TECLA_BAIXO) cursor = (cursor + 1) % total;
         if (t == TECLA_ENTER || t == ' ') return temSave ? cursor : cursor + 1;
         if (t == TECLA_ESC || t == 'Q') return SAIR;
     }
@@ -113,8 +115,8 @@ static void menuDeOpcoes() {
         int t = lerTecla();
         if (t == TECLA_REDIMENSIONOU) continue;
         aviso.clear();
-        if (t == TECLA_CIMA || t == 'k') { cursor = (cursor + 4) % 5; confirmandoZerar = false; }
-        if (t == TECLA_BAIXO || t == 'j') { cursor = (cursor + 1) % 5; confirmandoZerar = false; }
+        if (t == TECLA_CIMA) { cursor = (cursor + 4) % 5; confirmandoZerar = false; }
+        if (t == TECLA_BAIXO) { cursor = (cursor + 1) % 5; confirmandoZerar = false; }
         if (t == TECLA_ESC || t == 'x') return;
         if (t == TECLA_ENTER || t == ' ') {
             if (cursor == 0) { o.mostrarDicas = !o.mostrarDicas; salvarOpcoes(); }
@@ -195,6 +197,7 @@ int main(int argc, char* argv[]) {
     irParaAPastaDoPrograma();   // save, opções, ranking e bestiário ficam ao lado do jogo
     carregarOpcoes();
     carregarBestiario();
+    carregarConquistas();   // v1.26
     iniciarTerminal();
 
     // "static" porque o Jogo é grande (10 andares de 79 x 21 células) e fica
@@ -212,6 +215,7 @@ int main(int argc, char* argv[]) {
         if (opcao == ITENS)      mostrarPagina("ITENS", textoDosItens());
         if (opcao == PONTUACAO)  mostrarPagina("PONTUAÇÃO", textoDaPontuacao());
         if (opcao == BESTIARIO)  mostrarBestiario(nullptr);
+        if (opcao == CONQUISTAS_OPCAO) mostrarConquistas(nullptr);
         if (opcao == OPCOES)     menuDeOpcoes();
         if (opcao == SAIR)       continuar = false;
     }

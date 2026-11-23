@@ -25,8 +25,13 @@ CMakeCache.txt
 .DS_Store
 Thumbs.db
 
-# Ranking gerado ao jogar
+# Arquivos que o jogo cria ao jogar (ficam na pasta do executável)
 ranking.txt
+save.dat
+save.tmp
+opcoes.txt
+bestiario.txt
+conquistas.txt
 
 # Partida salva (cada um tem a sua)
 save.dat

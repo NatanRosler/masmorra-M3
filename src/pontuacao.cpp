@@ -168,7 +168,7 @@ std::vector<std::string> textoComoJogar() {
         "Vidas: 5 no Fácil, 3 no Médio e no Difícil. Ao perder uma, você volta",
         "para a entrada do andar.",
         "",
-        "Andar: setas, WASD ou HJKL (diagonais: Y U B N). O mapa começa escuro",
+        "Andar: setas ou WASD (diagonais: Home, PgUp, End, PgDn). O mapa começa escuro",
         "e se revela conforme você explora. Escadas: ande para dentro delas.",
         "",
         "Batalha: encoste num monstro. Escolha LUTAR (golpe e alvo), ITENS,",

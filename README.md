@@ -26,11 +26,12 @@ extraia. Não é preciso instalar nada.
 
 | Ação | Teclas |
 |---|---|
-| Andar | setas, `W` `A` `S` `D`, `H` `J` `K` `L`, teclado numérico |
-| Diagonais | `Y` `U` `B` `N`, Home / PgUp / End / PgDn |
+| Andar | setas, `W` `A` `S` `D`, teclado numérico |
+| Diagonais | Home / PgUp / End / PgDn, teclado numérico (7 9 1 3) |
 | Batalhar | ande na direção do monstro |
 | Mochila (equipamento, golpes e itens; usar / equipar) | `I` |
 | Ficha (atributos e o que eles dão; distribuir pontos) | `C` |
+| Diário (missões e anotações) | `J` |
 | Bestiário (monstros já encontrados) | `E` |
 | Mapa inteiro e todos os detalhes | `Tab` segurado, ou um toque para deixar aberto (no console, alterna o mapa inteiro) |
 | Zoom do mapa | roda do mouse, `+` e `-` (versão gráfica; também em Opções) |
@@ -81,6 +82,8 @@ src/
 | `src/opcoes.h/.cpp` | Opções (volumes de música, efeitos e ambiente, tela cheia, zoom, animações, velocidade do texto, batalha automática, dicas) gravadas em `opcoes.txt` |
 | `src/bestiario.h/.cpp` | Bestiário: monstros já vistos e vencidos, gravado em `bestiario.txt` (v1.18) |
 | `src/salas.h/.cpp` | Salas especiais: fonte, altar de sangue, baú dourado (mímico), arena e o viajante perdido |
+| `src/diario.h/.cpp` | Diário (tecla J): missões do andar, missão principal e anotações do que as pessoas contaram (v1.26) |
+| `src/conquistas.h/.cpp` | As 19 conquistas, gravadas em `conquistas.txt`, e quando cada uma é ganha (v1.26) |
 | `src/versao.h` | A versão do jogo, que aparece na tela de início e no título da janela (atualize a cada versão nova) |
 | `src/sala_do_chefe.h/.cpp` | Salas feitas à mão dos mini-chefes e do chefe final: o desenho, onde cabem no andar, a vida e os prêmios (v1.24) |
 | `src/tema.h/.cpp` | Temas dos andares: minas, caverna alagada (poças), cripta (lápides, v1.23), vulcão (lava) e sala do trono |
@@ -134,8 +137,8 @@ São gerados dois programas: `masmorra` (gráfico) e `masmorra_console`
 (terminal). No Windows os dois são **estáticos**: o `.exe` roda em qualquer
 computador, sem DLLs extras.
 
-O jogo sempre grava os arquivos dele (`save.dat`, `opcoes.txt`, `ranking.txt`
-e `bestiario.txt`) **na pasta onde está o executável**, mesmo quando é aberto
+O jogo sempre grava os arquivos dele (`save.dat`, `opcoes.txt`, `ranking.txt`,
+`bestiario.txt` e `conquistas.txt`) **na pasta onde está o executável**, mesmo quando é aberto
 por um atalho ou por outra pasta.
 
 ## Como publicar uma versão para download
@@ -169,7 +172,7 @@ publicar → Run workflow**.
 - [x] **Dificuldades (v1.2)**: Fácil, Médio e Difícil, escolhidos na criação do personagem; Impossível (v1.22), liberado ao vencer o Difícil
 - [x] **v1.4**: caixas com itens (poções, armas, cristais) e caixa empurrada contra um monstro o deixa atordoado
 - [x] **v1.3**: botão Aleatório na criação; mensagens importantes em destaque (trava contra Enter apressado, faixa no mapa, vida baixa piscando)
-- [x] **9. Pontuação**: menu com como jogar, itens e pontuação; pontos na tela e no fim; ranking salvo em `ranking.txt`
+- [x] **9. Pontuação**: menu com como jogar, itens e pontuação; pontos na tela e no fim; ranking salvo em `ranking.txt`; resumo do fim da partida e 19 conquistas (v1.26)
 
 ## Requisitos do trabalho (T3) e onde estão
 

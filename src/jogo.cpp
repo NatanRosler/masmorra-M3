@@ -1,6 +1,7 @@
 // jogo.cpp
 #include "jogo.h"
 #include "sala_do_chefe.h"
+#include "conquistas.h"
 #include "salvar.h"
 #include "tema.h"
 #include "aleatorio.h"
@@ -257,6 +258,8 @@ static void irParaAndar(Jogo& jogo, int novoAndar) {
     j.mochila[I_CHAVE] = destino.chavesGuardadas;
     jogo.andar = novoAndar;
     if (novoAndar > jogo.andarMaisFundo) jogo.andarMaisFundo = novoAndar;
+    // v1.26: chegou ao último andar sem perder nenhuma vida.
+    if (novoAndar == NUM_ANDARES && j.vidas >= dificuldadeAtual().vidas) ganharConquista(jogo, C_SEM_TROPECOS);
     acompanharJogador(jogo);
 
     if (descendo) {
@@ -348,6 +351,9 @@ void iniciarJogo(Jogo& jogo, uint32_t semente, bool comMonstros) {
     jogo.pontuacaoFinal = 0;
     jogo.posicaoNoRanking = -1;
     jogo.causaDaMorte = "";
+    jogo.algoz = -1;
+    jogo.conquistasDaPartida = 0;
+    jogo.conquistasNovas = 0;
     jogo.rodando = true;
     jogo.mensagensDoTurno.clear();
     jogo.tipoDoTurno = MSG_NORMAL;
@@ -431,6 +437,7 @@ static void perderVida(Jogo& jogo, Monstro* participantes[], int quantos) {
         m.estado = VAGANDO;
         m.turnosSemBatalha = 10;
     }
+    jogo.algoz = vencedor->tipo;   // v1.26: aparece no resumo do fim
     desmaiar(jogo, "derrotado por " + umOuUma(tipoDe(*vencedor)) + tipoDe(*vencedor).nome);
 }
 
@@ -492,6 +499,13 @@ static void resolverBatalha(Jogo& jogo) {
     pararDeDescansar(jogo, "");
 
     int nivelAntes = jogo.jogador.nivel;
+    // v1.26: pegou o monstro dormindo (ou de surpresa, no modo furtivo)?
+    {
+        const Monstro& principal = *participantes[0];
+        bool chefe = (tipoDe(principal).especial & (CHEFE | MINI_CHEFE)) || principal.guarda;
+        bool surpresa = jogo.ataqueSurpresa >= 0 && participantes[0] == &andarAtual(jogo).monstros[jogo.ataqueSurpresa];
+        if (!chefe && (principal.estado == DORMINDO || surpresa)) ganharConquista(jogo, C_NA_SURDINA);
+    }
     ResultadoBatalha resultado = batalhar(jogo, participantes, quantos);
     jogo.portaoFechado = false;   // v1.24: acabou a luta, o portão abre
     forcarLimpezaDaTela();
@@ -510,6 +524,20 @@ static void resolverBatalha(Jogo& jogo) {
         if (!m.vivo) {
             jogo.monstrosMortos++;
             adicionarMensagem(jogo, "Você derrotou " + nome + "!");
+            // v1.26: conquistas da batalha.
+            if (resultado == VITORIA) ganharConquista(jogo, C_PRIMEIROS_PASSOS);
+            if (m.tipo == tipoDoMimico()) ganharConquista(jogo, C_DESCONFIADO);
+            if (tipoDe(m).especial & MINI_CHEFE) {
+                static const int DA_SALA[4] = { C_REI_DEPOSTO, C_FIM_DO_NINHO, C_OSSOS_NO_CHAO, C_CORACAO_APAGADO };
+                int sala = salaDoMiniChefe(m.tipo);
+                if (sala >= 0 && sala < 4) ganharConquista(jogo, DA_SALA[sala]);
+            }
+            if (tipoDe(m).especial & CHEFE) {
+                ganharConquista(jogo, C_LIBERTADOR);
+                if (nivelDaDificuldade() >= DIFICIL) ganharConquista(jogo, C_CORAGEM);
+                if (nivelDaDificuldade() >= IMPOSSIVEL) ganharConquista(jogo, C_LENDA);
+                if (jogo.tempoMs < 45LL * 60 * 1000) ganharConquista(jogo, C_RELAMPAGO);
+            }
             if (tipoDe(m).especial & CHEFE) {
                 jogo.venceu = true;   // fim de jogo: vitória!
                 tocarMusica(SEM_MUSICA);
@@ -551,6 +579,7 @@ static void resolverBatalha(Jogo& jogo) {
     if (resultado == DERROTA) {
         perderVida(jogo, participantes, quantos);
     }
+    conferirConquistas(jogo);   // v1.26
 }
 
 // -----------------------------------------------------------------------------
@@ -710,6 +739,7 @@ static void depoisDoPasso(Jogo& jogo) {
     deixarCheiro(jogo);
     conferirEncontroComOChefe(jogo);
     conferirSalaDoChefe(jogo);
+    conferirConquistas(jogo);   // v1.26
     // Na água (caverna alagada), cada passo leva o dobro do tempo.
     jogo.esperaDoJogadorMs = intervaloDoJogador(jogo.jogador) *
                              multiplicadorDoPasso(andarAtual(jogo), jogo.jogador.x, jogo.jogador.y);
@@ -730,21 +760,21 @@ static void depoisDoPasso(Jogo& jogo) {
 // -----------------------------------------------------------------------------
 // Converte a tecla numa direção (dx, dy). Devolve false se não for movimento.
 //
-// Aceita três esquemas, como o Brogue:
+// Aceita três esquemas:
 //   - setas (e Home/End/PgUp/PgDn para as diagonais)
 //   - teclado numérico: 7 8 9 / 4 6 / 1 2 3
-//   - letras do Vim: h j k l (retas) e y u b n (diagonais)
+//   - W A S D (v1.26: no lugar das letras do Vim, h j k l / y u b n)
 // -----------------------------------------------------------------------------
 static bool teclaParaDirecao(int tecla, int& dx, int& dy) {
     switch (tecla) {
-        case TECLA_CIMA:      case '8': case 'k': dx =  0; dy = -1; return true;
-        case TECLA_BAIXO:     case '2': case 'j': dx =  0; dy =  1; return true;
-        case TECLA_ESQUERDA:  case '4': case 'h': dx = -1; dy =  0; return true;
-        case TECLA_DIREITA:   case '6': case 'l': dx =  1; dy =  0; return true;
-        case TECLA_HOME:      case '7': case 'y': dx = -1; dy = -1; return true;
-        case TECLA_PAGE_UP:   case '9': case 'u': dx =  1; dy = -1; return true;
-        case TECLA_END:       case '1': case 'b': dx = -1; dy =  1; return true;
-        case TECLA_PAGE_DOWN: case '3': case 'n': dx =  1; dy =  1; return true;
+        case TECLA_CIMA:      case '8': case 'w': dx =  0; dy = -1; return true;
+        case TECLA_BAIXO:     case '2': case 's': dx =  0; dy =  1; return true;
+        case TECLA_ESQUERDA:  case '4': case 'a': dx = -1; dy =  0; return true;
+        case TECLA_DIREITA:   case '6': case 'd': dx =  1; dy =  0; return true;
+        case TECLA_HOME:      case '7': dx = -1; dy = -1; return true;
+        case TECLA_PAGE_UP:   case '9': dx =  1; dy = -1; return true;
+        case TECLA_END:       case '1': dx = -1; dy =  1; return true;
+        case TECLA_PAGE_DOWN: case '3': dx =  1; dy =  1; return true;
     }
     return false;
 }
@@ -862,8 +892,8 @@ int escolherEmCaixa(const Jogo& jogo, const std::string& titulo,
         if (t == TECLA_ENTER || t == ' ' || t == 'z') { tocarSom(SOM_MENU); return cursor; }
         if (t >= TECLA_CLIQUE_MENU && t < TECLA_CLIQUE_MENU+total) { tocarSom(SOM_MENU); return t-TECLA_CLIQUE_MENU; }
         if (t == TECLA_ESC || t == 'x' || t == 'i') return -1;
-        if (t == TECLA_CIMA || t == 'k')  { cursor = (cursor + total - 1) % total; tocarSom(SOM_MENU); }
-        if (t == TECLA_BAIXO || t == 'j') { cursor = (cursor + 1) % total; tocarSom(SOM_MENU); }
+        if (t == TECLA_CIMA)  { cursor = (cursor + total - 1) % total; tocarSom(SOM_MENU); }
+        if (t == TECLA_BAIXO) { cursor = (cursor + 1) % total; tocarSom(SOM_MENU); }
     }
 }
 
@@ -901,10 +931,12 @@ static void confirmarSaida(Jogo& jogo) {
 
 void processarTecla(Jogo& jogo, int tecla) {
     if (jogo.morto || jogo.venceu) return;
+    conferirConquistas(jogo);   // v1.26: o que mudou desde a última tecla (conversas, loja, mochila...)
 
     // Telas de consulta não gastam tempo nem apagam as mensagens.
     if (tecla == '?') { esperarTecla(jogo, desenharAjuda); return; }
     if (tecla == '\t') { alternarMapaInteiro(); return; }   // v1.25
+    if (tecla == 'j' || tecla == 'J') { jogo.descansando = false; mostrarDiario(jogo); return; }   // v1.26
     if (tecla == 'M') { esperarTecla(jogo, desenharHistorico); return; }
     if (tecla == 'c' || tecla == 'C') { jogo.descansando = false; abrirFicha(jogo); return; }
     if (tecla == 'e' || tecla == 'E') { jogo.descansando = false; mostrarBestiario(&jogo); return; }

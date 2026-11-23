@@ -63,6 +63,12 @@ bool mochilaMostraEquipamento();
 // (na versão gráfica, o Tab é lido direto do teclado e isto não faz nada).
 void alternarMapaInteiro();
 
+// v1.26: o Diário (tecla J): missões e anotações (ver diario.h).
+void mostrarDiario(const Jogo& jogo);
+
+// v1.26: todas as conquistas (menu principal; jogo pode ser nullptr).
+void mostrarConquistas(const Jogo* jogo);
+
 void cenaDoMiniChefe(const Jogo& jogo, int chefe, bool primeira);
 // O chefe fala no meio da batalha (na fúria e ao cair). inimigo: 0 a 2.
 void falaDoChefeNaBatalha(const Jogo& jogo, const Batalha& b, int inimigo, const std::string& fala);

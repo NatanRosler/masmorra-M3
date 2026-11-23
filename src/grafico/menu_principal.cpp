@@ -21,16 +21,16 @@
 namespace {
 using namespace Ui;
 // Com partida salva aparece mais um botão ("CONTINUAR") no topo.
-enum Opcao { CONTINUAR, JOGAR, COMO_JOGAR, ITENS, PONTUACAO, BESTIARIO_OPCAO, OPCOES_OPCAO, SAIR, NUM_OPCOES };
-const char* NOMES_DAS_OPCOES[NUM_OPCOES] = {"CONTINUAR","NOVO JOGO","COMO JOGAR","ITENS","PONTUAÇÃO","BESTIÁRIO","OPÇÕES","SAIR"};
+enum Opcao { CONTINUAR, JOGAR, COMO_JOGAR, ITENS, PONTUACAO, BESTIARIO_OPCAO, CONQUISTAS_OPCAO, OPCOES_OPCAO, SAIR, NUM_OPCOES };
+const char* NOMES_DAS_OPCOES[NUM_OPCOES] = {"CONTINUAR","NOVO JOGO","COMO JOGAR","ITENS","PONTUAÇÃO","BESTIÁRIO","CONQUISTAS","OPÇÕES","SAIR"};
 bool temSave = false;          // atualizado ao abrir o menu
 std::string resumoDoSave;
 int numBotoes() { return temSave ? NUM_OPCOES : NUM_OPCOES - 1; }
 // A opção do botão i (sem save, o primeiro botão já é "NOVO JOGO").
 int opcaoDoBotao(int i) { return temSave ? i : i + 1; }
 Rectangle botaoDoMenu(int i) {
-    // 7 botões com espaço de 57; com o CONTINUAR (8 botões) ficam mais juntos.
-    return temSave ? Rectangle{155,350.0f+i*52,390,45} : Rectangle{155,350.0f+i*57,390,49};
+    // 8 botões com espaço de 50; com o CONTINUAR (9 botões) ficam mais juntos.
+    return temSave ? Rectangle{155,346.0f+i*47,390,41} : Rectangle{155,350.0f+i*50,390,44};
 }
 
 bool clicou(Rectangle r) {
@@ -301,6 +301,7 @@ static int executar(int opcao) {
     if(opcao==ITENS) mostrarPagina("ITENS", textoDosItens());
     if(opcao==PONTUACAO) mostrarPagina("PONTUAÇÃO E RANKING", textoDaPontuacao());
     if(opcao==BESTIARIO_OPCAO) mostrarBestiario(nullptr);
+    if(opcao==CONQUISTAS_OPCAO) mostrarConquistas(nullptr);   // v1.26
     if(opcao==OPCOES_OPCAO) mostrarOpcoes();
     return -1;
 }
