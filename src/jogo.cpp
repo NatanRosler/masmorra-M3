@@ -811,11 +811,13 @@ static bool moverJogador(Jogo& jogo, int dx, int dy) {
     // Escadas, como no Brogue: andar para dentro delas troca de andar.
     TipoCelula destino = mapa.celulas[novoY][novoX];
     if (destino == ESCADA_DESCE) {
-        // v1.24.1: a escada de um andar de chefe só se pega por dentro da sala
-        // (nos saves da v1.24, às vezes ela encostava num corredor de fora).
-        const Andar& aqui = andarAtual(jogo);
-        if (aqui.salaDoChefe.existe && !dentroDaSalaDoChefe(aqui, j.x, j.y)) {
-            adicionarMensagem(jogo, "A escada está do outro lado da parede: o caminho é pela sala do chefe.");
+        // v1.25: a escada fica lacrada enquanto o mini-chefe do andar está
+        // vivo (vale também nos saves da v1.24, em que às vezes ela encostava
+        // num corredor de fora da sala).
+        int lacre = miniChefeQueLacraAEscada(andarAtual(jogo));
+        if (lacre >= 0) {
+            adicionarMensagem(jogo, "A escada está lacrada. Só se abre quando " +
+                              nomeComArtigoDoMonstro(andarAtual(jogo).monstros[lacre]) + " cair.");
             return false;
         }
         irParaAndar(jogo, jogo.andar + 1);
@@ -870,29 +872,17 @@ int escolherEmCaixa(const Jogo& jogo, const std::string& titulo,
 static bool abrirMochila(Jogo& jogo) {
     const Jogador& j = jogo.jogador;
     std::vector<int> tipos;
-    std::vector<std::string> opcoes, descricoes;
-    for (int i = 0; i < NUM_TIPOS_DE_ITEM; i++) {
-        if (j.mochila[i] <= 0) continue;
-        tipos.push_back(i);
-        if (i == I_CHAVE) {
-            // A chave é deste andar e não ocupa espaço.
-            opcoes.push_back("Chave do andar " + std::to_string(jogo.andar));
-            descricoes.push_back("Abre a porta trancada da sala do tesouro DESTE andar.  |  Não ocupa espaço na mochila.");
-            continue;
-        }
-        opcoes.push_back(std::string(TIPOS_DE_ITEM[i].nome) + "   " + std::to_string(j.mochila[i]) + "/" +
-                         std::to_string(limiteDoItem(j, i)));
-        descricoes.push_back(descricaoDoItem(j, i));
-    }
-    std::string arma = (j.arma != nullptr) ? j.arma->nome : "nenhuma";
-    std::string escudo = (j.escudo != nullptr) ? j.escudo->nome : "nenhum";
-    std::string titulo = "MOCHILA " + std::to_string(itensNaMochila(j)) + "/" + std::to_string(limiteDaMochila(j)) +
-                         "   (arma: " + arma + ", escudo: " + escudo + ")";
-    if (tipos.empty()) {
+    for (int i = 0; i < NUM_TIPOS_DE_ITEM; i++) if (j.mochila[i] > 0) tipos.push_back(i);
+    if (tipos.empty() && !mochilaMostraEquipamento()) {
+        std::string arma = (j.arma != nullptr) ? j.arma->nome : "nenhuma";
+        std::string escudo = (j.escudo != nullptr) ? j.escudo->nome : "nenhum";
         adicionarMensagem(jogo, "A mochila está vazia. (arma: " + arma + ", escudo: " + escudo + ")");
         return false;
     }
-    int escolha = escolherEmCaixa(jogo, titulo, opcoes, descricoes);
+    // v1.25: a tela da mochila fica com a tela (gráfica: desenhada, com o
+    // equipamento e os golpes; console: a lista de antes).
+    static int cursor = 0;
+    int escolha = escolherNaMochila(jogo, tipos, cursor);
     if (escolha < 0) return false;
     return usarItemForaDaBatalha(jogo, tipos[escolha]);
 }
@@ -914,6 +904,7 @@ void processarTecla(Jogo& jogo, int tecla) {
 
     // Telas de consulta não gastam tempo nem apagam as mensagens.
     if (tecla == '?') { esperarTecla(jogo, desenharAjuda); return; }
+    if (tecla == '\t') { alternarMapaInteiro(); return; }   // v1.25
     if (tecla == 'M') { esperarTecla(jogo, desenharHistorico); return; }
     if (tecla == 'c' || tecla == 'C') { jogo.descansando = false; abrirFicha(jogo); return; }
     if (tecla == 'e' || tecla == 'E') { jogo.descansando = false; mostrarBestiario(&jogo); return; }

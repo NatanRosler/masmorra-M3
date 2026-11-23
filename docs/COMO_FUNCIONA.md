@@ -1171,9 +1171,9 @@ não; contra o Rei e o Golem (Pedra), Água e Planta vencem quase sempre.
 
 - **Escada por fora da sala**: em metade das salas dos mini-chefes, a casa atrás
   da escada era chão de outra sala, e dava para descer sem enfrentar o
-  mini-chefe. Agora essa casa vira parede quando o andar é criado (ver acima) e,
-  para os andares que já estavam nos saves, a escada de um andar de chefe só
-  funciona para quem está dentro da sala.
+  mini-chefe. Agora essa casa vira parede quando o andar é criado (ver acima).
+  Para os andares que já estavam nos saves, a v1.24.1 só deixava pegar a escada
+  por dentro da sala; na v1.25 isso virou o lacre (abaixo).
 - **Baú mímico virava Necromante**: `tipoDoMimico()` contava com o mímico como
   "o penúltimo da tabela", mas os mini-chefes entraram no fim dela. O baú criava
   um Necromante, e como ele é mini-chefe, a luta puxava o mini-chefe do andar e
@@ -1227,3 +1227,48 @@ linha), e quem já o tinha aprendido subindo de nível perdia o pergaminho.
   mochila (dá para vender).
 - A descrição do pergaminho (mochila, venda, mochila cheia) mostra o golpe que
   ele ensinaria agora e o seguinte (`descricaoDoItem`, itens.cpp).
+
+## Escada lacrada, versão na tela, mapa, ficha e mochila (v1.25)
+
+- **A escada fica lacrada enquanto o mini-chefe está vivo** (andares 3, 6, 9 e
+  12; `miniChefeQueLacraAEscada` em `sala_do_chefe.cpp`). Dá para ver onde ela
+  está (apagada, com grades vermelhas e um cadeado; no console, um `#` vermelho),
+  mas não dá para descer: "A escada está lacrada. Só se abre quando o Rei Goblin
+  cair." Quando ele cai, a mensagem do prêmio avisa que o lacre se desfez e as
+  grades sobem e somem (menos de um segundo).
+- Isso substitui a trava da v1.24.1 (só descer por dentro da sala): vale também
+  no caso raro em que a sala não cabe no andar e nos andares criados pela v1.24,
+  em que a escada às vezes encostava num corredor de fora. Depois que o chefe
+  cai, tanto faz por onde se chega na escada.
+- **Versão na tela**: `src/versao.h` guarda a versão (`VERSAO_DO_JOGO`), que
+  aparece no canto da tela de início, no título da janela e no menu do console.
+  Serve para saber qual .exe está aberto. A cada versão nova, ela tem que ser
+  atualizada (a mesma que vai no campo `versao` do Actions).
+- **Mapa** (`MapaDoAndar` em `grafico/tela_grafica.cpp`): o mini-mapa fica no
+  cartão do andar (andar e tema em cima, o mapa no meio, moedas e pontos
+  embaixo), 3,5 pixels por casa. O `Tab` mostra o mapa inteiro grande, com
+  legenda, ao lado do painel de detalhes: segurado, aparece enquanto o Tab
+  estiver apertado; um toque rápido (menos de 0,3 s) deixa aberto até o próximo
+  toque ou até o jogador andar (o jogo continua correndo por trás). Só aparece
+  o que o jogador já descobriu; itens, só os que ele já viu; monstros, só os que
+  estão à vista agora. Escada de descer dourada (vermelha se lacrada), de subir
+  cinza-azulada, portas, loja, sala do chefe, pessoas, fontes/altares/baús.
+  No console (`alternarMapaInteiro`), o Tab alterna entre a câmera com zoom 2x
+  e o andar inteiro, uma coluna por casa (79 colunas cabem nas 80).
+- **Painel do Tab** (`painelCompleto`): o nível num selo com a barra de
+  experiência, a vida numa barra com o número dentro, as vidas em corações e a
+  partida em quadrinhos com ícone (tempo, passos, moedas, mochila, monstros
+  vencidos, itens pegos). Os ícones simples estão em `Icones`.
+- **Ficha** (tecla C, `Ficha` e `escolherNaFicha`): à esquerda, o personagem,
+  o nível, a experiência, a vida e as vidas; à direita, os 4 atributos em
+  cartões com um botão "+" (Enter, `+` ou clique gastam um ponto) e, embaixo,
+  "O que eles dão" (ataque, defesa, vida, velocidade, precisão, esquiva e
+  crítico). O atributo marcado acende os números que aumenta e mostra em verde
+  quanto cada um sobe com mais um ponto (calculado numa cópia do jogador com
+  `recalcularAtributos`). No console, a ficha continua sendo a lista.
+- **Mochila** (tecla i, `Mochila` e `escolherNaMochila`): à esquerda, a arma e o
+  escudo equipados (bônus, elemento da arma, chance de bloqueio do escudo) e os
+  golpes (elemento, efeito, poder, precisão e PP com barrinha); à direita, os
+  itens em quadrinhos (desenho, nome, quantos tem) e a descrição do marcado,
+  com a ação ("Enter: beber / equipar / ler / usar"). Abre mesmo com a mochila
+  vazia (para ver o equipamento e os golpes). No console, continua a lista.

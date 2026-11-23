@@ -37,6 +37,10 @@ bool dentroDaSalaDoChefe(const Andar& andar, int x, int y);
 // Índice do chefe vivo da sala (mini-chefe ou o chefe final), ou -1.
 int chefeDaSala(const Andar& andar);
 
+// v1.25: a escada de descer fica lacrada enquanto o mini-chefe do andar está
+// vivo. Devolve o índice dele (-1 = a escada está livre).
+int miniChefeQueLacraAEscada(const Andar& andar);
+
 // Enfeite "sólido" (trono, coluna, forja...): ninguém passa por cima.
 bool enfeiteSolido(char enfeite);
 

@@ -354,6 +354,11 @@ static const Monstro* monstroVisivelMaisProximo(const Jogo& jogo) {
     return melhor;
 }
 
+// v1.25: o Tab alterna entre o mapa com zoom 2x (a câmera em volta do
+// jogador) e o andar inteiro, uma coluna por célula (79 colunas cabem nas 80).
+static bool mostrarMapaInteiro = false;
+void alternarMapaInteiro() { mostrarMapaInteiro = !mostrarMapaInteiro; }
+
 void desenharJogo(const Jogo& jogo) {
     Pincel p;
     p.saida = ajustarAoTamanhoDaJanela();
@@ -373,6 +378,8 @@ void desenharJogo(const Jogo& jogo) {
     const Andar& andar = jogo.andares[jogo.andar - 1];
     int cameraX, cameraY;
     posicaoDaCamera(jogo, cameraX, cameraY);
+    int colunasDoMapa = CAMERA_LARGURA;
+    if (mostrarMapaInteiro) { cameraX = 0; cameraY = 0; colunasDoMapa = MAPA_LARGURA; }
 
     // Tabela rápida: que monstro está em cada célula (-1 = nenhum).
     static int monstroNaCelula[MAPA_ALTURA][MAPA_LARGURA];
@@ -394,7 +401,7 @@ void desenharJogo(const Jogo& jogo) {
 
     for (int linha = 0; linha < CAMERA_ALTURA; linha++) {
         p.irPara(linha + 2, 2); // coluna 2: sobra 1 coluna de cada lado (1 + 78 + 1)
-        for (int coluna = 0; coluna < CAMERA_LARGURA; coluna++) {
+        for (int coluna = 0; coluna < colunasDoMapa; coluna++) {
             // Converte a posição na tela para a posição no mapa.
             int x = cameraX + coluna;
             int y = cameraY + linha;
@@ -404,6 +411,12 @@ void desenharJogo(const Jogo& jogo) {
 
             if (dentroDoMapa(x, y)) {
                 Aparencia a = aparenciaDaCelula(mapa, x, y, temaDoAndar(jogo.andar));
+                // v1.25: escada lacrada (mini-chefe vivo): grade vermelha.
+                if (mapa.celulas[y][x] == ESCADA_DESCE && miniChefeQueLacraAEscada(andar) >= 0) {
+                    a.simbolo = '#';
+                    a.frente = { 230, 90, 80 };
+                    a.fundo = { 80, 20, 20 };
+                }
                 // Lojinha do comerciante: tapete vinho no chão.
                 if (andar.zonaSegura[y][x] && mapa.celulas[y][x] == CHAO) {
                     a.simbolo = ':';
@@ -475,7 +488,7 @@ void desenharJogo(const Jogo& jogo) {
             // o mesmo fundo). Como as letras do terminal são mais altas que
             // largas, assim a célula fica quase quadrada.
             p.letra(simbolo, cor);
-            p.letra(' ', cor);
+            if (!mostrarMapaInteiro) p.letra(' ', cor);
         }
     }
 
@@ -509,7 +522,8 @@ void desenharJogo(const Jogo& jogo) {
 
     // Linha 24: lembrete de comandos
     p.irPara(24, 1);
-    p.texto(ajustarLargura(" setas/hjkl: mover  i: mochila  C: ficha  E: bestiário  Z: descansar  ?: ajuda",
+    p.texto(ajustarLargura(mostrarMapaInteiro ? " MAPA INTEIRO (Tab: voltar ao zoom)  i: mochila  C: ficha  ?: ajuda"
+                                              : " mover  i: mochila  C: ficha  E: bestiário  Z: descansar  Tab: mapa  ?: ajuda",
                            TELA_COLUNAS - 1), COR_DICA);
 
     p.saida += ansiResetar();
@@ -557,13 +571,14 @@ void desenharAjuda(const Jogo& jogo) {
         "Furtivo        f  (liga/desliga: lento, silencioso, ataque surpresa)",
         "Mochila        i          Ficha (atributos)   C",
         "Mensagens      M          Bestiário  E     Sair  Q",
+        "Mapa inteiro   Tab        (de novo: volta ao zoom)",
         "",
         "Na batalha: setas escolhem, Enter confirma, Esc volta.",
         "Pegue monstros dormindo: eles começam a luta dormindo.",
         "Escadas: ande para dentro de  >  (desce, dourada)  ou  <  (sobe, cinza)",
         "Itens: ! poção ) arma ] escudo * cristal ? pergaminho - chave ( suporte",
         "Mapa:   = caixa (empurre num monstro: atordoa; pode ter item)",
-        "        ^ armadilha   & pessoa (converse)",
+        "        ^ armadilha   & pessoa   # vermelho: escada lacrada pelo chefe",
         "",
         "Semente desta partida: " + semente,
         "Para jogar a mesma masmorra:  masmorra " + semente,
@@ -1272,4 +1287,53 @@ void falaDoChefeNaBatalha(const Jogo& jogo, const Batalha& b, int inimigo, const
 
 void mostrarFinal(const Jogo&, const std::vector<std::string>& linhas) {
     mostrarPagina("VALDORIA ESTÁ LIVRE", linhas);
+}
+
+// v1.25: a ficha no console continua sendo a lista de atributos.
+int escolherNaFicha(const Jogo& jogo, int& cursor) {
+    const Jogador& j = jogo.jogador;
+    std::vector<std::string> opcoes, descricoes;
+    std::string resumo = "Ataque " + std::to_string(j.ataque) + "  Defesa " + std::to_string(j.defesa) +
+                         "  Vida " + std::to_string(j.vidaMaxima) + "  Velocidade " + std::to_string(j.velocidade) +
+                         "  Precisão +" + std::to_string(j.precisaoExtra) + "%  Esquiva " +
+                         std::to_string(j.esquiva) + "%  Crítico " + std::to_string(6 + j.criticoExtra) + "%";
+    for (int a = 0; a < NUM_ATRIBUTOS; a++) {
+        // Alinha os números: conta letras, não bytes ("ç" e "ã" ocupam 2 bytes).
+        std::string nome = NOMES_DOS_ATRIBUTOS[a];
+        int letras = 0;
+        for (unsigned char ch : nome) if ((ch & 0xC0) != 0x80) letras++;
+        nome += std::string(letras < 16 ? 16 - letras : 1, ' ');
+        opcoes.push_back(nome + std::to_string(j.atributos[a]) + (j.pontosLivres > 0 ? "   [+]" : ""));
+        descricoes.push_back(std::string(EFEITOS_DOS_ATRIBUTOS[a]) + "  |  " + resumo);
+    }
+    std::string titulo = "FICHA DE " + j.nome + "   (" + NOMES_DOS_ELEMENTOS[j.elemento] + ")   pontos livres: " +
+                         std::to_string(j.pontosLivres);
+    int escolha = escolherEmCaixa(jogo, titulo, opcoes, descricoes);
+    if (escolha >= 0) cursor = escolha;
+    return escolha;
+}
+
+// v1.25: a mochila no console continua sendo a lista de itens.
+bool mochilaMostraEquipamento() { return false; }
+int escolherNaMochila(const Jogo& jogo, const std::vector<int>& tipos, int& cursor) {
+    const Jogador& j = jogo.jogador;
+    std::vector<std::string> opcoes, descricoes;
+    for (int i : tipos) {
+        if (i == I_CHAVE) {
+            // A chave é deste andar e não ocupa espaço.
+            opcoes.push_back("Chave do andar " + std::to_string(jogo.andar));
+            descricoes.push_back("Abre a porta trancada da sala do tesouro DESTE andar.  |  Não ocupa espaço na mochila.");
+            continue;
+        }
+        opcoes.push_back(std::string(TIPOS_DE_ITEM[i].nome) + "   " + std::to_string(j.mochila[i]) + "/" +
+                         std::to_string(limiteDoItem(j, i)));
+        descricoes.push_back(descricaoDoItem(j, i));
+    }
+    std::string arma = (j.arma != nullptr) ? j.arma->nome : "nenhuma";
+    std::string escudo = (j.escudo != nullptr) ? j.escudo->nome : "nenhum";
+    std::string titulo = "MOCHILA " + std::to_string(itensNaMochila(j)) + "/" + std::to_string(limiteDaMochila(j)) +
+                         "   (arma: " + arma + ", escudo: " + escudo + ")";
+    int escolha = escolherEmCaixa(jogo, titulo, opcoes, descricoes, cursor);
+    if (escolha >= 0) cursor = escolha;
+    return escolha;
 }

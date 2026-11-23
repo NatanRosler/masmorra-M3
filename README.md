@@ -29,10 +29,10 @@ extraia. Não é preciso instalar nada.
 | Andar | setas, `W` `A` `S` `D`, `H` `J` `K` `L`, teclado numérico |
 | Diagonais | `Y` `U` `B` `N`, Home / PgUp / End / PgDn |
 | Batalhar | ande na direção do monstro |
-| Mochila (usar / equipar) | `I` |
-| Ficha (distribuir pontos de atributo) | `C` |
+| Mochila (equipamento, golpes e itens; usar / equipar) | `I` |
+| Ficha (atributos e o que eles dão; distribuir pontos) | `C` |
 | Bestiário (monstros já encontrados) | `E` |
-| Todos os detalhes (vida, atributos, estatísticas) | segure `Tab` (versão gráfica) |
+| Mapa inteiro e todos os detalhes | `Tab` segurado, ou um toque para deixar aberto (no console, alterna o mapa inteiro) |
 | Zoom do mapa | roda do mouse, `+` e `-` (versão gráfica; também em Opções) |
 | Empurrar caixa / conversar | ande na direção dela / da pessoa |
 | Descansar | `Z`: recupera vida (mais rápido a cada 5 níveis; qualquer tecla para) |
@@ -81,6 +81,7 @@ src/
 | `src/opcoes.h/.cpp` | Opções (volumes de música, efeitos e ambiente, tela cheia, zoom, animações, velocidade do texto, batalha automática, dicas) gravadas em `opcoes.txt` |
 | `src/bestiario.h/.cpp` | Bestiário: monstros já vistos e vencidos, gravado em `bestiario.txt` (v1.18) |
 | `src/salas.h/.cpp` | Salas especiais: fonte, altar de sangue, baú dourado (mímico), arena e o viajante perdido |
+| `src/versao.h` | A versão do jogo, que aparece na tela de início e no título da janela (atualize a cada versão nova) |
 | `src/sala_do_chefe.h/.cpp` | Salas feitas à mão dos mini-chefes e do chefe final: o desenho, onde cabem no andar, a vida e os prêmios (v1.24) |
 | `src/tema.h/.cpp` | Temas dos andares: minas, caverna alagada (poças), cripta (lápides, v1.23), vulcão (lava) e sala do trono |
 | `src/salvar.h/.cpp` | Salvar e continuar a partida (arquivo binário `save.dat`) |

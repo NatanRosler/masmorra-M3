@@ -1,5 +1,6 @@
 // Substitui apenas o terminal por entrada/saída da raylib. As regras do jogo
 // continuam nos arquivos jogo.cpp, batalha.cpp, monstros.cpp, itens.cpp etc.
+#include "versao.h"
 #include "terminal.h"
 #include "visual.h"
 #include "audio.h"
@@ -60,7 +61,7 @@ void irParaAPastaDoPrograma() {
 }
 void iniciarTerminal() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
-    InitWindow(Ui::LARGURA, Ui::ALTURA, "MASMORRA | Exploracao original em 2D");
+    InitWindow(Ui::LARGURA, Ui::ALTURA, "MASMORRA v" VERSAO_DO_JOGO " | Exploracao original em 2D");
     SetWindowMinSize(960,600);
     Ui::aplicarIconeDaJanela();
     SetExitKey(KEY_NULL); // Esc é usada nos menus; fechar pela janela continua funcionando.

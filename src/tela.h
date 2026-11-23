@@ -47,6 +47,22 @@ void cenaDaCorneta(const Jogo& jogo, int gnomo, bool primeira);
 void cenaDoChefe(const Jogo& jogo, int chefe, const std::vector<std::string>& falas, bool primeira);
 // v1.24: entrou na sala de um mini-chefe: o portão fecha, ele e os ajudantes
 // acordam, aparece o nome dele e a fala (na primeira vez; depois, curta).
+// v1.25: a ficha (tecla C). Mostra os atributos e o que eles dão; devolve o
+// atributo escolhido para ganhar um ponto, ou -1 para fechar. "cursor" guarda
+// o atributo marcado entre uma chamada e outra.
+int escolherNaFicha(const Jogo& jogo, int& cursor);
+
+// v1.25: a mochila (tecla i). "tipos" são os itens que o jogador tem; devolve
+// a posição do escolhido em "tipos" (para usar/equipar) ou -1 para fechar.
+// A versão gráfica mostra também o equipamento e os golpes (e abre mesmo com a
+// mochila vazia); a do console é a lista de antes.
+int escolherNaMochila(const Jogo& jogo, const std::vector<int>& tipos, int& cursor);
+bool mochilaMostraEquipamento();
+
+// v1.25: o Tab no console alterna entre o mapa com zoom e o andar inteiro
+// (na versão gráfica, o Tab é lido direto do teclado e isto não faz nada).
+void alternarMapaInteiro();
+
 void cenaDoMiniChefe(const Jogo& jogo, int chefe, bool primeira);
 // O chefe fala no meio da batalha (na fúria e ao cair). inimigo: 0 a 2.
 void falaDoChefeNaBatalha(const Jogo& jogo, const Batalha& b, int inimigo, const std::string& fala);

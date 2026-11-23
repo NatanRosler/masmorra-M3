@@ -153,6 +153,13 @@ int chefeDaSala(const Andar& a) {
     return -1;
 }
 
+int miniChefeQueLacraAEscada(const Andar& andar) {
+    for (int i = 0; i < andar.numMonstros; i++)
+        if (andar.monstros[i].vivo && (tipoDe(andar.monstros[i]).especial & MINI_CHEFE)) return i;
+    return -1;
+}
+
+
 // -----------------------------------------------------------------------------
 // ONDE A SALA CABE
 // -----------------------------------------------------------------------------
@@ -577,5 +584,8 @@ void recompensaDoMiniChefe(Jogo& jogo, const Monstro& m) {
         if (TIPOS_DE_ITEM[PREMIOS[sala][k]].categoria != CRISTAL)
             adicionarMensagem(jogo, "Você pegou " + nomeComArtigo(PREMIOS[sala][k]) + ".", MSG_BOA);
     }
-    adicionarMensagem(jogo, "O portão se abre. A escada atrás dele leva ao próximo andar.", MSG_BOA);
+    // v1.25: com ele caído, o lacre da escada some (ver miniChefeQueLacraAEscada).
+    adicionarMensagem(jogo, andarAtual(jogo).salaDoChefe.existe
+                                ? "O portão se abre e o lacre da escada se desfaz: o caminho para o próximo andar está livre."
+                                : "O lacre da escada se desfaz: o caminho para o próximo andar está livre.", MSG_BOA);
 }

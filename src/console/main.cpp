@@ -8,6 +8,7 @@
 //   2. espera uma tecla por no máximo 50 ms
 //   3. executa a ação e faz o tempo do mapa andar (os monstros se mexem)
 // -----------------------------------------------------------------------------
+#include "versao.h"
 #include "terminal.h"
 #include "tela.h"
 #include "jogo.h"
@@ -74,7 +75,7 @@ static int menuPrincipal() {
     int total = (int)opcoes.size();
     int cursor = 0;
     while (true) {
-        desenharAviso("  MASMORRA  -  um roguelike nas profundezas de Valdoria", "");
+        desenharAviso("  MASMORRA v" VERSAO_DO_JOGO "  -  um roguelike nas profundezas de Valdoria", "");
         desenharMenuEmCaixa("MENU PRINCIPAL", opcoes, descricoes[cursor], cursor);
         int t = lerTecla();
         if (t == TECLA_CIMA || t == 'k') cursor = (cursor + total - 1) % total;
@@ -107,7 +108,7 @@ static void menuDeOpcoes() {
             "Apaga os monstros já encontrados (o bestiário volta a ficar cheio de \"???\").",
             "Volta ao menu principal.",
         };
-        desenharAviso("  MASMORRA  -  um roguelike nas profundezas de Valdoria", "");
+        desenharAviso("  MASMORRA v" VERSAO_DO_JOGO "  -  um roguelike nas profundezas de Valdoria", "");
         desenharMenuEmCaixa("OPÇÕES", itens, aviso.empty() ? descricoes[cursor] : aviso, cursor);
         int t = lerTecla();
         if (t == TECLA_REDIMENSIONOU) continue;

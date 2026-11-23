@@ -217,24 +217,10 @@ void ganharPontosDeAtributo(Jogo& jogo, int quantos) {
 
 void abrirFicha(Jogo& jogo) {
     Jogador& j = jogo.jogador;
+    int cursor = 0;
     while (true) {
-        std::vector<std::string> opcoes, descricoes;
-        std::string resumo = "Ataque " + std::to_string(j.ataque) + "  Defesa " + std::to_string(j.defesa) +
-                             "  Vida " + std::to_string(j.vidaMaxima) + "  Velocidade " + std::to_string(j.velocidade) +
-                             "  Precisão +" + std::to_string(j.precisaoExtra) + "%  Esquiva " +
-                             std::to_string(j.esquiva) + "%  Crítico " + std::to_string(6 + j.criticoExtra) + "%";
-        for (int a = 0; a < NUM_ATRIBUTOS; a++) {
-            // Alinha os números: conta letras, não bytes ("ç" e "ã" ocupam 2 bytes).
-            std::string nome = NOMES_DOS_ATRIBUTOS[a];
-            int letras = 0;
-            for (unsigned char ch : nome) if ((ch & 0xC0) != 0x80) letras++;
-            nome += std::string(letras < 16 ? 16 - letras : 1, ' ');
-            opcoes.push_back(nome + std::to_string(j.atributos[a]) + (j.pontosLivres > 0 ? "   [+]" : ""));
-            descricoes.push_back(std::string(EFEITOS_DOS_ATRIBUTOS[a]) + "  |  " + resumo);
-        }
-        std::string titulo = "FICHA DE " + j.nome + "   (" + NOMES_DOS_ELEMENTOS[j.elemento] + ")   pontos livres: " +
-                             std::to_string(j.pontosLivres);
-        int escolha = escolherEmCaixa(jogo, titulo, opcoes, descricoes);
+        // v1.25: a tela da ficha fica com a tela (gráfica: desenhada; console: lista).
+        int escolha = escolherNaFicha(jogo, cursor);
         if (escolha < 0) return;
         if (j.pontosLivres <= 0) {
             adicionarMensagem(jogo, "Você não tem pontos para distribuir. Suba de nível para ganhar mais.");

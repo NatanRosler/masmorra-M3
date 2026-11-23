@@ -9,6 +9,7 @@
 #include "som.h"
 #include "efeitos.h"
 #include "salvar.h"
+#include "versao.h"
 #include "opcoes.h"
 #include "dicas.h"
 #include "tela.h"
@@ -66,6 +67,8 @@ void titulo() {
     fundoEstrelado();
     texto("MASMORRA",145,91,76,OURO);
     texto("UMA AVENTURA PELA ESCURIDAO",152,188,23,CIANO);
+    std::string versao="v" VERSAO_DO_JOGO;   // v1.25: para saber qual .exe está aberto
+    texto(versao,1275-larguraDoTexto(versao,20),193,20,{120,135,160,255});
     DrawLineEx({150,242},{1275,242},2,{66,107,126,255});
 }
 void inicio(int cursor) {
