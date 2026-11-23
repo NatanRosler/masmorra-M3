@@ -1105,9 +1105,13 @@ escada de descer do andar fica dentro da sala deles, atrás deles:
   (e, por último, só os caminhos até itens, NPCs, salas especiais e o tesouro
   precisam continuar abertos). Monstros e itens que estavam dentro mudam de
   lugar (a chave nunca some); a escada antiga vira parede.
-- Testado em 300 partidas (1500 salas): a sala coube em 1498; em 0 casos algo
-  ficou sem caminho. Quando não cabe (raríssimo), o mini-chefe fica parado na
-  frente da escada antiga, com os ajudantes do lado, e continua obrigatório.
+- A casa do lado de fora, bem atrás da escada, vira parede (v1.24.1; antes, em
+  metade das salas ela encostava num corredor e dava para descer sem passar
+  pelo portão). O corredor do portão nunca fura essa parede.
+- Testado em 1500 partidas (7500 salas): a sala coube em 7490; em 0 casos algo
+  ficou sem caminho ou dava para chegar na escada por fora. Quando não cabe
+  (raríssimo), o mini-chefe fica parado na frente da escada antiga (que só tem
+  uma entrada), com os ajudantes do lado, e continua obrigatório.
 - **Na sala** (`conferirSalaDoChefe` em `jogo.cpp`): ao entrar, o portão desce
   atrás do jogador (`Jogo::portaoFechado`, não vai no save), a cena mostra o
   mini-chefe e os ajudantes acordando (os esqueletos saem de dentro da terra),
@@ -1162,3 +1166,64 @@ não; contra o Rei e o Golem (Pedra), Água e Planta vencem quase sempre.
 - **Console**: o portão é `|` (fechado, `#`), os enfeites viram letras
   coloridas (`$` ouro, `W` trono, `0` casulo, `I` coluna...) e a cena é uma
   página de texto.
+
+## Correções (v1.24.1)
+
+- **Escada por fora da sala**: em metade das salas dos mini-chefes, a casa atrás
+  da escada era chão de outra sala, e dava para descer sem enfrentar o
+  mini-chefe. Agora essa casa vira parede quando o andar é criado (ver acima) e,
+  para os andares que já estavam nos saves, a escada de um andar de chefe só
+  funciona para quem está dentro da sala.
+- **Baú mímico virava Necromante**: `tipoDoMimico()` contava com o mímico como
+  "o penúltimo da tabela", mas os mini-chefes entraram no fim dela. O baú criava
+  um Necromante, e como ele é mini-chefe, a luta puxava o mini-chefe do andar e
+  os ajudantes junto. Agora o mímico é procurado pelo símbolo (`M`). Ao carregar
+  um save, todo mini-chefe que não é o do andar (ou que está fora da sala dele)
+  volta a ser mímico.
+- **Itens "de graça" na loja**: a tabela de preços (`loja.cpp`) tinha parado nos
+  itens da v1.17; as 4 armas e os 5 pergaminhos da v1.23 ficaram com preço 0.
+  No andar 3, o Garro oferece a arma do elemento do jogador: para Gelo, Raio,
+  Trevas e Luz ela aparecia por 0 moedas e não dava para comprar (nem vender).
+  Agora as armas custam 45 e os pergaminhos 35, como os outros, e um
+  `static_assert` impede compilar se faltar o preço de algum item.
+
+**Golpes dos monstros respeitam o elemento** (`golpesDoMonstro`, monstros.cpp).
+O elemento de cada espécie é sorteado a cada partida, mas só o primeiro golpe
+"simples" virava desse elemento; os outros golpes de dano continuavam com o
+elemento de fábrica (um kobold de Gelo soltava Brasa). Agora:
+
+- Golpe de dano de outro elemento vira o golpe do elemento do monstro com o
+  poder mais parecido (`golpeParecido`), sem repetir golpe.
+- Ficam como estão: os golpes Normal (Mordida, Investida, Arranhão...), os
+  golpes sem dano (Teia, Esporos, Hipnose, Rosnado) e 3 golpes próprios das
+  espécies: Ferrão Venenoso (aranha, goblin, naga), Esmagar (ogro, mímico) e
+  Ácido (fungo). Na prática trocam a Brasa do kobold, a Folha Navalha do macaco
+  e a Brasa e a Labareda da salamandra (16% das combinações de espécie e
+  elemento).
+- **Sem aumento de dano**: o golpe trocado não ganha o bônus do próprio elemento
+  (`Lutador::semBonusDoElemento`). Somando poder x bônus dos golpes de todas as
+  espécies em todos os elementos, a diferença é de -0,2%; muda só contra quem
+  cada golpe é forte ou fraco.
+- Os chefes e mini-chefes não mudam (foram ajustados com as simulações).
+- Também corrigido: o golpe "simples" que vira do elemento às vezes repetia um
+  que a espécie já tinha (kobold de Fogo com duas Brasas, salamandra de Fogo com
+  duas Labaredas); agora entra outro golpe do mesmo elemento.
+
+**Pergaminhos seguem a sequência do elemento** (`proximoGolpeDaSequencia`,
+batalha.cpp). Antes cada pergaminho ensinava sempre o mesmo golpe (o primeiro da
+linha), e quem já o tinha aprendido subindo de nível perdia o pergaminho.
+
+- A sequência de cada elemento é o golpe inicial e a linha (a tabela de golpes
+  da v1.23). Na de Planta, o Pó do Sono (que era o golpe do pergaminho de
+  Planta) entrou logo depois do Chicote de Vinha.
+- O pergaminho ensina o golpe que vem depois do mais adiantado que o jogador sabe
+  naquele elemento (quem esqueceu um golpe para abrir espaço não o recebe de
+  volta). Um jogador de Gelo com Rajada e Armadura aprende Nevasca; o primeiro
+  pergaminho de Fogo dele ensina Tocha, o segundo Labareda.
+- Subir de nível (12, 24 e 30) também dá o próximo da sequência: se um
+  pergaminho adiantou a linha, o nível dá o seguinte (o golpe inicial e o Pó do
+  Sono são pulados). Sem pergaminho, tudo fica como antes.
+- Já sabe todos: "Você já sabe todos os golpes de Gelo", e o pergaminho fica na
+  mochila (dá para vender).
+- A descrição do pergaminho (mochila, venda, mochila cheia) mostra o golpe que
+  ele ensinaria agora e o seguinte (`descricaoDoItem`, itens.cpp).

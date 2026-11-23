@@ -240,6 +240,20 @@ char letra(int tipo, int x, int y, bool invertida) {
     return SALAS[tipo][invertida ? altura(tipo) - 1 - y : y][x];
 }
 
+// A casa do lado de fora, bem atrás da escada (v1.24.1): vira parede, senão
+// daria para chegar na escada por fora, sem passar pelo portão. Devolve false
+// se a sala não tem escada (o salão do trono).
+bool atrasDaEscada(int tipo, int ox, int oy, bool invertida, int& bx, int& by) {
+    const char* linha = SALAS[tipo][0];   // a escada fica na linha de cima do desenho
+    for (int x = 0; linha[x]; x++) {
+        if (linha[x] != '>') continue;
+        bx = ox + x;
+        by = invertida ? oy + altura(tipo) : oy - 1;
+        return true;
+    }
+    return false;
+}
+
 // Põe o desenho da sala no mapa (sem os monstros).
 void desenharSala(Mapa& m, int tipo, int ox, int oy, bool invertida) {
     for (int y = 0; SALAS[tipo][y]; y++) {
@@ -263,7 +277,7 @@ void desenharSala(Mapa& m, int tipo, int ox, int oy, bool invertida) {
 // caminho (para medir a distância até a chegada).
 bool abrirCorredor(Mapa& m, int gx, int gy, int dy, int ox, int oy, int w, int h,
                    const bool prot[MAPA_ALTURA][MAPA_LARGURA], const int dChegada[MAPA_ALTURA][MAPA_LARGURA],
-                   int& fimX, int& fimY) {
+                   int tapadoX, int tapadoY, int& fimX, int& fimY) {
     static int pai[MAPA_ALTURA][MAPA_LARGURA];
     for (auto& linha : pai) for (int& v : linha) v = -1;
     auto naSala = [&](int x, int y) { return x >= ox && x < ox + w && y >= oy && y < oy + h; };
@@ -281,6 +295,7 @@ bool abrirCorredor(Mapa& m, int gx, int gy, int dy, int ox, int oy, int w, int h
             int nx = x + DIRECOES_DX[k], ny = y + DIRECOES_DY[k];
             if (nx < 1 || ny < 1 || nx >= MAPA_LARGURA - 1 || ny >= MAPA_ALTURA - 1) continue;
             if (pai[ny][nx] != -1 || naSala(nx, ny) || prot[ny][nx]) continue;
+            if (nx == tapadoX && ny == tapadoY) continue;   // atrás da escada (fica parede)
             TipoCelula c = m.celulas[ny][nx];
             // Não fura escadas nem a porta trancada do tesouro.
             if (c == ESCADA_SOBE || c == ESCADA_DESCE || c == PORTA_TRANCADA) continue;
@@ -367,12 +382,22 @@ bool carimbarSalaDoChefe(Jogo& jogo, Andar& a, int numeroDoAndar, uint32_t semen
             if (!pode) continue;
             teste = a.mapa;
             desenharSala(teste, tipo, ox, oy, invertida);
+            int bx = -1, by = -1;
+            if (atrasDaEscada(tipo, ox, oy, invertida, bx, by)) {
+                TipoCelula cb = teste.celulas[by][bx];
+                if (cb != PAREDE && cb != TOCHA) {
+                    if (prot[by][bx] || cb == ESCADA_SOBE || cb == PORTA_TRANCADA) continue;
+                    teste.celulas[by][bx] = PAREDE;
+                }
+            }
             int gx = ox + W / 2, gy = invertida ? oy : oy + H - 1, fora = invertida ? -1 : 1, fimX, fimY;
-            if (!abrirCorredor(teste, gx, gy, fora, ox, oy, W, H, prot, dChegada, fimX, fimY)) continue;
+            if (!abrirCorredor(teste, gx, gy, fora, ox, oy, W, H, prot, dChegada, bx, by, fimX, fimY)) continue;
             // Nenhum caminho que existia pode ter ficado fechado (no rigor 2,
             // só os caminhos até as coisas importantes).
             distancias(teste, a.escadas.chegadaSobeX, a.escadas.chegadaSobeY, depois);
-            auto naSala = [&](int x, int y) { return x >= ox && x < ox + W && y >= oy && y < oy + H; };
+            auto naSala = [&](int x, int y) {
+                return (x >= ox && x < ox + W && y >= oy && y < oy + H) || (x == bx && y == by);
+            };
             if (rigor < 2) {
                 for (int y = 0; y < MAPA_ALTURA && pode; y++)
                     for (int x = 0; x < MAPA_LARGURA && pode; x++)
@@ -420,8 +445,13 @@ bool carimbarSalaDoChefe(Jogo& jogo, Andar& a, int numeroDoAndar, uint32_t semen
     s.existe = true; s.tipo = tipo; s.x = ox; s.y = oy; s.largura = W; s.altura = H;
     s.invertida = invertida;
     s.portaoX = ox + W / 2; s.portaoY = invertida ? oy : oy + H - 1;
+    int tapadoX = -1, tapadoY = -1;
+    if (atrasDaEscada(tipo, ox, oy, invertida, tapadoX, tapadoY)) {
+        a.mapa.celulas[tapadoY][tapadoX] = PAREDE;
+        a.conteudoDasCaixas[tapadoY][tapadoX] = -1;
+    }
     int fimX, fimY;
-    abrirCorredor(a.mapa, s.portaoX, s.portaoY, invertida ? -1 : 1, ox, oy, W, H, prot, dChegada, fimX, fimY);
+    abrirCorredor(a.mapa, s.portaoX, s.portaoY, invertida ? -1 : 1, ox, oy, W, H, prot, dChegada, tapadoX, tapadoY, fimX, fimY);
     int chefeX = ox + W / 2, chefeY = oy + 2;
     std::vector<std::pair<int,int>> ajudantes;
     for (int y = 0; y < H; y++) {
@@ -449,7 +479,9 @@ bool carimbarSalaDoChefe(Jogo& jogo, Andar& a, int numeroDoAndar, uint32_t semen
     // O que estava dentro da sala muda de lugar (monstros e itens; a chave
     // não pode sumir) ou some (armadilhas).
     distancias(a.mapa, a.escadas.chegadaSobeX, a.escadas.chegadaSobeY, depois);
-    auto naSala = [&](int x, int y) { return x >= ox && x < ox + W && y >= oy && y < oy + H; };
+    auto naSala = [&](int x, int y) {
+        return (x >= ox && x < ox + W && y >= oy && y < oy + H) || (x == tapadoX && y == tapadoY);
+    };
     for (int i = 0; i < a.numMonstros; i++) {
         Monstro& m = a.monstros[i];
         if (!m.vivo || (tipoDe(m).especial & CHEFE) || m.guarda) continue;

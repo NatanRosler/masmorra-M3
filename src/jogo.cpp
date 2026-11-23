@@ -811,6 +811,13 @@ static bool moverJogador(Jogo& jogo, int dx, int dy) {
     // Escadas, como no Brogue: andar para dentro delas troca de andar.
     TipoCelula destino = mapa.celulas[novoY][novoX];
     if (destino == ESCADA_DESCE) {
+        // v1.24.1: a escada de um andar de chefe só se pega por dentro da sala
+        // (nos saves da v1.24, às vezes ela encostava num corredor de fora).
+        const Andar& aqui = andarAtual(jogo);
+        if (aqui.salaDoChefe.existe && !dentroDaSalaDoChefe(aqui, j.x, j.y)) {
+            adicionarMensagem(jogo, "A escada está do outro lado da parede: o caminho é pela sala do chefe.");
+            return false;
+        }
         irParaAndar(jogo, jogo.andar + 1);
         return true;
     }
@@ -875,7 +882,7 @@ static bool abrirMochila(Jogo& jogo) {
         }
         opcoes.push_back(std::string(TIPOS_DE_ITEM[i].nome) + "   " + std::to_string(j.mochila[i]) + "/" +
                          std::to_string(limiteDoItem(j, i)));
-        descricoes.push_back(TIPOS_DE_ITEM[i].descricao);
+        descricoes.push_back(descricaoDoItem(j, i));
     }
     std::string arma = (j.arma != nullptr) ? j.arma->nome : "nenhuma";
     std::string escudo = (j.escudo != nullptr) ? j.escudo->nome : "nenhum";

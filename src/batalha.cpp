@@ -191,10 +191,44 @@ std::string resumoDoElemento(Elemento e, bool curto) {
            ". Resiste a: " + lista(false, 1) + ".";
 }
 
-int golpesDoNivel(Elemento e, int nivel, int golpes[2]) {
+// v1.24.1: a sequência de cada elemento é o golpe inicial e depois a linha.
+// Na de Planta, o Pó do Sono vem logo depois do Chicote de Vinha (só se
+// aprende por pergaminho: subindo de nível, ele é pulado).
+int sequenciaDoElemento(Elemento e, int sequencia[5]) {
+    int n = 0;
+    sequencia[n++] = golpeInicialDoElemento(e);
+    if (e == PLANTA) sequencia[n++] = G_PO_DO_SONO;
+    for (int k = 0; k < 3; k++) sequencia[n++] = LINHA_DO_ELEMENTO[e][k];
+    return n;
+}
+
+int proximoGolpeDaSequencia(Elemento e, const int golpes[], int numGolpes, bool doPergaminho) {
+    int sequencia[5];
+    int n = sequenciaDoElemento(e, sequencia);
+    // O que vem depois do golpe mais adiantado que ele sabe (quem esqueceu um
+    // golpe para abrir espaço não recebe o mesmo de volta).
+    int proximo = 0;
+    for (int k = 0; k < n; k++)
+        for (int s = 0; s < numGolpes; s++) if (golpes[s] == sequencia[k]) proximo = k + 1;
+    if (!doPergaminho) {
+        // Subindo de nível: o golpe inicial veio na criação, e o Pó do Sono é
+        // só de pergaminho.
+        if (proximo == 0) proximo = 1;
+        while (proximo < n && sequencia[proximo] == G_PO_DO_SONO) proximo++;
+    }
+    return proximo < n ? sequencia[proximo] : -1;
+}
+
+int golpesDoNivel(Elemento e, const int golpesQueSabe[], int numGolpes, int nivel, int golpes[2]) {
     int n = 0;
     for (int i = 0; i < NUM_APRENDIZADOS; i++) if (APRENDIZADO[i].nivel == nivel) golpes[n++] = APRENDIZADO[i].golpe;
-    for (int k = 0; k < 3 && n < 2; k++) if (NIVEIS_DA_LINHA[k] == nivel) golpes[n++] = LINHA_DO_ELEMENTO[e][k];
+    // Nos níveis 12, 24 e 30: o próximo golpe da sequência do elemento (se um
+    // pergaminho já adiantou a linha, vem o seguinte; v1.24.1).
+    for (int k = 0; k < 3 && n < 2; k++) {
+        if (NIVEIS_DA_LINHA[k] != nivel) continue;
+        int g = proximoGolpeDaSequencia(e, golpesQueSabe, numGolpes, false);
+        if (g >= 0) golpes[n++] = g;
+    }
     return n;
 }
 
@@ -228,6 +262,15 @@ static int velocidadeEfetiva(const Lutador& l) {
 // depois multiplicado por: mesmo elemento do golpe (x1,5), eficácia do
 // elemento (x0,5 / x1 / x2), crítico (x1,5, chance de 1/16) e um sorteio
 // entre 85% e 100%.
+// O golpe ganha o bônus do próprio elemento? (Os golpes que um monstro
+// trocou para o elemento dele não ganham: v1.24.1.)
+static bool bonusDoElemento(const Lutador& atacante, const Golpe& golpe) {
+    if (golpe.elemento != atacante.elemento) return false;
+    for (int k = 0; k < 2; k++)
+        if (atacante.semBonusDoElemento[k] >= 0 && &GOLPES[atacante.semBonusDoElemento[k]] == &golpe) return false;
+    return true;
+}
+
 static int calcularDano(Jogo& jogo, const Lutador& atacante, const Lutador& alvo,
                         const Golpe& golpe, bool& critico, int& efic) {
     int ataque = aplicarEstagio(atacante.ataque, atacante.estagioAtaque);
@@ -235,7 +278,7 @@ static int calcularDano(Jogo& jogo, const Lutador& atacante, const Lutador& alvo
     if (defesa < 1) defesa = 1;
 
     int dano = ((2 * atacante.nivel / 5 + 2) * golpe.poder * ataque / defesa) / 50 + 2;
-    if (golpe.elemento == atacante.elemento) dano = dano * (100 + BONUS_DO_PROPRIO_ELEMENTO) / 100;
+    if (bonusDoElemento(atacante, golpe)) dano = dano * (100 + BONUS_DO_PROPRIO_ELEMENTO) / 100;
     // Queimado: o ataque cai para 3/4.
     if (atacante.status == QUEIMADO) dano = dano * 3 / 4;
 
@@ -806,7 +849,7 @@ static int valorDoGolpe(const Batalha& b, const Lutador& atacante, const Lutador
         }
     }
     int v = g.poder * g.precisao * eficacia(g.elemento, alvo.elemento);
-    if (g.elemento == atacante.elemento) v = v * (100 + BONUS_DO_PROPRIO_ELEMENTO) / 100;
+    if (bonusDoElemento(atacante, g)) v = v * (100 + BONUS_DO_PROPRIO_ELEMENTO) / 100;
     if (g.efeito == DOIS_GOLPES) v *= 2;
     if (g.efeito == TRES_GOLPES) v *= 3;
     if (g.elemento == atacante.elementoDaArma) v = v * 5 / 4;
@@ -1048,7 +1091,7 @@ static void ganharExperiencia(Jogo& jogo, Batalha& b, int pontos, int moedas) {
         b.jogador.criticoExtra = j.criticoExtra;
 
         int novos[2];
-        int n = golpesDoNivel(j.elemento, j.nivel, novos);
+        int n = golpesDoNivel(j.elemento, j.golpes, j.numGolpes, j.nivel, novos);
         for (int i = 0; i < n; i++) aprenderGolpe(jogo, b, novos[i]);
     }
 }
@@ -1106,7 +1149,7 @@ static Lutador montarLutadorDoMonstro(Monstro& m) {
     l.rodadasDormindo = 0;
     l.semente = false;
     l.focado = false;
-    golpesDoMonstro(m, l.golpes, l.numGolpes);
+    golpesDoMonstro(m, l.golpes, l.numGolpes, l.semBonusDoElemento);
     l.pp = nullptr;              // monstros não gastam PP
     l.elementoDaArma = -1;
     l.precisaoExtra = 0;

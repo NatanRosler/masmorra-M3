@@ -81,6 +81,12 @@ extern const TipoItem TIPOS_DE_ITEM[NUM_TIPOS_DE_ITEM];
 // v1.23: o pergaminho de cada elemento (na ordem do enum Elemento).
 extern const int PERGAMINHO_DO_ELEMENTO[NUM_ELEMENTOS];
 
+// v1.24.1: o elemento de um pergaminho de golpe (-1 se não for um), e a
+// descrição de um item para este jogador (no pergaminho: qual golpe ele
+// ensinaria agora).
+int elementoDoPergaminho(int tipo);
+std::string descricaoDoItem(const Jogador& j, int tipo);
+
 // Um item caído num andar.
 struct ItemNoChao {
     bool ativo;              // false = já foi pego

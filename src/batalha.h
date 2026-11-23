@@ -144,7 +144,18 @@ int golpeElementalDosMonstros(Elemento e, bool forte);
 // v1.23: golpes que o jogador aprende subindo de nível. Cada elemento tem a
 // sua linha (níveis 12, 24 e 30) e todos aprendem os gerais (9, 18 e 27).
 // Devolve quantos golpes ele aprende exatamente neste nível (até 2) em "golpes".
-int golpesDoNivel(Elemento e, int nivel, int golpes[2]);
+// v1.24.1: nos níveis da linha vem o próximo da sequência (ver abaixo), por
+// isso precisa dos golpes que ele já sabe.
+int golpesDoNivel(Elemento e, const int golpesQueSabe[], int numGolpes, int nivel, int golpes[2]);
+
+// v1.24.1: a sequência de golpes de um elemento: o inicial e a linha (Planta
+// tem o Pó do Sono depois do inicial). Devolve quantos (até 5).
+int sequenciaDoElemento(Elemento e, int sequencia[5]);
+
+// O golpe que vem depois do mais adiantado que o jogador sabe nessa sequência
+// (-1 = já sabe todos). É o que o pergaminho do elemento ensina; subindo de
+// nível (doPergaminho = false), o inicial e o Pó do Sono são pulados.
+int proximoGolpeDaSequencia(Elemento e, const int golpes[], int numGolpes, bool doPergaminho);
 
 // v1.23: resumo de um elemento para a tela de criação: golpe inicial,
 // bônus, contra quem é forte, de quem leva o dobro e a que resiste.
@@ -180,6 +191,10 @@ struct Lutador {
     int numGolpes;
     int* pp;                 // aponta para os PP reais; nullptr = infinitos (monstros)
     int elementoDaArma;      // golpes deste elemento causam +25% (-1 = nenhum)
+    // v1.24.1: golpes de monstro que foram trocados para o elemento dele (ver
+    // golpesDoMonstro): não ganham o bônus do próprio elemento, para o dano
+    // continuar o mesmo de antes (-1 = nenhum).
+    int semBonusDoElemento[2] = { -1, -1 };
     // Atributos da Etapa 6 (em %): somam ou tiram da chance de acertar e de crítico.
     int precisaoExtra;       // Destreza: + chance de acertar
     int esquiva;             // Agilidade: - chance de o inimigo acertar

@@ -233,7 +233,7 @@ std::vector<std::string> textoDosItens() {
         "CRISTAIS (bônus permanente ao pegar)",
         "  Vida, Força, Ferro (defesa) e Pena do Vento (velocidade)",
         "",
-        "PERGAMINHOS: ensinam um golpe de um elemento",
+        "PERGAMINHOS: ensinam o próximo golpe do elemento que você ainda não sabe",
         "CHAVE: abre a porta trancada da sala do tesouro DO MESMO ANDAR",
         "  (ao pegar, a porta aparece no mapa; o andar 4 não tem chave: o Borin abre)",
         "",

@@ -130,7 +130,9 @@ void ajustarNivelDoChefe(Monstro& chefe, int nivelDoJogador);
 
 // Golpes que o monstro usa na batalha: os da espécie, com um deles trocado
 // pelo golpe do elemento sorteado.
-void golpesDoMonstro(const Monstro& m, int golpes[MAX_GOLPES], int& numGolpes);
+// "semBonus" (opcional, 2 casas): os golpes que foram trocados para o elemento
+// do monstro e que não ganham o bônus do próprio elemento (v1.24.1).
+void golpesDoMonstro(const Monstro& m, int golpes[MAX_GOLPES], int& numGolpes, int* semBonus = nullptr);
 
 // Chance (em %) de o monstro se esquivar de um golpe.
 int esquivaDoMonstro(const Monstro& m);

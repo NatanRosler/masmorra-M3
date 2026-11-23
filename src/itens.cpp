@@ -85,19 +85,19 @@ const TipoItem TIPOS_DE_ITEM[NUM_TIPOS_DE_ITEM] = {
     // ---- Pergaminhos (ensinam um golpe) -----------------------------------------
     { "Pergaminho de Fogo", "um", '?', { 255, 170, 110 }, PERGAMINHO,
       0, false, false,    0, 0, 0, 0,   -1, G_LABAREDA,        2, 13, 3,
-      "Ensina o golpe Labareda (Fogo): fogo do chão que pode queimar." },
+      "Ensina o próximo golpe de Fogo que você ainda não sabe." },
     { "Pergaminho de Água", "um", '?', { 140, 190, 255 }, PERGAMINHO,
       0, false, false,    0, 0, 0, 0,   -1, G_BOLHA_CURATIVA,  2, 13, 3,
-      "Ensina o golpe Bolha Curativa (Água): recupera 30% da vida." },
+      "Ensina o próximo golpe de Água que você ainda não sabe." },
     { "Pergaminho de Planta", "um", '?', { 150, 220, 140 }, PERGAMINHO,
       0, false, false,    0, 0, 0, 0,   -1, G_PO_DO_SONO,      2, 13, 3,
-      "Ensina o golpe Pó do Sono (Planta): faz o alvo dormir." },
+      "Ensina o próximo golpe de Planta que você ainda não sabe." },
     { "Pergaminho de Veneno", "um", '?', { 195, 160, 230 }, PERGAMINHO,
       0, false, false,    0, 0, 0, 0,   -1, G_NUVEM_TOXICA,    2, 13, 3,
-      "Ensina o golpe Nuvem Tóxica (Veneno): acerta todos os inimigos e pode envenenar." },
+      "Ensina o próximo golpe de Veneno que você ainda não sabe." },
     { "Pergaminho de Pedra", "um", '?', { 210, 180, 130 }, PERGAMINHO,
       0, false, false,    0, 0, 0, 0,   -1, G_MURALHA_DE_PEDRA, 2, 13, 3,
-      "Ensina o golpe Muralha de Pedra (Pedra): aumenta a sua defesa." },
+      "Ensina o próximo golpe de Pedra que você ainda não sabe." },
 
     // ---- Chave ------------------------------------------------------------------
     { "Chave", "uma", '-', { 255, 215, 0 }, CHAVE,
@@ -135,19 +135,19 @@ const TipoItem TIPOS_DE_ITEM[NUM_TIPOS_DE_ITEM] = {
       "Ataque +3. Golpes de Luz causam +25%. 10% de chance de ofuscar o alvo." },
     { "Pergaminho de Normal", "um", '?', { 230, 225, 210 }, PERGAMINHO,
       0, false, false,    0, 0, 0, 0,   -1, G_INVESTIDA,       2, 13, 3,
-      "Ensina o golpe Investida (Normal): uma pancada forte." },
+      "Ensina o próximo golpe de Normal que você ainda não sabe." },
     { "Pergaminho de Gelo", "um", '?', { 180, 230, 255 }, PERGAMINHO,
       0, false, false,    0, 0, 0, 0,   -1, G_ARMADURA_DE_GELO, 2, 13, 3,
-      "Ensina o golpe Armadura de Gelo (Gelo): aumenta a sua defesa." },
+      "Ensina o próximo golpe de Gelo que você ainda não sabe." },
     { "Pergaminho de Raio", "um", '?', { 250, 225, 110 }, PERGAMINHO,
       0, false, false,    0, 0, 0, 0,   -1, G_PASSO_DO_RAIO,   2, 13, 3,
-      "Ensina o golpe Passo do Raio (Raio): ataca antes de todo mundo." },
+      "Ensina o próximo golpe de Raio que você ainda não sabe." },
     { "Pergaminho de Trevas", "um", '?', { 170, 150, 215 }, PERGAMINHO,
       0, false, false,    0, 0, 0, 0,   -1, G_PAVOR,           2, 13, 3,
-      "Ensina o golpe Pavor (Trevas): o ataque do alvo cai." },
+      "Ensina o próximo golpe de Trevas que você ainda não sabe." },
     { "Pergaminho de Luz", "um", '?', { 255, 245, 200 }, PERGAMINHO,
       0, false, false,    0, 0, 0, 0,   -1, G_CURA_DE_LUZ,     4, 13, 2,
-      "Ensina o golpe Cura de Luz (Luz): recupera 40% da vida." },
+      "Ensina o próximo golpe de Luz que você ainda não sabe." },
 };
 
 const int PERGAMINHO_DO_ELEMENTO[NUM_ELEMENTOS] = {
@@ -492,11 +492,11 @@ void pegarItensDoChao(Jogo& jogo) {
             if (i == I_CHAVE || j.mochila[i] <= 0) continue;
             tipos.push_back(i);
             opcoes.push_back("Largar " + std::string(TIPOS_DE_ITEM[i].nome) + "  (tenho " + std::to_string(j.mochila[i]) + ")");
-            descricoes.push_back(std::string(TIPOS_DE_ITEM[i].descricao) + "  |  Fica no chão no lugar de " +
+            descricoes.push_back(descricaoDoItem(jogo.jogador, i) + "  |  Fica no chão no lugar de " +
                                  nomeComArtigo(item.tipo) + ".");
         }
         opcoes.push_back("Deixar " + std::string(t.nome) + " no chão");
-        descricoes.push_back(std::string(t.descricao) + "  |  Você pode voltar e pegar depois.");
+        descricoes.push_back(descricaoDoItem(jogo.jogador, item.tipo) + "  |  Você pode voltar e pegar depois.");
         int escolha = escolherEmCaixa(jogo, "MOCHILA CHEIA (" + std::to_string(itensNaMochila(j)) + "/" +
                                       std::to_string(limiteDaMochila(j)) + "): pegar " + t.nome + "?",
                                       opcoes, descricoes, (int)opcoes.size() - 1);
@@ -580,6 +580,30 @@ void revelarPortaDoTesouro(Jogo& jogo) {
 }
 
 // Pergaminho: ensina um golpe (se já souber 4, pergunta qual esquecer).
+// v1.24.1: de que elemento é o pergaminho (-1 = não é de elemento).
+int elementoDoPergaminho(int tipo) {
+    for (int e = 0; e < NUM_ELEMENTOS; e++) if (PERGAMINHO_DO_ELEMENTO[e] == tipo) return e;
+    return -1;
+}
+
+std::string descricaoDoItem(const Jogador& j, int tipo) {
+    std::string d = TIPOS_DE_ITEM[tipo].descricao;
+    int e = elementoDoPergaminho(tipo);
+    if (e < 0) return d;
+    // "  |  " separa a segunda linha da caixa (o que ele ensina para você).
+    std::string elemento = NOMES_DOS_ELEMENTOS[e];
+    d = "Ensina o próximo golpe de " + elemento + " que você ainda não sabe.  |  ";
+    int golpe = proximoGolpeDaSequencia((Elemento)e, j.golpes, j.numGolpes, true);
+    if (golpe < 0) return d + "Você já sabe todos os golpes de " + elemento + ".";
+    d += "Para você: " + std::string(GOLPES[golpe].nome);
+    // E o que vem depois (lendo outro pergaminho igual).
+    int sequencia[5];
+    int n = sequenciaDoElemento((Elemento)e, sequencia);
+    for (int k = 0; k + 1 < n; k++)
+        if (sequencia[k] == golpe) return d + " (depois: " + GOLPES[sequencia[k + 1]].nome + ").";
+    return d + " (o último de " + elemento + ").";
+}
+
 static bool ensinarGolpe(Jogo& jogo, int golpe) {
     Jogador& j = jogo.jogador;
     std::string nomeGolpe = GOLPES[golpe].nome;
@@ -621,10 +645,18 @@ bool usarItemForaDaBatalha(Jogo& jogo, int tipo) {
             equipar(jogo, tipo);
             return true;
 
-        case PERGAMINHO:
-            if (!ensinarGolpe(jogo, t.golpeEnsinado)) return false;
+        case PERGAMINHO: {
+            // v1.24.1: ensina o próximo golpe da sequência do elemento.
+            int e = elementoDoPergaminho(tipo);
+            int golpe = e >= 0 ? proximoGolpeDaSequencia((Elemento)e, j.golpes, j.numGolpes, true) : t.golpeEnsinado;
+            if (golpe < 0) {
+                adicionarMensagem(jogo, "Você já sabe todos os golpes de " + std::string(NOMES_DOS_ELEMENTOS[e]) + ".");
+                return false;
+            }
+            if (!ensinarGolpe(jogo, golpe)) return false;
             j.mochila[tipo]--;
             return true;
+        }
 
         case CHAVE:
             adicionarMensagem(jogo, "Ande até uma porta trancada para usar a chave.");

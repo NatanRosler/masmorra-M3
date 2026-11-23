@@ -508,6 +508,26 @@ bool carregarPartida(Jogo& jogo) {
         }
     }
 
+    // v1.24.1: na v1.24, o baú mímico nascia como um Necromante (e puxava o
+    // mini-chefe do andar para a luta). Quem ficou no mapa volta a ser mímico:
+    // todo mini-chefe que não é o do andar, ou que está fora da sala dele.
+    for (int i = 0; i < NUM_ANDARES; i++) {
+        Andar& a = jogo.andares[i];
+        if (!a.gerado) continue;
+        int sala = salaDoAndar(i + 1);
+        for (int k = 0; k < a.numMonstros; k++) {
+            Monstro& m = a.monstros[k];
+            if (!(tipoDe(m).especial & MINI_CHEFE)) continue;
+            bool doAndar = sala >= 0 && salaDoMiniChefe(m.tipo) == sala &&
+                           (!a.salaDoChefe.existe || dentroDaSalaDoChefe(a, m.x, m.y));
+            if (doAndar) continue;
+            m.tipo = tipoDoMimico();
+            m.elemento = jogo.elementoDaEspecie[m.tipo];
+            m.guarda = false;
+            if (m.vida > vidaMaximaDoMonstro(m)) m.vida = vidaMaximaDoMonstro(m);
+        }
+    }
+
     // O que não vai para o arquivo volta ao normal.
     jogo.comMonstros = true;
     jogo.modoAutomatico = false;

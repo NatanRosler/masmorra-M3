@@ -14,7 +14,7 @@
 // PREÇOS
 // =============================================================================
 // Um valor para cada item, na mesma ordem do enum IdItem (itens.h).
-static const int PRECOS[NUM_TIPOS_DE_ITEM] = {
+static const int PRECOS[] = {
     20,  // Poção de Vida
     45,  // Poção Grande
     12,  // Antídoto
@@ -45,7 +45,20 @@ static const int PRECOS[NUM_TIPOS_DE_ITEM] = {
     70,  // Lanterna
     30,  // Bomba de Fumaça
     25,  // Pergaminho do Mapa
+    // v1.24.1: os itens da v1.23 tinham ficado sem preço (saíam "de graça" na
+    // loja, mas não dava para comprar, nem para vender).
+    45,  // Lança de Gelo
+    45,  // Martelo do Trovão
+    45,  // Foice das Trevas
+    45,  // Cetro de Luz
+    35,  // Pergaminho de Normal
+    35,  // Pergaminho de Gelo
+    35,  // Pergaminho de Raio
+    35,  // Pergaminho de Trevas
+    35,  // Pergaminho de Luz
 };
+// Se um item novo entrar na lista sem preço, o programa nem compila.
+static_assert(sizeof(PRECOS) / sizeof(PRECOS[0]) == NUM_TIPOS_DE_ITEM, "falta o preço de algum item");
 
 int precoDeCompra(int tipoDeItem) {
     if (tipoDeItem < 0 || tipoDeItem >= NUM_TIPOS_DE_ITEM) return 0;
@@ -224,7 +237,7 @@ static void telaDeVenda(Jogo& jogo, const std::string& nomeDoComerciante) {
             tipos.push_back(i);
             opcoes.push_back(std::string(TIPOS_DE_ITEM[i].nome) + "  x" + std::to_string(j.mochila[i]) +
                              "   ·   +" + emMoedas(precoDeVenda(i)));
-            descricoes.push_back(std::string(TIPOS_DE_ITEM[i].descricao) + "  |  " + nomeDoComerciante +
+            descricoes.push_back(descricaoDoItem(j, i) + "  |  " + nomeDoComerciante +
                                  " paga " + emMoedas(precoDeVenda(i)) + " por um.");
         }
         opcoes.push_back("Voltar");
@@ -267,7 +280,7 @@ void abrirLoja(Jogo& jogo, Npc& comerciante) {
             std::string marca = (i >= primeiroEspecial) ? "  (só 1!)"
                               : (resta > 0 ? "  (restam " + std::to_string(resta) + ")" : "  (esgotado)");
             opcoes.push_back(std::string(TIPOS_DE_ITEM[t].nome) + marca + "   ·   " + emMoedas(precoDeCompra(t)));
-            descricoes.push_back(std::string(TIPOS_DE_ITEM[t].descricao) + "  |  " + situacao(j, comerciante, t));
+            descricoes.push_back(descricaoDoItem(j, t) + "  |  " + situacao(j, comerciante, t));
         }
         int opcaoVender = (int)opcoes.size();
         opcoes.push_back("Vender itens");

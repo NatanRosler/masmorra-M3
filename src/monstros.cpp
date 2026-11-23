@@ -310,7 +310,10 @@ int tipoDoOgro() {
 }
 
 int tipoDoMimico() {
-    return NUM_TIPOS_DE_MONSTRO - 2;   // logo antes do chefe na tabela
+    // v1.24.1: procura pelo símbolo (antes era "o penúltimo da tabela", mas os
+    // mini-chefes entraram no fim e o baú virava um Necromante).
+    for (int i = 0; i < NUM_TIPOS_DE_MONSTRO; i++) if (TIPOS_DE_MONSTRO[i].simbolo == 'M') return i;
+    return 0;
 }
 
 
@@ -343,19 +346,68 @@ void sortearElementosDasEspecies(Jogo& jogo, uint32_t semente) {
         if (TIPOS_DE_MONSTRO[tipo].especial & MINI_CHEFE) jogo.elementoDaEspecie[tipo] = TIPOS_DE_MONSTRO[tipo].elemento;
 }
 
-void golpesDoMonstro(const Monstro& m, int golpes[MAX_GOLPES], int& numGolpes) {
+// O golpe do elemento "e" com o poder mais parecido com "poder" que o monstro
+// ainda não tem (-1 se não houver). Ficam de fora os golpes finais do jogador.
+static int golpeParecido(Elemento e, int poder, const int golpes[], int numGolpes) {
+    int melhor = -1, menorDiferenca = 1 << 30;
+    for (int k = 0; k < NUM_GOLPES; k++) {
+        const Golpe& c = GOLPES[k];
+        if (c.elemento != e || c.poder <= 0 || c.poder > 80 || k == G_FURIA || k == G_GOLPE_FINAL) continue;
+        bool jaTem = false;
+        for (int q = 0; q < numGolpes; q++) if (golpes[q] == k) jaTem = true;
+        if (jaTem) continue;
+        int diferenca = std::abs(c.poder - poder) * 2 + (c.poder > poder ? 1 : 0);   // empate: o mais fraco
+        if (diferenca < menorDiferenca) { menorDiferenca = diferenca; melhor = k; }
+    }
+    return melhor;
+}
+
+// v1.24.1: golpes de outro elemento que são do corpo da espécie e ficam em
+// qualquer elemento (o ferrão da aranha, do goblin e da naga; a pancada do
+// ogro e do mímico; o ácido do fungo).
+static bool golpeProprioDaEspecie(int golpe) {
+    return golpe == G_FERRAO_VENENOSO || golpe == G_ESMAGAR || golpe == G_ACIDO;
+}
+
+void golpesDoMonstro(const Monstro& m, int golpes[MAX_GOLPES], int& numGolpes, int* semBonus) {
     const TipoMonstro& t = tipoDe(m);
     numGolpes = t.numGolpes;
     for (int s = 0; s < t.numGolpes; s++) golpes[s] = t.golpes[s];
+    if (semBonus) semBonus[0] = semBonus[1] = -1;
     // O primeiro golpe de dano "simples" (sem efeito extra) vira o golpe do
     // elemento sorteado. Espécies dos andares fundos ganham a versão forte.
+    // (v1.24.1: se a espécie já tinha esse golpe, entra outro do mesmo
+    // elemento; antes o kobold de Fogo ficava com duas Brasas.)
     bool forte = t.andarMinimo >= 4;
     for (int s = 0; s < numGolpes; s++) {
         const Golpe& g = GOLPES[golpes[s]];
         if (g.poder > 0 && g.efeito == SEM_EFEITO) {
-            golpes[s] = golpeElementalDosMonstros(m.elemento, forte);
-            return;
+            int novo = golpeElementalDosMonstros(m.elemento, forte);
+            for (int q = 0; q < numGolpes; q++) {
+                if (q == s || golpes[q] != novo) continue;
+                int outro = golpeParecido(m.elemento, GOLPES[novo].poder, golpes, numGolpes);
+                if (outro >= 0) novo = outro;
+                break;
+            }
+            golpes[s] = novo;
+            break;
         }
+    }
+    // v1.24.1: os chefes ficam como foram ajustados. Nos outros, golpe de dano
+    // de outro elemento (fora os Normal e os próprios da espécie) vira o golpe
+    // do elemento do monstro com o poder mais parecido, sem o bônus do próprio
+    // elemento (o dano continua o mesmo; muda só contra quem ele é forte).
+    // Assim um kobold de Gelo não solta mais Brasa.
+    if (t.especial & (CHEFE | MINI_CHEFE)) return;
+    int trocados = 0;
+    for (int s = 0; s < numGolpes; s++) {
+        const Golpe& g = GOLPES[golpes[s]];
+        if (g.poder <= 0 || g.elemento == NORMAL || g.elemento == m.elemento || golpeProprioDaEspecie(golpes[s])) continue;
+        int novo = golpeParecido(m.elemento, g.poder, golpes, numGolpes);
+        if (novo < 0) continue;
+        golpes[s] = novo;
+        if (semBonus && trocados < 2) semBonus[trocados] = novo;
+        trocados++;
     }
 }
 
