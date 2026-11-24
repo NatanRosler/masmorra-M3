@@ -911,6 +911,7 @@ static Acao escolherAcaoDoJogador(Jogo& jogo, Batalha& b) {
             // Com mais de um inimigo, escolhe o alvo.
             int alvo = primeiroNaLuta(b);
             if (precisaDeAlvo(g) && inimigosNaLuta(b) > 1) {
+                b.golpeEscolhido = b.jogador.golpes[slot];   // v1.27: a tela mostra a eficácia em cada alvo
                 b.numAlvos = 0;
                 for (int i = 0; i < b.numInimigos; i++) {
                     if (b.naLuta[i]) b.alvos[b.numAlvos++] = i;
@@ -1460,6 +1461,7 @@ ResultadoBatalha batalhar(Jogo& jogo, Monstro* participantes[], int quantos) {
     b.menu = MENU_NENHUM;
     b.cursor = 0;
     b.golpeNovo = -1;
+    b.golpeEscolhido = -1;
     b.numItensUsaveis = 0;
     b.escudoErguido = false;
     b.escudoNaRodadaAnterior = false;

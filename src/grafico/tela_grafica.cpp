@@ -35,6 +35,9 @@ float portaoDescendo = 1.0f;
 #include <string>
 #include <vector>
 
+// v1.27: o menu de golpes da batalha usa o texto do efeito da mochila.
+namespace Mochila { std::string efeitoDoGolpe(const Golpe& g); }
+
 namespace {
 // Câmera do último mapa desenhado (para pôr o balão de fala perto da pessoa)
 // e se os cartões do canto ficam escondidos (durante as falas).
@@ -1622,7 +1625,7 @@ const Sprite* iconeNoTexto(const std::string& s) {
     for(int a=0;a<NUM_ATRIBUTOS;a++) testar(NOMES_DOS_ATRIBUTOS[a],ARTE_DOS_ATRIBUTOS[a]);
     return melhor;
 }
-void faixaBotao(const std::string& txt,Rectangle r,bool sel,int indice=-1,int cursor=0,float tam=23,const Sprite* arte=nullptr) {
+bool faixaBotao(const std::string& txt,Rectangle r,bool sel,int indice=-1,int cursor=0,float tam=23,const Sprite* arte=nullptr) {
     bool sobre=mouseSobre(r);
     bool chegou=true;   // o destaque já está (quase todo) sobre este botão?
     if(sel) {
@@ -1644,7 +1647,121 @@ void faixaBotao(const std::string& txt,Rectangle r,bool sel,int indice=-1,int cu
     }
     texto(txt,r.x+20+recuo+(sobre&&!sel?3:0),r.y+(r.height-tam)/2-1,tam,(sel&&chegou)?FUNDO:TEXTO);
     if(indice>=0) registrarOpcao(r,indice,cursor);
+    return sel&&chegou;   // v1.27: o texto por cima pode ficar escuro (sobre o ouro)
 }
+// ---- Golpes na batalha (v1.27) ----
+// Cada golpe mostra o elemento, a força (em barrinhas), o PP e se é forte ou
+// fraco contra o monstro; o marcado aparece em detalhes à esquerda.
+
+// A eficácia do golpe contra os inimigos que ainda lutam: 4 (super), 2
+// (normal), 1 (pouco), 0 (não afeta) ou -1 se muda de um inimigo para outro.
+int eficaciaContraTodos(const Batalha& b,const Golpe& g) {
+    int e=-2;
+    for(int i=0;i<b.numInimigos;i++) {
+        if(!b.naLuta[i]) continue;
+        int x=eficacia((Elemento)g.elemento,(Elemento)b.inimigos[i].elemento);
+        if(e==-2) e=x; else if(e!=x) return -1;
+    }
+    return e<0?2:e;
+}
+// O selo de eficácia (nada quando é normal).
+void seloDeEficacia(int efic,float x,float y,float tam,bool sobreOuro) {
+    const char* t=nullptr; Color c=APAGADO;
+    if(efic==4) { t="SUPER EFICAZ x2"; c={90,220,120,255}; }
+    else if(efic==1) { t="pouco eficaz x½"; c={255,150,70,255}; }
+    else if(efic==0) { t="não afeta x0"; c={150,155,170,255}; }
+    else if(efic==-1) { t="depende do alvo"; c={150,175,210,255}; }
+    if(!t) return;
+    float w=larguraDoTexto(t,tam)+18, h=tam+8;
+    Color fundo=sobreOuro?multiplicar(c,0.45f):multiplicar(c,0.22f);
+    Color letra=sobreOuro?Color{20,20,24,255}:c;
+    if(sobreOuro) { fundo=c; fundo.a=200; }
+    DrawRectangleRounded({x,y,w,h},0.5f,6,fundo);
+    texto(t,x+9,y+3,tam,letra);
+}
+// Força do golpe em 5 barrinhas (como sinal de celular): 1 a cada 20 de poder.
+void barrinhasDePoder(int poder,float x,float base,Color cheia,Color vazia) {
+    int cheias=(poder+19)/20;
+    for(int k=0;k<5;k++) {
+        float h=6+k*3.2f;
+        DrawRectangleRec({x+k*7.0f,base-h,5,h},k<cheias?cheia:vazia);
+    }
+}
+// Uma linha do menu de golpes.
+void linhaDoGolpe(const Batalha* b,const Golpe& g,int pp,Rectangle r,bool sel,int indice,int cursor) {
+    sel=faixaBotao("",r,sel,indice,cursor,20);
+    Color letra=sel?FUNDO:TEXTO, fraca=sel?Color{70,58,30,255}:APAGADO;
+    iconeDoElemento(g.elemento,r.x+12,r.y+(r.height-27)/2,3.0f);
+    textoQueCabe(g.nome,r.x+48,r.y+(r.height-19)/2-1,19,205,letra);
+    float px=r.x+262, meio=r.y+r.height/2;
+    if(g.poder>0) {
+        barrinhasDePoder(g.poder,px,meio+9,sel?Color{60,45,15,255}:Color{255,200,90,255},sel?Color{200,160,70,255}:Color{55,66,90,255});
+        texto(std::to_string(g.poder),px+40,meio-10,18,letra);
+    } else texto("efeito",px,meio-9,15,fraca);
+    float qx=r.x+352;
+    if(g.ppMaximo>0) {
+        texto("PP",qx,meio-8,12,fraca);
+        std::string t=std::to_string(pp)+"/"+std::to_string(g.ppMaximo);
+        texto(t,qx+22,meio-11,17,pp==0?PERIGO:letra);
+        float f=std::clamp((float)pp/g.ppMaximo,0.0f,1.0f);
+        DrawRectangleRounded({qx+22,meio+9,56,5},0.5f,4,sel?Color{200,160,70,255}:Color{40,52,78,255});
+        if(f>0) DrawRectangleRounded({qx+22,meio+9,std::max(5.0f,56*f),5},0.5f,4,f<0.25f?PERIGO:(sel?Color{40,90,110,255}:CIANO));
+    } else texto("PP sem limite",qx,meio-9,14,fraca);
+    if(b && g.poder>0) seloDeEficacia(eficaciaContraTodos(*b,g),r.x+r.width-150,meio-11,13,sel);
+    if(!b) {   // sem inimigos para comparar: o efeito do golpe no lugar do selo
+        std::string ef=Mochila::efeitoDoGolpe(g);
+        float cabe=r.width-466;
+        size_t ponto=ef.find("·");   // não cabe: fica só a primeira parte ("sobe a sua defesa")
+        if(larguraDoTexto(ef,15)>cabe && ponto!=std::string::npos) ef=ef.substr(0,ef.find_last_not_of(' ',ponto-1)+1);
+        if(!ef.empty() && ef!="só dano") textoQueCabe(ef,r.x+452,meio-9,15,cabe,sel?Color{70,58,30,255}:CIANO);
+    }
+}
+// Os detalhes de um golpe (à esquerda, na caixa de comandos).
+void detalhesDoGolpe(const Jogo& jogo,const Batalha* b,const Golpe& g,int pp,float x,float y,bool compacto) {
+    const Jogador& j=jogo.jogador;
+    float px=compacto?3.0f:4.0f;
+    iconeDoElemento(g.elemento,x,y,px);
+    float nx=x+9*px+12;
+    texto(g.nome,nx,y-2,compacto?22:27,TEXTO);
+    float w=larguraDoTexto(g.nome,compacto?22:27);
+    etiquetaDeElemento(g.elemento,nx+w+12,y+(compacto?1:4),13);
+    // Números em "fichas".
+    float cy=y+(compacto?32:44);
+    auto ficha=[&](const std::string& t,float& fx,Color c){
+        float fw=larguraDoTexto(t,16)+20;
+        DrawRectangleRounded({fx,cy,fw,26},0.5f,6,{34,46,72,255});
+        texto(t,fx+10,cy+4,16,c);
+        fx+=fw+8;
+    };
+    float fx=x;
+    ficha(g.poder>0?"Poder "+std::to_string(g.poder):"Sem dano",fx,g.poder>0?Color{255,205,100,255}:APAGADO);
+    ficha("Precisão "+std::to_string(g.precisao)+"%",fx,TEXTO);
+    ficha(g.ppMaximo>0?"PP "+std::to_string(pp)+"/"+std::to_string(g.ppMaximo):"PP sem limite",fx,pp==0&&g.ppMaximo>0?PERIGO:TEXTO);
+    // Efeito e bônus.
+    float ly=cy+36;
+    std::string ef=Mochila::efeitoDoGolpe(g);
+    if(!ef.empty() && ef!="só dano") { texto("Efeito: "+ef,x,ly,17,CIANO); ly+=26; }
+    std::string bonus;
+    if(g.poder>0 && g.elemento==j.elemento) bonus="+30%: é do seu elemento";
+    if(g.poder>0 && j.arma && j.arma->elemento==g.elemento)
+        bonus+=std::string(bonus.empty()?"":"   ")+"+25%: sua arma é de "+NOMES_DOS_ELEMENTOS[g.elemento];
+    if(!bonus.empty() && !compacto) { texto(bonus,x,ly,16,{120,230,140,255}); ly+=24; }
+    // Contra quem (só no menu de golpes).
+    if(b && !compacto && g.poder>0) {
+        // Contra cada inimigo: o nome e o resultado na cor certa.
+        float cx=x;
+        for(int i=0;i<b->numInimigos && cx<x+600;i++) {
+            if(!b->naLuta[i]) continue;
+            int e=eficacia((Elemento)g.elemento,(Elemento)b->inimigos[i].elemento);
+            const char* t=e==4?"super eficaz":e==1?"pouco eficaz":e==0?"não afeta":"normal";
+            Color c=e==4?Color{90,220,120,255}:e==1?Color{255,150,70,255}:e==0?Color{150,155,170,255}:TEXTO;
+            std::string nome="contra "+semArtigo(b->inimigos[i].nome)+": ";
+            texto(nome,cx,ly,15,APAGADO); cx+=larguraDoTexto(nome,15);
+            texto(t,cx,ly,15,c); cx+=larguraDoTexto(t,15)+22;
+        }
+    }
+}
+
 // Painel de um lutador na batalha: nome, nível, elemento, status e barra.
 void painelDoLutador(const Lutador& l,int vidaMostrada,Rectangle r,Color borda,Color corDoNome,bool compacto) {
     painel(r,{18,28,45,255},borda);
@@ -1852,7 +1969,17 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
     } else {
         // Com menu aberto, o texto divide a caixa com os botões da direita.
         float largura = b.menu==MENU_NENHUM ? 1300 : (b.menu==MENU_STATUS ? 480 : 660);
-        textoQuebrado(b.texto,62,660,28,largura,36,TEXTO);
+        // v1.27: no menu de golpes, a esquerda mostra os detalhes do golpe marcado.
+        if(b.menu==MENU_GOLPES && b.cursor>=0 && b.cursor<jogo.jogador.numGolpes)
+            detalhesDoGolpe(jogo,&b,GOLPES[jogo.jogador.golpes[b.cursor]],jogo.jogador.pp[b.cursor],64,660,false);
+        else if(b.menu==MENU_ESQUECER) {
+            // v1.27: o golpe novo em detalhes e o pedido de escolha embaixo.
+            texto("NOVO GOLPE",64,656,13,CIANO);
+            const Golpe& novo=GOLPES[b.golpeNovo];
+            detalhesDoGolpe(jogo,&b,novo,novo.ppMaximo,64,680,true);
+            texto("Já sabe 4 golpes: escolha um para esquecer  »",64,780,17,{255,205,100,255});
+        }
+        else textoQuebrado(b.texto,62,660,28,largura,36,TEXTO);
     }
     if(b.menu==MENU_PRINCIPAL) {
         const char* nomes[]={"LUTAR", "ITENS", "STATUS", "FUGIR"};
@@ -1865,16 +1992,12 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
     } else if(b.menu==MENU_GOLPES || b.menu==MENU_ESQUECER) {
         int n=(b.menu==MENU_ESQUECER)?MAX_GOLPES+1:b.jogador.numGolpes;
         for(int i=0;i<n;i++) {
-            std::string s;
-            if(i<jogo.jogador.numGolpes) {
-                const Golpe& g=GOLPES[jogo.jogador.golpes[i]];
-                s=std::string(g.nome)+"  |  "+NOMES_DOS_ELEMENTOS[g.elemento]+"  |  poder "+
-                  (g.poder>0?std::to_string(g.poder):std::string("-"))+"  |  PP "+
-                 (g.ppMaximo==0?std::string("--"):std::to_string(jogo.jogador.pp[i])+"/"+std::to_string(g.ppMaximo));
-            } else s="Não aprender";
-            faixaBotao(s,{740.0f,625.0f+i*41,631,37},b.cursor==i,i,b.cursor,20);
+            Rectangle r={740.0f,625.0f+i*41,631,37};
+            if(i<jogo.jogador.numGolpes)
+                linhaDoGolpe(b.menu==MENU_GOLPES?&b:nullptr,GOLPES[jogo.jogador.golpes[i]],jogo.jogador.pp[i],r,b.cursor==i,i,b.cursor);
+            else faixaBotao("Não aprender",r,b.cursor==i,i,b.cursor,20);
         }
-        if(b.menu==MENU_ESQUECER) texto("Novo golpe: "+std::string(GOLPES[b.golpeNovo].nome),63,752,22,CIANO);
+
     } else if(b.menu==MENU_ITENS) {
         for(int i=0;i<b.numItensUsaveis;i++) {
             int id=b.itensUsaveis[i];
@@ -1884,7 +2007,16 @@ void telaBatalha(const Jogo& jogo,const Batalha& b) {
     } else if(b.menu==MENU_ALVO) {
         for(int i=0;i<b.numAlvos;i++) {
             int id=b.alvos[i];
-            faixaBotao(semArtigo(b.inimigos[id].nome),{740.0f,630.0f+i*49,631,44},b.cursor==i,i,b.cursor);
+            Rectangle r={740.0f,630.0f+i*49,631,44};
+            bool escuro=faixaBotao(semArtigo(b.inimigos[id].nome),r,b.cursor==i,i,b.cursor);
+            // v1.27: o golpe escolhido contra este alvo.
+            if(b.golpeEscolhido>=0 && b.golpeEscolhido<NUM_GOLPES) {
+                const Golpe& g=GOLPES[b.golpeEscolhido];
+                etiquetaDeElemento(b.inimigos[id].elemento,r.x+260,r.y+12,13);
+                int e=eficacia((Elemento)g.elemento,(Elemento)b.inimigos[id].elemento);
+                if(e==2) texto("normal",r.x+r.width-150,r.y+12,15,escuro?FUNDO:APAGADO);
+                else seloDeEficacia(e,r.x+r.width-150,r.y+10,14,escuro);
+            }
         }
     } else if(b.menu==MENU_STATUS) {
         const Lutador& eu=b.jogador;
@@ -3126,6 +3258,58 @@ int escolherNaMochila(const Jogo& jogo, const std::vector<int>& tipos, int& curs
     tocarSom(SOM_MENU);
     telaPorCima=false;
     return escolha;
+}
+
+// ---------------------------------------------------------------------------
+// PERGAMINHO COM 4 GOLPES (v1.27): o golpe novo em cima e os 4 que o jogador
+// sabe embaixo, com elemento, poder e PP, para escolher qual esquecer.
+// ---------------------------------------------------------------------------
+namespace Esquecer {
+const Rectangle PAINEL={290,110,860,660};
+Rectangle linha(int i) { return {PAINEL.x+40,PAINEL.y+322+i*48.0f,PAINEL.width-80,42}; }
+void desenhar(const Jogo& jogo,int golpeNovo,int cursor) {
+    const Jogador& j=jogo.jogador;
+    DrawRectangle(0,0,Ui::LARGURA,Ui::ALTURA,{0,0,0,150});
+    painel(PAINEL,{26,35,56,255},OURO);
+    float x=PAINEL.x+40;
+    texto("APRENDER UM GOLPE",x,PAINEL.y+28,30,OURO);
+    texto("pergaminho",x+larguraDoTexto("APRENDER UM GOLPE",30)+14,PAINEL.y+41,15,APAGADO);
+    // O golpe novo, num cartão.
+    Rectangle c={x,PAINEL.y+80,PAINEL.width-80,160};
+    DrawRectangleRounded(c,0.08f,8,{20,28,46,255});
+    DrawRectangleRoundedLinesEx(c,0.08f,8,1.5f,multiplicar(corDoElemento(GOLPES[golpeNovo].elemento),0.8f));
+    texto("NOVO GOLPE",c.x+22,c.y+14,13,CIANO);
+    detalhesDoGolpe(jogo,nullptr,GOLPES[golpeNovo],GOLPES[golpeNovo].ppMaximo,c.x+22,c.y+38,false);
+    texto("Você já sabe 4 golpes. Qual vai esquecer?",x,PAINEL.y+278,21,TEXTO);
+    for(int i=0;i<=j.numGolpes;i++) {
+        if(i<j.numGolpes) linhaDoGolpe(nullptr,GOLPES[j.golpes[i]],j.pp[i],linha(i),cursor==i,-1,cursor);
+        else faixaBotao("Não aprender (guardar o pergaminho)",linha(i),cursor==i,-1,cursor,19);
+    }
+    texto("Setas e Enter: escolher   |   Esc: não aprender",x,PAINEL.y+PAINEL.height-44,17,CIANO);
+}
+}
+int escolherGolpeParaEsquecer(const Jogo& jogo,int golpeNovo) {
+    telaPorCima=true;
+    tocarSom(SOM_MENU);
+    const Jogador& j=jogo.jogador;
+    int total=j.numGolpes+1, cursor=0, escolha=-1;
+    auto clicou=[](Rectangle r){ return IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouseVirtual(),r); };
+    while(!WindowShouldClose()) {
+        Ui::iniciarQuadro(); mapa(jogo); Esquecer::desenhar(jogo,golpeNovo,cursor); Ui::terminarQuadro();
+        while(GetCharPressed()!=0) {}
+        int antes=cursor;
+        if(IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_BACKSPACE)) break;
+        if(IsKeyPressed(KEY_DOWN)||IsKeyPressedRepeat(KEY_DOWN)||IsKeyPressed(KEY_S)) cursor=(cursor+1)%total;
+        if(IsKeyPressed(KEY_UP)||IsKeyPressedRepeat(KEY_UP)||IsKeyPressed(KEY_W)) cursor=(cursor+total-1)%total;
+        bool usar=IsKeyPressed(KEY_ENTER)||IsKeyPressed(KEY_KP_ENTER)||IsKeyPressed(KEY_SPACE);
+        for(int i=0;i<total;i++) if(clicou(Esquecer::linha(i))) { if(i==cursor) usar=true; cursor=i; }
+        if(cursor!=antes) tocarSom(SOM_MENU);
+        if(usar) { escolha=cursor; break; }
+    }
+    while(GetCharPressed()!=0) {}
+    tocarSom(SOM_MENU);
+    telaPorCima=false;
+    return (escolha>=0 && escolha<j.numGolpes) ? escolha : -1;
 }
 
 // ---------------------------------------------------------------------------

@@ -59,6 +59,11 @@ int escolherNaFicha(const Jogo& jogo, int& cursor);
 int escolherNaMochila(const Jogo& jogo, const std::vector<int>& tipos, int& cursor);
 bool mochilaMostraEquipamento();
 
+// v1.27: o pergaminho com 4 golpes já sabidos: qual esquecer para aprender
+// "golpeNovo"? Devolve a posição do golpe (0 a 3) ou -1 para não aprender.
+// A versão gráfica mostra os golpes com elemento, poder e PP (como na batalha).
+int escolherGolpeParaEsquecer(const Jogo& jogo, int golpeNovo);
+
 // v1.25: o Tab no console alterna entre o mapa com zoom e o andar inteiro
 // (na versão gráfica, o Tab é lido direto do teclado e isto não faz nada).
 void alternarMapaInteiro();

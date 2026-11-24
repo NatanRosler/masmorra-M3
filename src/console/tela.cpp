@@ -1324,6 +1324,29 @@ int escolherNaFicha(const Jogo& jogo, int& cursor) {
 
 // v1.25: a mochila no console continua sendo a lista de itens.
 bool mochilaMostraEquipamento() { return false; }
+
+// v1.27: no console, a caixa de opções com o elemento, o poder e o PP embaixo.
+int escolherGolpeParaEsquecer(const Jogo& jogo, int golpeNovo) {
+    const Jogador& j = jogo.jogador;
+    auto resumo = [](int g, int pp) {
+        const Golpe& x = GOLPES[g];
+        std::string r = std::string(NOMES_DOS_ELEMENTOS[x.elemento]) + "  -  " +
+                        (x.poder > 0 ? "poder " + std::to_string(x.poder) : std::string("sem dano")) +
+                        "  -  precisão " + std::to_string(x.precisao) + "%  -  PP ";
+        r += x.ppMaximo > 0 ? std::to_string(pp) + "/" + std::to_string(x.ppMaximo) : std::string("sem limite");
+        return r;
+    };
+    std::vector<std::string> opcoes, descricoes;
+    for (int s = 0; s < j.numGolpes; s++) {
+        opcoes.push_back(GOLPES[j.golpes[s]].nome);
+        descricoes.push_back(resumo(j.golpes[s], j.pp[s]));
+    }
+    opcoes.push_back("Não aprender");
+    descricoes.push_back(std::string("Novo: ") + GOLPES[golpeNovo].nome + "  -  " + resumo(golpeNovo, GOLPES[golpeNovo].ppMaximo));
+    int lugar = escolherEmCaixa(jogo, "Aprender " + std::string(GOLPES[golpeNovo].nome) + ": esquecer qual golpe?",
+                                opcoes, descricoes);
+    return (lugar >= 0 && lugar < j.numGolpes) ? lugar : -1;
+}
 int escolherNaMochila(const Jogo& jogo, const std::vector<int>& tipos, int& cursor) {
     const Jogador& j = jogo.jogador;
     std::vector<std::string> opcoes, descricoes;

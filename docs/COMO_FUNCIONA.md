@@ -1338,3 +1338,37 @@ chave por linha; o arquivo pode ser apagado para zerar).
 - O `.gitignore` agora inclui todos os arquivos que o jogo cria ao jogar
   (`save.dat`, `save.tmp`, `opcoes.txt`, `bestiario.txt`, `conquistas.txt` e
   `ranking.txt`).
+
+## Golpes mais fáceis de ler na batalha (v1.27)
+
+O menu de golpes da batalha era uma linha de texto por golpe ("Tocha | Fogo |
+poder 55 | PP 12/12"). Agora cada parte é desenhada (`linhaDoGolpe`, em
+`tela_grafica.cpp`):
+
+- o **ícone do elemento** antes do nome;
+- o **poder** em 5 barrinhas (uma a cada 20 de poder, como sinal de celular) e
+  o número; golpes sem dano mostram "efeito";
+- o **PP** com uma barrinha embaixo, que fica vermelha quando está no fim;
+- um **selo de eficácia** contra os inimigos que ainda lutam
+  (`eficaciaContraTodos`, usando a mesma `eficacia` do cálculo do dano):
+  SUPER EFICAZ x2, pouco eficaz x½, não afeta x0, ou "depende do alvo" quando
+  os inimigos são de elementos diferentes. Normal não ganha selo.
+
+À esquerda, em vez de "Escolha um golpe:", aparecem os detalhes do golpe
+marcado (`detalhesDoGolpe`): nome e etiqueta do elemento, fichas com poder,
+precisão e PP, o efeito (o mesmo texto da mochila, `Mochila::efeitoDoGolpe`),
+os bônus que valem (+30% do próprio elemento, +25% da arma do mesmo elemento) e
+o resultado contra cada inimigo, colorido.
+
+- **Escolher o alvo**: cada inimigo mostra o elemento dele e o selo do golpe
+  escolhido contra ele (`Batalha::golpeEscolhido`, guardado antes do menu).
+- **Esquecer um golpe na batalha** (subida de nível com 4 golpes): o golpe novo
+  em detalhes à esquerda; à direita os 4 golpes com poder, PP e o efeito.
+- **Pergaminho com 4 golpes**: a lista que só tinha os nomes virou uma tela
+  própria (`escolherGolpeParaEsquecer`, em `tela.h`): o golpe novo num cartão
+  em cima e os 4 golpes embaixo, no mesmo desenho da batalha (setas, Enter ou
+  clique; Esc não aprende e guarda o pergaminho). No console, a caixa de
+  opções mostra elemento, poder, precisão e PP embaixo da opção marcada.
+- `faixaBotao` agora devolve se o destaque dourado já chegou ao botão, para o
+  texto por cima trocar de cor junto.
+- O `.gitignore` perdeu as linhas repetidas da v1.26.

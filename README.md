@@ -92,7 +92,7 @@ src/
 | `src/pontuacao.h/.cpp` | Pontuação, ranking em arquivo (`ranking.txt`) e textos do menu |
 | `src/dificuldade.h/.cpp` | Tabela das dificuldades (Fácil, Médio, Difícil e Impossível, este trancado até vencer o Difícil) |
 | `src/grafico/main.cpp` | Laço principal da versão gráfica, menu e pausa |
-| `src/grafico/tela_grafica.cpp` | Desenho do mapa em tela cheia, cartões do canto, bestiário e batalha em 2D |
+| `src/grafico/tela_grafica.cpp` | Desenho do mapa em tela cheia, cartões do canto, bestiário e batalha em 2D (golpes com elemento, poder, PP e eficácia desde a v1.27) |
 | `src/grafico/terminal_raylib.cpp` | Teclado, mouse e janela (raylib) |
 | `src/grafico/menu_principal.cpp` | Menu principal e menu de pausa |
 | `src/grafico/visual.cpp/.h` | Cores, fontes, painéis, barras e o ícone da janela |
@@ -162,7 +162,7 @@ publicar → Run workflow**.
 - [x] **2. Geração procedural**: salas, cavernas, atalhos, 13 andares (eram 10 até a v1.22), escadas, semente
 - [x] **3. Visão**: campo de visão, iluminação, tochas, memória do mapa, câmera
 - [x] **4. Monstros**: 9 espécies, estados, perseguição por BFS e rastro de cheiro
-- [x] **4b. Batalha em turnos**: golpes com PP, elementos, status, níveis, 3 vidas, até 3 inimigos
+- [x] **4b. Batalha em turnos**: golpes com PP, elementos, status, níveis, 3 vidas, até 3 inimigos; o menu de golpes mostra elemento, poder, PP e se o golpe é eficaz contra o monstro (v1.27)
 - [x] **5. Itens**: poções, armas, escudos, cristais, pergaminhos, chave e sala do tesouro
 - [x] **Versão gráfica 2D**: janela com raylib, pixel art, menu principal e pausa
 - [x] **6. Personagem**: criação (nome, elemento, cor, 5 pontos), 1 ponto por nível (Força, Constituição, Destreza, Agilidade) e elementos dos monstros sorteados a cada partida

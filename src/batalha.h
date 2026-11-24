@@ -254,6 +254,7 @@ struct Batalha {
     int menu;                    // qual menu está aberto (MenuBatalha)
     int cursor;                  // opção selecionada
     int golpeNovo;               // golpe sendo aprendido (MENU_ESQUECER)
+    int golpeEscolhido;          // v1.27: o golpe enquanto se escolhe o alvo (MENU_ALVO)
 
     // Golpe Escudo: o jogador ergue o escudo e pode bloquear os ataques da rodada.
     bool escudoErguido;          // erguido nesta rodada

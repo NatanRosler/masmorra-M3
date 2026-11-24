@@ -615,11 +615,7 @@ static bool ensinarGolpe(Jogo& jogo, int golpe) {
     }
     int lugar = j.numGolpes;
     if (j.numGolpes >= MAX_GOLPES) {
-        std::vector<std::string> opcoes;
-        for (int s = 0; s < j.numGolpes; s++) opcoes.push_back(GOLPES[j.golpes[s]].nome);
-        opcoes.push_back("Não aprender");
-        lugar = escolherEmCaixa(jogo, "Aprender " + nomeGolpe + ": esquecer qual golpe?",
-                                opcoes, std::vector<std::string>());
+        lugar = escolherGolpeParaEsquecer(jogo, golpe);   // v1.27: tela com os detalhes dos golpes
         if (lugar < 0 || lugar >= j.numGolpes) {
             adicionarMensagem(jogo, "Você guardou o pergaminho.");
             return false;
